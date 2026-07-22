@@ -1,0 +1,6 @@
+services:
+  hello:
+    image: nginx:alpine
+    container_name: m1-connect-teste
+    ports:
+      - "8080:80"
