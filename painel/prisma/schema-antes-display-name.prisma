@@ -23,47 +23,39 @@ model M1MCompany {
 }
 
 model M1MUser {
-  id          String   @id @default(cuid())
-  companyId   String
-  name        String
-  displayName String?
-  email       String   @unique
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  company           M1MCompany    @relation(fields: [companyId], references: [id])
-  assignedCustomers M1MCustomer[] @relation("AssignedCustomerUser")
+  company M1MCompany @relation(fields: [companyId], references: [id])
 
   @@index([companyId])
   @@map("m1m_users")
 }
 
 model M1MCustomer {
-  id            String    @id @default(cuid())
-  companyId     String
-  remoteJid     String    @unique
-  name          String?
-  phone         String?
-  company       String?
-  city          String?
-  responsible   String?
-  responsibleId String?
-  observations  String?
-  status        String?   @default("IA")
-  assignedAt    DateTime?
-  releasedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  companyId    String
+  remoteJid    String   @unique
+  name         String?
+  phone        String?
+  company      String?
+  city         String?
+  responsible  String?
+  observations String?
+  status       String?  @default("IA")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  owner        M1MCompany    @relation(fields: [companyId], references: [id])
-  assignedUser M1MUser?      @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
-  reminders    M1MReminder[]
+  owner     M1MCompany  @relation(fields: [companyId], references: [id])
+  reminders M1MReminder[]
 
   @@index([companyId])
   @@index([remoteJid])
-  @@index([responsibleId])
-  @@index([status])
   @@map("m1m_customers")
 }
 

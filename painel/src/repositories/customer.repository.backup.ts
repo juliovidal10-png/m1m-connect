@@ -83,49 +83,19 @@ export const customerRepository = {
   },
 
   async assignResponsible(
-    customerId: string,
-    responsibleId: string,
+    id: string,
+    responsible: string,
+    status = "HUMANO",
   ) {
-    const customer =
-      await prisma.m1MCustomer.findUnique({
-        where: {
-          id: customerId,
-        },
-      });
-
-    if (!customer) {
-      throw new Error("Cliente não encontrado.");
-    }
-
-    const user = await prisma.m1MUser.findFirst({
-      where: {
-        id: responsibleId,
-        companyId: customer.companyId,
-        active: true,
-      },
-    });
-
-    if (!user) {
-      throw new Error(
-        "Responsável não encontrado ou inativo.",
-      );
-    }
-
-    const responsibleName =
-      normalizeOptionalText(user.displayName) ||
-      normalizeOptionalText(user.name) ||
-      user.id;
-
     return prisma.m1MCustomer.update({
       where: {
-        id: customerId,
+        id,
       },
       data: {
-        responsible: responsibleName,
-        responsibleId: user.id,
-        status: "HUMANO",
-        assignedAt: new Date(),
-        releasedAt: null,
+        responsible:
+          normalizeOptionalText(responsible),
+        status:
+          normalizeOptionalText(status) || "HUMANO",
       },
     });
   },

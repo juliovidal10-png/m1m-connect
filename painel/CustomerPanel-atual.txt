@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -11,7 +11,6 @@ import CustomerAudioPlayer from "./CustomerAudioPlayer";
 import CustomerDocumentViewer from "./CustomerDocumentViewer";
 import CustomerImageViewer from "./CustomerImageViewer";
 import CustomerVideoPlayer from "./CustomerVideoPlayer";
-
 import type { ChatMessage } from "./MessageRenderer";
 
 type CustomerPanelProps = {
@@ -85,111 +84,16 @@ function formatMessageTime(timestamp: number) {
 }
 
 function formatReminderDate(value: string) {
-  const reminderDate = new Date(value);
+  const date = new Date(value);
 
-  if (Number.isNaN(reminderDate.getTime())) {
-    return "Data indisponível";
-  }
-
-  const now = new Date();
-  const differenceInMilliseconds =
-    reminderDate.getTime() - now.getTime();
-
-  const minuteInMilliseconds = 60_000;
-  const hourInMilliseconds =
-    60 * minuteInMilliseconds;
-  const dayInMilliseconds =
-    24 * hourInMilliseconds;
-
-  const formatTime = (date: Date) =>
-    new Intl.DateTimeFormat("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-
-  const startOfReminderDay = new Date(
-    reminderDate.getFullYear(),
-    reminderDate.getMonth(),
-    reminderDate.getDate(),
-  );
-
-  const calendarDayDifference = Math.round(
-    (startOfReminderDay.getTime() -
-      startOfToday.getTime()) /
-      dayInMilliseconds,
-  );
-
-  if (differenceInMilliseconds < 0) {
-    const delayInMilliseconds =
-      Math.abs(differenceInMilliseconds);
-
-    if (delayInMilliseconds < hourInMilliseconds) {
-      const minutes = Math.max(
-        1,
-        Math.floor(
-          delayInMilliseconds /
-            minuteInMilliseconds,
-        ),
-      );
-
-      return `Atrasado há ${minutes} minuto${
-        minutes === 1 ? "" : "s"
-      }`;
-    }
-
-    if (delayInMilliseconds < dayInMilliseconds) {
-      const hours = Math.max(
-        1,
-        Math.floor(
-          delayInMilliseconds /
-            hourInMilliseconds,
-        ),
-      );
-
-      return `Atrasado há ${hours} hora${
-        hours === 1 ? "" : "s"
-      }`;
-    }
-
-    const days = Math.max(
-      1,
-      Math.floor(
-        delayInMilliseconds /
-          dayInMilliseconds,
-      ),
-    );
-
-    return `Atrasado há ${days} dia${
-      days === 1 ? "" : "s"
-    }`;
-  }
-
-  if (calendarDayDifference === 0) {
-    return `Retorno previsto para hoje às ${formatTime(
-      reminderDate,
-    )}`;
-  }
-
-  if (calendarDayDifference === 1) {
-    return `Retorno amanhã às ${formatTime(
-      reminderDate,
-    )}`;
-  }
-
-  if (calendarDayDifference > 1) {
-    return `Retorno em ${calendarDayDifference} dias`;
+  if (Number.isNaN(date.getTime())) {
+    return "Data indisponÃ­vel";
   }
 
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
-  }).format(reminderDate);
+  }).format(date);
 }
 
 function getLocalDateInputValue() {
@@ -235,16 +139,16 @@ function getMediaLabel(message: ChatMessage) {
       message.message?.audioMessage?.seconds;
 
     return typeof seconds === "number"
-      ? `Áudio de ${seconds} segundo${
+      ? `Ãudio de ${seconds} segundo${
           seconds === 1 ? "" : "s"
         }`
-      : "Áudio";
+      : "Ãudio";
   }
 
   if (message.messageType === "videoMessage") {
     return (
       message.message?.videoMessage?.caption?.trim() ||
-      "Vídeo"
+      "VÃ­deo"
     );
   }
 
@@ -257,22 +161,22 @@ function getMediaLabel(message: ChatMessage) {
 
 function getMediaIcon(messageType?: string) {
   if (messageType === "imageMessage") {
-    return "📷";
+    return "ðŸ“·";
   }
 
   if (messageType === "audioMessage") {
-    return "🎤";
+    return "ðŸŽ¤";
   }
 
   if (messageType === "videoMessage") {
-    return "🎥";
+    return "ðŸŽ¥";
   }
 
   if (messageType === "documentMessage") {
-    return "📄";
+    return "ðŸ“„";
   }
 
-  return "📎";
+  return "ðŸ“Ž";
 }
 
 function getFilterLabel(filter: MediaFilter) {
@@ -281,11 +185,11 @@ function getFilterLabel(filter: MediaFilter) {
   }
 
   if (filter === "audioMessage") {
-    return "Áudios";
+    return "Ãudios";
   }
 
   if (filter === "videoMessage") {
-    return "Vídeos";
+    return "VÃ­deos";
   }
 
   if (filter === "documentMessage") {
@@ -349,9 +253,6 @@ export default function CustomerPanel({
   const [responsible, setResponsible] =
     useState("Julinho");
 
-  const [attendanceStatus, setAttendanceStatus] =
-    useState("IA");
-
   const [notes, setNotes] = useState("");
 
   const [reminders, setReminders] = useState<
@@ -388,9 +289,6 @@ export default function CustomerPanel({
   ] = useState(false);
 
   const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [isAssigning, setIsAssigning] =
     useState(false);
 
   const [
@@ -459,7 +357,7 @@ export default function CustomerPanel({
         if (!response.ok) {
           throw new Error(
             data.error ||
-              "Não foi possível carregar os lembretes.",
+              "NÃ£o foi possÃ­vel carregar os lembretes.",
           );
         }
 
@@ -503,7 +401,6 @@ export default function CustomerPanel({
       setReminderDate(getLocalDateInputValue());
       setReminderTime(getLocalTimeInputValue());
       setReminderResponsible("Julinho");
-      setAttendanceStatus("IA");
       clearFeedback();
     }
   }, [isOpen, clearFeedback]);
@@ -523,7 +420,6 @@ export default function CustomerPanel({
       setCompany("");
       setCity("");
       setResponsible("Julinho");
-      setAttendanceStatus("IA");
       setNotes("");
       setReminders([]);
 
@@ -545,7 +441,7 @@ export default function CustomerPanel({
         if (!response.ok) {
           throw new Error(
             data.error ||
-              "Não foi possível carregar os dados do cliente.",
+              "NÃ£o foi possÃ­vel carregar os dados do cliente.",
           );
         }
 
@@ -562,10 +458,6 @@ export default function CustomerPanel({
 
         setResponsible(
           customer.responsible || "Julinho",
-        );
-
-        setAttendanceStatus(
-          customer.status || "IA",
         );
 
         setReminderResponsible(
@@ -717,7 +609,7 @@ export default function CustomerPanel({
         city,
         responsible,
         observations: notes,
-        status: attendanceStatus,
+        status: "IA",
       }),
     });
 
@@ -726,7 +618,7 @@ export default function CustomerPanel({
     if (!response.ok) {
       throw new Error(
         data.error ||
-          "Não foi possível salvar os dados.",
+          "NÃ£o foi possÃ­vel salvar os dados.",
       );
     }
 
@@ -762,63 +654,6 @@ export default function CustomerPanel({
     }
   }
 
-  async function handleAssignResponsible() {
-    if (isAssigning) {
-      return;
-    }
-
-    if (!customerId) {
-      showError(
-        "Salve o cliente antes de assumir o atendimento.",
-      );
-      return;
-    }
-
-    setIsAssigning(true);
-    clearFeedback();
-
-    try {
-      const response = await fetch(
-        "/api/customers/assign",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            customerId,
-            responsibleId: "julio",
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Não foi possível assumir o atendimento.",
-        );
-      }
-
-      setResponsible("Julinho");
-      setReminderResponsible("Julinho");
-      setAttendanceStatus("HUMANO");
-
-      showSuccess(
-        "Atendimento assumido com sucesso.",
-      );
-    } catch (error) {
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao assumir o atendimento.",
-      );
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
   async function handleCreateReminder() {
     if (isSavingReminder) {
       return;
@@ -829,7 +664,7 @@ export default function CustomerPanel({
 
     if (!normalizedTitle) {
       showError(
-        "Informe o título do lembrete.",
+        "Informe o tÃ­tulo do lembrete.",
       );
 
       return;
@@ -837,7 +672,7 @@ export default function CustomerPanel({
 
     if (!reminderDate || !reminderTime) {
       showError(
-        "Informe a data e o horário do lembrete.",
+        "Informe a data e o horÃ¡rio do lembrete.",
       );
 
       return;
@@ -849,7 +684,7 @@ export default function CustomerPanel({
 
     if (Number.isNaN(remindAt.getTime())) {
       showError(
-        "A data ou o horário do lembrete é inválido.",
+        "A data ou o horÃ¡rio do lembrete Ã© invÃ¡lido.",
       );
 
       return;
@@ -892,7 +727,7 @@ export default function CustomerPanel({
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Não foi possível criar o lembrete.",
+            "NÃ£o foi possÃ­vel criar o lembrete.",
         );
       }
 
@@ -947,7 +782,7 @@ export default function CustomerPanel({
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Não foi possível concluir o lembrete.",
+            "NÃ£o foi possÃ­vel concluir o lembrete.",
         );
       }
 
@@ -959,7 +794,7 @@ export default function CustomerPanel({
       );
 
       showSuccess(
-        "Lembrete concluído com sucesso.",
+        "Lembrete concluÃ­do com sucesso.",
       );
     } catch (error) {
       showError(
@@ -984,22 +819,22 @@ export default function CustomerPanel({
     {
       id: "dados",
       label: "Dados",
-      icon: "👤",
+      icon: "ðŸ‘¤",
     },
     {
       id: "notas",
       label: "Notas",
-      icon: "📝",
+      icon: "ðŸ“",
     },
     {
       id: "lembretes",
       label: "Lembretes",
-      icon: "📅",
+      icon: "ðŸ“…",
     },
     {
       id: "arquivos",
       label: "Arquivos",
-      icon: "📎",
+      icon: "ðŸ“Ž",
     },
   ];
 
@@ -1011,25 +846,25 @@ export default function CustomerPanel({
   }> = [
     {
       label: "Imagens",
-      icon: "📷",
+      icon: "ðŸ“·",
       count: mediaCounts.imageMessage,
       filter: "imageMessage",
     },
     {
-      label: "Áudios",
-      icon: "🎤",
+      label: "Ãudios",
+      icon: "ðŸŽ¤",
       count: mediaCounts.audioMessage,
       filter: "audioMessage",
     },
     {
-      label: "Vídeos",
-      icon: "🎥",
+      label: "VÃ­deos",
+      icon: "ðŸŽ¥",
       count: mediaCounts.videoMessage,
       filter: "videoMessage",
     },
     {
       label: "Documentos",
-      icon: "📄",
+      icon: "ðŸ“„",
       count: mediaCounts.documentMessage,
       filter: "documentMessage",
     },
@@ -1068,7 +903,7 @@ export default function CustomerPanel({
                 aria-label="Fechar painel"
                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl text-black/45 transition hover:bg-black/[0.03]"
               >
-                ×
+                Ã—
               </button>
             </div>
 
@@ -1211,7 +1046,7 @@ export default function CustomerPanel({
                     htmlFor="customer-responsible"
                     className="text-xs font-semibold uppercase tracking-wide text-black/40"
                   >
-                    Responsável
+                    ResponsÃ¡vel
                   </label>
 
                   <select
@@ -1230,45 +1065,25 @@ export default function CustomerPanel({
                     </option>
 
                     <option value="">
-                      Sem responsável
+                      Sem responsÃ¡vel
                     </option>
                   </select>
-
-                  <div
-                    className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
-                      attendanceStatus === "HUMANO"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-blue-50 text-blue-700"
-                    }`}
-                  >
-                    <span aria-hidden="true">
-                      {attendanceStatus === "HUMANO"
-                        ? "🟢"
-                        : "🤖"}
-                    </span>
-
-                    {attendanceStatus === "HUMANO"
-                      ? `Atendimento assumido por ${
-                          responsible || "um atendente"
-                        }`
-                      : "Atendimento conduzido pela IA"}
-                  </div>
                 </section>
 
                 <section className="rounded-xl bg-black/[0.025] p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                    Última interação
+                    Ãšltima interaÃ§Ã£o
                   </p>
 
                   <p className="mt-2 text-sm text-black/60">
                     {lastInteraction ||
-                      "Informação indisponível"}
+                      "InformaÃ§Ã£o indisponÃ­vel"}
                   </p>
                 </section>
 
                 <section className="rounded-xl border border-dashed border-black/10 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                    Identificação
+                    IdentificaÃ§Ã£o
                   </p>
 
                   <div className="mt-3 space-y-2 text-sm">
@@ -1299,8 +1114,8 @@ export default function CustomerPanel({
             {activeTab === "notas" && (
               <div className="p-6">
                 <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                  Estas observações são internas e o
-                  cliente não poderá visualizá-las.
+                  Estas observaÃ§Ãµes sÃ£o internas e o
+                  cliente nÃ£o poderÃ¡ visualizÃ¡-las.
                 </div>
 
                 <section className="mt-5">
@@ -1308,7 +1123,7 @@ export default function CustomerPanel({
                     htmlFor="customer-notes"
                     className="text-xs font-semibold uppercase tracking-wide text-black/40"
                   >
-                    Observações
+                    ObservaÃ§Ãµes
                   </label>
 
                   <textarea
@@ -1319,7 +1134,7 @@ export default function CustomerPanel({
                       setNotes(event.target.value)
                     }
                     disabled={isLoadingCustomer}
-                    placeholder="Adicione informações importantes sobre este cliente..."
+                    placeholder="Adicione informaÃ§Ãµes importantes sobre este cliente..."
                     className="mt-2 w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:bg-black/[0.03]"
                   />
                 </section>
@@ -1341,7 +1156,7 @@ export default function CustomerPanel({
                     </div>
 
                     <span className="text-3xl">
-                      📅
+                      ðŸ“…
                     </span>
                   </div>
 
@@ -1351,7 +1166,7 @@ export default function CustomerPanel({
                         htmlFor="reminder-title"
                         className="text-xs font-semibold uppercase tracking-wide text-black/40"
                       >
-                        Título
+                        TÃ­tulo
                       </label>
 
                       <input
@@ -1373,7 +1188,7 @@ export default function CustomerPanel({
                         htmlFor="reminder-description"
                         className="text-xs font-semibold uppercase tracking-wide text-black/40"
                       >
-                        Descrição opcional
+                        DescriÃ§Ã£o opcional
                       </label>
 
                       <textarea
@@ -1385,7 +1200,7 @@ export default function CustomerPanel({
                             event.target.value,
                           )
                         }
-                        placeholder="Ex.: Cliente pediu retorno sobre o orçamento."
+                        placeholder="Ex.: Cliente pediu retorno sobre o orÃ§amento."
                         className="mt-2 w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
                       />
                     </section>
@@ -1417,7 +1232,7 @@ export default function CustomerPanel({
                           htmlFor="reminder-time"
                           className="text-xs font-semibold uppercase tracking-wide text-black/40"
                         >
-                          Horário
+                          HorÃ¡rio
                         </label>
 
                         <input
@@ -1439,7 +1254,7 @@ export default function CustomerPanel({
                         htmlFor="reminder-responsible"
                         className="text-xs font-semibold uppercase tracking-wide text-black/40"
                       >
-                        Responsável
+                        ResponsÃ¡vel
                       </label>
 
                       <select
@@ -1457,7 +1272,7 @@ export default function CustomerPanel({
                         </option>
 
                         <option value="">
-                          Sem responsável
+                          Sem responsÃ¡vel
                         </option>
                       </select>
                     </section>
@@ -1501,7 +1316,7 @@ export default function CustomerPanel({
                   reminders.length === 0 ? (
                     <div className="mt-4 rounded-xl border border-dashed border-black/15 p-6 text-center">
                       <span className="text-3xl">
-                        ✅
+                        âœ…
                       </span>
 
                       <p className="mt-3 text-sm font-semibold text-black/60">
@@ -1509,8 +1324,8 @@ export default function CustomerPanel({
                       </p>
 
                       <p className="mt-1 text-xs leading-5 text-black/40">
-                        Os próximos retornos deste
-                        cliente aparecerão aqui.
+                        Os prÃ³ximos retornos deste
+                        cliente aparecerÃ£o aqui.
                       </p>
                     </div>
                   ) : (
@@ -1542,7 +1357,7 @@ export default function CustomerPanel({
                                     : "bg-[#fff1ec]"
                                 }`}
                               >
-                                {overdue ? "⚠️" : "📅"}
+                                {overdue ? "âš ï¸" : "ðŸ“…"}
                               </div>
 
                               <div className="min-w-0 flex-1">
@@ -1578,7 +1393,7 @@ export default function CustomerPanel({
 
                                 {reminder.responsible && (
                                   <p className="mt-3 text-xs text-black/40">
-                                    Responsável:{" "}
+                                    ResponsÃ¡vel:{" "}
                                     <span className="font-semibold text-black/60">
                                       {
                                         reminder.responsible
@@ -1605,7 +1420,7 @@ export default function CustomerPanel({
                             >
                               {isCompleting
                                 ? "Concluindo..."
-                                : "✓ Concluir lembrete"}
+                                : "âœ“ Concluir lembrete"}
                             </button>
                           </article>
                         );
@@ -1634,7 +1449,7 @@ export default function CustomerPanel({
                     </div>
 
                     <span className="text-4xl">
-                      📎
+                      ðŸ“Ž
                     </span>
                   </div>
 
@@ -1656,7 +1471,7 @@ export default function CustomerPanel({
                       : "border-black/10 hover:bg-black/[0.02]"
                   }`}
                 >
-                  📎 Todos os arquivos
+                  ðŸ“Ž Todos os arquivos
 
                   <span className="float-right">
                     {mediaMessages.length}
@@ -1726,7 +1541,7 @@ export default function CustomerPanel({
                   {visibleMedia.length === 0 ? (
                     <div className="mt-3 rounded-xl border border-dashed border-black/15 p-6 text-center">
                       <span className="text-3xl">
-                        📭
+                        ðŸ“­
                       </span>
 
                       <p className="mt-3 text-sm font-semibold text-black/60">
@@ -1734,7 +1549,7 @@ export default function CustomerPanel({
                       </p>
 
                       <p className="mt-1 text-xs leading-5 text-black/40">
-                        Não existem arquivos nesta
+                        NÃ£o existem arquivos nesta
                         categoria entre as mensagens
                         carregadas.
                       </p>
@@ -1867,42 +1682,20 @@ export default function CustomerPanel({
 
           {shouldShowCustomerFooter && (
             <footer className="shrink-0 border-t border-black/5 bg-white p-4">
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleAssignResponsible}
-                  disabled={
-                    isAssigning ||
-                    isLoadingCustomer ||
-                    !customerId ||
-                    attendanceStatus === "HUMANO"
-                  }
-                  className="h-12 w-full rounded-xl border border-green-200 bg-green-50 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isAssigning
-                    ? "Assumindo atendimento..."
-                    : attendanceStatus === "HUMANO"
-                      ? `Atendimento com ${
-                          responsible || "atendente"
-                        }`
-                      : "🟢 Assumir atendimento"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveCustomer}
-                  disabled={
-                    isSaving ||
-                    isLoadingCustomer ||
-                    !remoteJid
-                  }
-                  className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isSaving
-                    ? "Salvando..."
-                    : "💾 Salvar alterações"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveCustomer}
+                disabled={
+                  isSaving ||
+                  isLoadingCustomer ||
+                  !remoteJid
+                }
+                className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {isSaving
+                  ? "Salvando..."
+                  : "Salvar alteraÃ§Ãµes"}
+              </button>
             </footer>
           )}
         </aside>

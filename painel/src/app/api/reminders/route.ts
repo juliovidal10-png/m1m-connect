@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { getCurrentCompanyId } from "@/lib/tenant";
 import { reminderService } from "@/services/reminder.service";
 
 function getErrorMessage(
@@ -16,25 +17,12 @@ export async function GET(
 ) {
   try {
     const companyId =
-      request.nextUrl.searchParams.get(
-        "companyId",
-      );
+      getCurrentCompanyId();
 
     const customerId =
       request.nextUrl.searchParams.get(
         "customerId",
       );
-
-    if (!companyId) {
-      return NextResponse.json(
-        {
-          error: "companyId é obrigatório.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
 
     if (customerId) {
       const reminders =
@@ -76,12 +64,16 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const companyId =
+      getCurrentCompanyId();
+
     const body = await request.json();
 
     const reminder =
-      await reminderService.createReminder(
-        body,
-      );
+      await reminderService.createReminder({
+        ...body,
+        companyId,
+      });
 
     return NextResponse.json(
       reminder,
@@ -113,16 +105,14 @@ export async function PATCH(
   request: NextRequest,
 ) {
   try {
+    const companyId =
+      getCurrentCompanyId();
+
     const body = await request.json();
 
     const id =
       typeof body.id === "string"
         ? body.id
-        : "";
-
-    const companyId =
-      typeof body.companyId === "string"
-        ? body.companyId
         : "";
 
     const action =

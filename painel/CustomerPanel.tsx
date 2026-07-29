@@ -349,9 +349,6 @@ export default function CustomerPanel({
   const [responsible, setResponsible] =
     useState("Julinho");
 
-  const [attendanceStatus, setAttendanceStatus] =
-    useState("IA");
-
   const [notes, setNotes] = useState("");
 
   const [reminders, setReminders] = useState<
@@ -388,9 +385,6 @@ export default function CustomerPanel({
   ] = useState(false);
 
   const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [isAssigning, setIsAssigning] =
     useState(false);
 
   const [
@@ -503,7 +497,6 @@ export default function CustomerPanel({
       setReminderDate(getLocalDateInputValue());
       setReminderTime(getLocalTimeInputValue());
       setReminderResponsible("Julinho");
-      setAttendanceStatus("IA");
       clearFeedback();
     }
   }, [isOpen, clearFeedback]);
@@ -523,7 +516,6 @@ export default function CustomerPanel({
       setCompany("");
       setCity("");
       setResponsible("Julinho");
-      setAttendanceStatus("IA");
       setNotes("");
       setReminders([]);
 
@@ -562,10 +554,6 @@ export default function CustomerPanel({
 
         setResponsible(
           customer.responsible || "Julinho",
-        );
-
-        setAttendanceStatus(
-          customer.status || "IA",
         );
 
         setReminderResponsible(
@@ -717,7 +705,7 @@ export default function CustomerPanel({
         city,
         responsible,
         observations: notes,
-        status: attendanceStatus,
+        status: "IA",
       }),
     });
 
@@ -763,10 +751,6 @@ export default function CustomerPanel({
   }
 
   async function handleAssignResponsible() {
-    if (isAssigning) {
-      return;
-    }
-
     if (!customerId) {
       showError(
         "Salve o cliente antes de assumir o atendimento.",
@@ -774,7 +758,6 @@ export default function CustomerPanel({
       return;
     }
 
-    setIsAssigning(true);
     clearFeedback();
 
     try {
@@ -802,8 +785,6 @@ export default function CustomerPanel({
       }
 
       setResponsible("Julinho");
-      setReminderResponsible("Julinho");
-      setAttendanceStatus("HUMANO");
 
       showSuccess(
         "Atendimento assumido com sucesso.",
@@ -814,8 +795,6 @@ export default function CustomerPanel({
           ? error.message
           : "Erro ao assumir o atendimento.",
       );
-    } finally {
-      setIsAssigning(false);
     }
   }
 
@@ -1233,26 +1212,6 @@ export default function CustomerPanel({
                       Sem responsável
                     </option>
                   </select>
-
-                  <div
-                    className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
-                      attendanceStatus === "HUMANO"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-blue-50 text-blue-700"
-                    }`}
-                  >
-                    <span aria-hidden="true">
-                      {attendanceStatus === "HUMANO"
-                        ? "🟢"
-                        : "🤖"}
-                    </span>
-
-                    {attendanceStatus === "HUMANO"
-                      ? `Atendimento assumido por ${
-                          responsible || "um atendente"
-                        }`
-                      : "Atendimento conduzido pela IA"}
-                  </div>
                 </section>
 
                 <section className="rounded-xl bg-black/[0.025] p-4">
@@ -1867,42 +1826,20 @@ export default function CustomerPanel({
 
           {shouldShowCustomerFooter && (
             <footer className="shrink-0 border-t border-black/5 bg-white p-4">
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleAssignResponsible}
-                  disabled={
-                    isAssigning ||
-                    isLoadingCustomer ||
-                    !customerId ||
-                    attendanceStatus === "HUMANO"
-                  }
-                  className="h-12 w-full rounded-xl border border-green-200 bg-green-50 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isAssigning
-                    ? "Assumindo atendimento..."
-                    : attendanceStatus === "HUMANO"
-                      ? `Atendimento com ${
-                          responsible || "atendente"
-                        }`
-                      : "🟢 Assumir atendimento"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveCustomer}
-                  disabled={
-                    isSaving ||
-                    isLoadingCustomer ||
-                    !remoteJid
-                  }
-                  className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isSaving
-                    ? "Salvando..."
-                    : "💾 Salvar alterações"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveCustomer}
+                disabled={
+                  isSaving ||
+                  isLoadingCustomer ||
+                  !remoteJid
+                }
+                className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {isSaving
+                  ? "Salvando..."
+                  : "Salvar alterações"}
+              </button>
             </footer>
           )}
         </aside>

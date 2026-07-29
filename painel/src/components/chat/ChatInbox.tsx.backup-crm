@@ -22,20 +22,6 @@ type Chat = {
   profilePicUrl: string | null;
   updatedAt: string;
   unreadCount: number | null;
-
-  crmCustomerId?: string | null;
-  crmName?: string | null;
-  crmPhone?: string | null;
-  crmCompany?: string | null;
-  crmCity?: string | null;
-  crmResponsible?: string | null;
-  crmResponsibleId?: string | null;
-  crmObservations?: string | null;
-  crmStatus?: string | null;
-  crmAssignedAt?: string | null;
-  crmReleasedAt?: string | null;
-  crmUpdatedAt?: string | null;
-
   lastMessage?: {
     pushName?: string | null;
     messageType?: string;
@@ -145,7 +131,7 @@ function getMessageText(message: Message) {
   }
 
   if (message.messageType === "reactionMessage") {
-    return "👍 Reação";
+    return "❤️ Reação";
   }
 
   return "Mensagem não suportada";
@@ -188,14 +174,9 @@ function isValidName(name?: string | null) {
 }
 
 function getNameCandidate(chat: Chat) {
-  const crmName = chat.crmName?.trim();
   const chatName = chat.pushName?.trim();
   const messageName =
     chat.lastMessage?.pushName?.trim();
-
-  if (isValidName(crmName)) {
-    return crmName || null;
-  }
 
   if (isValidName(chatName)) {
     return chatName || null;
@@ -353,12 +334,6 @@ function getChatName(
       groupName ||
       cleanJid(chat.remoteJid)
     );
-  }
-
-  const crmName = chat.crmName?.trim();
-
-  if (isValidName(crmName)) {
-    return crmName as string;
   }
 
   const contact = findContact(
@@ -1341,5 +1316,3 @@ profilePicUrl={getChatProfilePicture(
     </div>
   );
 }
-
-

@@ -1,0 +1,44 @@
+﻿import ChatInbox from "@/components/chat/ChatInbox";
+import Sidebar from "@/components/layout/Sidebar";
+
+export default function WhatsAppPage() {
+  return (
+    <main className="h-screen overflow-hidden bg-[#f7f7f8] text-[#191919]">
+      <div className="flex h-full overflow-hidden">
+        <Sidebar />
+
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex h-20 shrink-0 items-center justify-between border-b border-black/5 bg-white px-6 lg:px-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">
+                Atendimento
+              </p>
+
+              <h1 className="mt-1 text-xl font-bold">
+                Conversas
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                title="Central de Notificações"
+                className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-xl transition hover:border-[#ff3d00]/40 hover:bg-[#fff5f2]"
+              >
+                🔔
+
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3d00] px-1 text-[10px] font-bold text-white">
+                  0
+                </span>
+              </button>
+            </div>
+          </header>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ChatInbox />
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}

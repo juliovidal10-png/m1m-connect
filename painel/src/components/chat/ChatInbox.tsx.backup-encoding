@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -84,11 +84,11 @@ function getLastMessagePreview(chat: Chat) {
   }
 
   if (chat.lastMessage?.messageType === "audioMessage") {
-    return "Áudio";
+    return "Ãudio";
   }
 
   if (chat.lastMessage?.messageType === "videoMessage") {
-    return "Vídeo";
+    return "VÃ­deo";
   }
 
   if (chat.lastMessage?.messageType === "documentMessage") {
@@ -96,7 +96,7 @@ function getLastMessagePreview(chat: Chat) {
   }
 
   if (chat.lastMessage?.messageType === "reactionMessage") {
-    return "Reação";
+    return "ReaÃ§Ã£o";
   }
 
   return "Mensagem";
@@ -129,26 +129,26 @@ function getMessageText(message: Message) {
   }
 
   if (message.messageType === "imageMessage") {
-    return "📷 Imagem";
+    return "ðŸ“· Imagem";
   }
 
   if (message.messageType === "audioMessage") {
-    return "🎤 Áudio";
+    return "ðŸŽ¤ Ãudio";
   }
 
   if (message.messageType === "videoMessage") {
-    return "🎥 Vídeo";
+    return "ðŸŽ¥ VÃ­deo";
   }
 
   if (message.messageType === "documentMessage") {
-    return "📄 Documento";
+    return "ðŸ“„ Documento";
   }
 
   if (message.messageType === "reactionMessage") {
-    return "👍 Reação";
+    return "â¤ï¸ ReaÃ§Ã£o";
   }
 
-  return "Mensagem não suportada";
+  return "Mensagem nÃ£o suportada";
 }
 
 function getMessageSignature(message?: Message) {
@@ -183,7 +183,7 @@ function isValidName(name?: string | null) {
 
   return Boolean(
     normalizedName &&
-      normalizedName.toLowerCase() !== "você",
+      normalizedName.toLowerCase() !== "vocÃª",
   );
 }
 
@@ -437,7 +437,7 @@ function formatDateTime(timestamp: string) {
   const date = new Date(timestamp);
 
   if (Number.isNaN(date.getTime())) {
-    return "Informação indisponível";
+    return "InformaÃ§Ã£o indisponÃ­vel";
   }
 
   return new Intl.DateTimeFormat(
@@ -857,7 +857,7 @@ export default function ChatInbox() {
 
       if (!matchingChat) {
         setErrorMessage(
-          "Não foi possível localizar a conversa deste cliente.",
+          "NÃ£o foi possÃ­vel localizar a conversa deste cliente.",
         );
 
         return;
@@ -981,7 +981,7 @@ export default function ChatInbox() {
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Não foi possível enviar a mensagem.",
+            "NÃ£o foi possÃ­vel enviar a mensagem.",
         );
       }
 
@@ -992,7 +992,7 @@ export default function ChatInbox() {
           remoteJid:
             selectedChat.remoteJid,
         },
-        pushName: "Você",
+        pushName: "VocÃª",
         messageType:
           "conversation",
         messageTimestamp:
@@ -1041,7 +1041,7 @@ export default function ChatInbox() {
               )
             }
             placeholder="Buscar conversa..."
-            aria-label="Buscar conversa por nome, número ou mensagem"
+            aria-label="Buscar conversa por nome, nÃºmero ou mensagem"
             className="mt-4 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
           />
         </div>
