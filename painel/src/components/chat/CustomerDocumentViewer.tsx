@@ -146,11 +146,14 @@ export default function CustomerDocumentViewer({
     );
   }
 
+  const mediaBase64 = media.base64;
+  const mediaMimetype = media.mimetype;
+
   const documentSource =
-    `data:${media.mimetype};base64,${media.base64}`;
+    `data:${mediaMimetype};base64,${mediaBase64}`;
 
   const isPdf =
-    media.mimetype === "application/pdf";
+    mediaMimetype === "application/pdf";
 
   function handleDownload() {
     const link = document.createElement("a");
@@ -165,8 +168,8 @@ export default function CustomerDocumentViewer({
 
   function handleOpenPdf() {
     const objectUrl = createObjectUrl(
-      media.base64,
-      media.mimetype,
+      mediaBase64,
+      mediaMimetype,
     );
 
     window.open(
@@ -231,7 +234,7 @@ export default function CustomerDocumentViewer({
               </p>
 
               <p className="mt-2 text-xs text-black/35">
-                {media.mimetype}
+                {mediaMimetype}
               </p>
             </div>
           </div>

@@ -658,8 +658,11 @@ function DocumentPlayer({
     );
   }
 
+  const mediaBase64 = media.base64;
+  const mediaMimetype = media.mimetype;
+
   const documentSource =
-    `data:${media.mimetype};base64,${media.base64}`;
+    `data:${mediaMimetype};base64,${mediaBase64}`;
 
   function handleDownload() {
     const link =
@@ -678,7 +681,7 @@ function DocumentPlayer({
 
   function handleOpen() {
     const byteCharacters =
-      atob(media.base64);
+      atob(mediaBase64);
 
     const byteNumbers =
       new Array(
@@ -705,7 +708,7 @@ function DocumentPlayer({
       new Blob(
         [byteArray],
         {
-          type: media.mimetype,
+          type: mediaMimetype,
         },
       );
 
@@ -726,7 +729,7 @@ function DocumentPlayer({
   }
 
   const canOpenInBrowser =
-    media.mimetype ===
+    mediaMimetype ===
     "application/pdf";
 
   return (

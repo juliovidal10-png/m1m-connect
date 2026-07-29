@@ -90,12 +90,14 @@ export default function CustomerAudioPlayer({
   const audioSource =
     `data:${media.mimetype};base64,${media.base64}`;
 
+  const downloadFileName =
+    media.fileName || `audio-${message.id}.ogg`;
+
   function handleDownload() {
     const link = document.createElement("a");
 
     link.href = audioSource;
-    link.download =
-      media.fileName || `audio-${message.id}.ogg`;
+    link.download = downloadFileName;
 
     document.body.appendChild(link);
     link.click();

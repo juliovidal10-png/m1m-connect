@@ -111,7 +111,6 @@ export const customerService = {
     return customerRepository.assignResponsible(
       customerId,
       responsibleId,
-      "HUMANO",
     );
   },
 };

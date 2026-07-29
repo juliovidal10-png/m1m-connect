@@ -7,6 +7,25 @@ datasource db {
   provider = "postgresql"
 }
 
+enum M1MAttendanceState {
+  IA
+  HUMANO
+  FINALIZADO
+}
+
+enum M1MAttendanceEventType {
+  STARTED_BY_AI
+  TAKEN_BY_HUMAN
+  FINISHED_BY_HUMAN
+  FINISHED_BY_AI
+}
+
+enum M1MAttendanceActorType {
+  AI
+  USER
+  SYSTEM
+}
+
 model M1MCompany {
   id        String   @id @default(cuid())
   name      String
@@ -15,9 +34,10 @@ model M1MCompany {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     M1MUser[]
-  customers M1MCustomer[]
-  reminders M1MReminder[]
+  users       M1MUser[]
+  customers   M1MCustomer[]
+  reminders   M1MReminder[]
+  attendances M1MAttendance[]
 
   @@map("m1m_companies")
 }
@@ -32,8 +52,10 @@ model M1MUser {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company           M1MCompany    @relation(fields: [companyId], references: [id])
-  assignedCustomers M1MCustomer[] @relation("AssignedCustomerUser")
+  company             M1MCompany           @relation(fields: [companyId], references: [id])
+  assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")
+  assignedAttendances M1MAttendance[]      @relation("AttendanceResponsible")
+  attendanceEvents    M1MAttendanceEvent[] @relation("AttendanceEventActor")
 
   @@index([companyId])
   @@map("m1m_users")
@@ -56,9 +78,10 @@ model M1MCustomer {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  owner        M1MCompany    @relation(fields: [companyId], references: [id])
-  assignedUser M1MUser?      @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
+  owner        M1MCompany      @relation(fields: [companyId], references: [id])
+  assignedUser M1MUser?        @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
   reminders    M1MReminder[]
+  attendances  M1MAttendance[]
 
   @@index([companyId])
   @@index([remoteJid])
@@ -89,4 +112,51 @@ model M1MReminder {
   @@index([remindAt])
   @@index([status])
   @@map("m1m_reminders")
+}
+
+model M1MAttendance {
+  id            String             @id @default(cuid())
+  number        Int                @unique @default(autoincrement())
+  companyId     String
+  customerId    String
+  responsibleId String?
+  state         M1MAttendanceState @default(IA)
+  startedAt     DateTime           @default(now())
+  assignedAt    DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  company     M1MCompany           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer    M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  events      M1MAttendanceEvent[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([responsibleId])
+  @@index([state])
+  @@index([startedAt])
+  @@index([finishedAt])
+  @@index([companyId, customerId])
+  @@map("m1m_attendances")
+}
+
+model M1MAttendanceEvent {
+  id           String                 @id @default(cuid())
+  attendanceId String
+  type         M1MAttendanceEventType
+  actorType    M1MAttendanceActorType
+  actorId      String?
+  metadata     Json?
+  createdAt    DateTime               @default(now())
+
+  attendance M1MAttendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  actor      M1MUser?      @relation("AttendanceEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([attendanceId])
+  @@index([type])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("m1m_attendance_events")
 }

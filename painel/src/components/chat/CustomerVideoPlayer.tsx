@@ -100,12 +100,14 @@ export default function CustomerVideoPlayer({
   const videoSource =
     `data:${media.mimetype};base64,${media.base64}`;
 
+  const downloadFileName =
+    media.fileName || `video-${message.id}.mp4`;
+
   function handleDownload() {
     const link = document.createElement("a");
 
     link.href = videoSource;
-    link.download =
-      media.fileName || `video-${message.id}.mp4`;
+    link.download = downloadFileName;
 
     document.body.appendChild(link);
     link.click();
