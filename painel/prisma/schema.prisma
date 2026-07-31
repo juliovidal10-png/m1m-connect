@@ -26,6 +26,24 @@ enum M1MAttendanceActorType {
   SYSTEM
 }
 
+enum M1MMessageDirection {
+  IN
+  OUT
+}
+
+enum M1MMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  LOCATION
+  CONTACT
+  STICKER
+  REACTION
+  UNKNOWN
+}
+
 model M1MCompany {
   id        String   @id @default(cuid())
   name      String
@@ -38,6 +56,7 @@ model M1MCompany {
   customers   M1MCustomer[]
   reminders   M1MReminder[]
   attendances M1MAttendance[]
+  messages    M1MMessage[]
 
   @@map("m1m_companies")
 }
@@ -82,6 +101,7 @@ model M1MCustomer {
   assignedUser M1MUser?        @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
   reminders    M1MReminder[]
   attendances  M1MAttendance[]
+  messages     M1MMessage[]
 
   @@index([companyId])
   @@index([remoteJid])
@@ -131,6 +151,7 @@ model M1MAttendance {
   customer    M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
   events      M1MAttendanceEvent[]
+  messages    M1MMessage[]
 
   @@index([companyId])
   @@index([customerId])
@@ -159,4 +180,41 @@ model M1MAttendanceEvent {
   @@index([actorId])
   @@index([createdAt])
   @@map("m1m_attendance_events")
+}
+
+model M1MMessage {
+  id                 String              @id @default(cuid())
+  companyId          String
+  customerId         String
+  attendanceId       String?
+  instanceName       String
+  evolutionMessageId String
+  remoteJid          String
+  direction          M1MMessageDirection
+  type               M1MMessageType
+  fromMe             Boolean
+  content            String?
+  mediaUrl           String?
+  mimeType           String?
+  rawPayload         Json?
+  sentAt             DateTime
+  processedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  company    M1MCompany     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer   M1MCustomer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  attendance M1MAttendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, instanceName, evolutionMessageId])
+  @@index([companyId])
+  @@index([customerId])
+  @@index([attendanceId])
+  @@index([remoteJid])
+  @@index([direction])
+  @@index([type])
+  @@index([sentAt])
+  @@index([processedAt])
+  @@index([companyId, remoteJid, sentAt])
+  @@map("m1m_messages")
 }

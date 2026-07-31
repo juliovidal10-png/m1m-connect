@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getMessages } from "@/lib/evolution";
+﻿import { NextRequest, NextResponse } from "next/server";
+import { conversationSyncService } from "@/services/conversation-sync.service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,14 +12,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const messages = await getMessages(remoteJid);
+    const messages =
+      await conversationSyncService.syncConversation(remoteJid);
 
     return NextResponse.json(messages);
   } catch (error) {
-    console.error("Erro ao buscar mensagens:", error);
+    console.error("Erro ao sincronizar mensagens:", error);
 
     return NextResponse.json(
-      { error: "Erro ao buscar mensagens." },
+      { error: "Erro ao sincronizar mensagens." },
       { status: 500 },
     );
   }

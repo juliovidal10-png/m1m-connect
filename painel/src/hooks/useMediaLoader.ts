@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -11,25 +11,92 @@ type MediaResponse = {
   base64: string;
 };
 
+type RawMediaResponse = {
+  mediaType?: string | null;
+  fileName?: string | null;
+  caption?: string | null;
+  size?:
+    | number
+    | {
+        fileLength?: {
+          low?: number;
+        };
+      }
+    | null;
+  mimetype?: string | null;
+  base64?: string | null;
+  error?: string;
+};
+
 const mediaCache = new Map<string, MediaResponse>();
+
+function normalizeMediaResponse(
+  data: RawMediaResponse,
+): MediaResponse {
+  let normalizedSize: number | null = null;
+
+  if (typeof data.size === "number") {
+    normalizedSize = data.size;
+  } else if (
+    data.size &&
+    typeof data.size === "object" &&
+    typeof data.size.fileLength?.low === "number"
+  ) {
+    normalizedSize = data.size.fileLength.low;
+  }
+
+  return {
+    mediaType: data.mediaType ?? null,
+    fileName: data.fileName ?? null,
+    caption: data.caption ?? null,
+    size: normalizedSize,
+    mimetype:
+      data.mimetype ?? "application/octet-stream",
+    base64: data.base64 ?? "",
+  };
+}
 
 export default function useMediaLoader(
   messageId: string,
   message: unknown,
 ) {
-  const cached = mediaCache.get(messageId);
+  const cached = messageId
+    ? mediaCache.get(messageId)
+    : undefined;
 
   const [media, setMedia] = useState<MediaResponse | null>(
     cached ?? null,
   );
 
-  const [loading, setLoading] = useState(!cached);
+  const [loading, setLoading] = useState(
+    Boolean(messageId && message && !cached),
+  );
+
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (cached) return;
+    let isActive = true;
 
-    const controller = new AbortController();
+    if (!messageId || !message) {
+      setLoading(false);
+      setError(false);
+
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const cachedMedia = mediaCache.get(messageId);
+
+    if (cachedMedia) {
+      setMedia(cachedMedia);
+      setLoading(false);
+      setError(false);
+
+      return () => {
+        isActive = false;
+      };
+    }
 
     async function load() {
       setLoading(true);
@@ -44,39 +111,70 @@ export default function useMediaLoader(
           body: JSON.stringify({
             message,
           }),
-          signal: controller.signal,
           cache: "no-store",
         });
 
-        const data = await response.json();
+        const responseText = await response.text();
 
-        if (!response.ok) {
-          throw new Error(data.error);
+        if (!responseText.trim()) {
+          throw new Error(
+            "A rota de mídia retornou uma resposta vazia.",
+          );
         }
 
-        mediaCache.set(messageId, data);
-        setMedia(data);
+        let rawData: RawMediaResponse;
+
+        try {
+          rawData = JSON.parse(
+            responseText,
+          ) as RawMediaResponse;
+        } catch {
+          throw new Error(
+            "A rota de mídia retornou uma resposta inválida.",
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            rawData.error ||
+              "Não foi possível carregar a mídia.",
+          );
+        }
+
+        const normalizedData =
+          normalizeMediaResponse(rawData);
+
+        if (!normalizedData.base64) {
+          throw new Error(
+            "A mídia foi recebida sem conteúdo.",
+          );
+        }
+
+        mediaCache.set(messageId, normalizedData);
+
+        if (isActive) {
+          setMedia(normalizedData);
+        }
       } catch (err) {
-        if (
-          err instanceof DOMException &&
-          err.name === "AbortError"
-        ) {
+        if (!isActive) {
           return;
         }
 
-        console.error(err);
+        console.error("Erro ao carregar mídia:", err);
         setError(true);
       } finally {
-        if (!controller.signal.aborted) {
+        if (isActive) {
           setLoading(false);
         }
       }
     }
 
-    load();
+    void load();
 
-    return () => controller.abort();
-  }, [messageId]);
+    return () => {
+      isActive = false;
+    };
+  }, [messageId, message]);
 
   return {
     media,

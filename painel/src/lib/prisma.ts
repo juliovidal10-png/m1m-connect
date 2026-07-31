@@ -25,6 +25,12 @@ export const prisma =
         : ["error"],
   });
 
+console.log("Prisma client:", PrismaClient.name);
+console.log(
+  "Delegates M1M:",
+  Object.keys(prisma).filter((key) => key.startsWith("m1M")),
+);
+
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }

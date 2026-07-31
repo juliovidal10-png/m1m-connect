@@ -24,6 +24,14 @@ type EvolutionChat = {
   [key: string]: unknown;
 };
 
+type EvolutionGroupInfo = {
+  id?: string | null;
+  subject?: string | null;
+};
+
+const groupSubjectCache =
+  new Map<string, string>();
+
 function normalizeText(
   value?: string | null,
 ) {
@@ -44,6 +52,35 @@ function normalizePhone(
   value?: string | null,
 ) {
   return value?.replace(/\D/g, "") || "";
+}
+
+function isGroupJid(
+  value?: string | null,
+) {
+  return normalizeJid(value).endsWith(
+    "@g.us",
+  );
+}
+
+function getPrimaryRemoteJid(
+  chat: EvolutionChat,
+) {
+  const possibleValues = [
+    chat.remoteJid,
+    chat.canonicalJid,
+    chat.lastMessage?.key?.remoteJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+  ];
+
+  for (const value of possibleValues) {
+    const jid = normalizeJid(value);
+
+    if (jid) {
+      return jid;
+    }
+  }
+
+  return "";
 }
 
 function getChatIdentities(
@@ -72,6 +109,64 @@ function getChatIdentities(
   }
 
   return identities;
+}
+
+async function getGroupSubject(
+  groupJid: string,
+) {
+  const normalizedGroupJid =
+    normalizeJid(groupJid);
+
+  if (!normalizedGroupJid) {
+    return null;
+  }
+
+  const cachedSubject =
+    groupSubjectCache.get(
+      normalizedGroupJid,
+    );
+
+  if (cachedSubject) {
+    return cachedSubject;
+  }
+
+  try {
+    const groupResponse = await fetch(
+      `${API_URL}/group/findGroupInfos/${INSTANCE_NAME}?groupJid=${encodeURIComponent(
+        normalizedGroupJid,
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          apikey: API_KEY || "",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(2000),
+      },
+    );
+
+    if (!groupResponse.ok) {
+      return null;
+    }
+
+    const groupData =
+      (await groupResponse.json()) as
+        EvolutionGroupInfo;
+
+    const subject =
+      normalizeText(groupData.subject);
+
+    if (subject) {
+      groupSubjectCache.set(
+        normalizedGroupJid,
+        subject,
+      );
+    }
+
+    return subject;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET() {
@@ -128,6 +223,50 @@ export async function GET() {
           ? evolutionData.value
           : [];
 
+    const groupJids = Array.from(
+      new Set(
+        chats
+          .map((chat) =>
+            getPrimaryRemoteJid(chat),
+          )
+          .filter((jid) =>
+            isGroupJid(jid),
+          ),
+      ),
+    );
+
+    const groupSubjectEntries =
+      await Promise.all(
+        groupJids.map(
+          async (groupJid) => {
+            const subject =
+              await getGroupSubject(
+                groupJid,
+              );
+
+            return [
+              groupJid,
+              subject,
+            ] as const;
+          },
+        ),
+      );
+
+    const groupSubjectMap =
+      new Map<string, string>();
+
+    for (const [
+      groupJid,
+      subject,
+    ] of groupSubjectEntries) {
+      if (subject) {
+        groupSubjectMap.set(
+          groupJid,
+          subject,
+        );
+      }
+    }
+
     const customers =
       await prisma.m1MCustomer.findMany({
         where: {
@@ -177,6 +316,14 @@ export async function GET() {
         const identities =
           getChatIdentities(chat);
 
+        const primaryRemoteJid =
+          getPrimaryRemoteJid(chat);
+
+        const groupSubject =
+          groupSubjectMap.get(
+            primaryRemoteJid,
+          ) || null;
+
         let customer:
           | (typeof customers)[number]
           | undefined;
@@ -194,26 +341,41 @@ export async function GET() {
         }
 
         if (!customer) {
-          return chat;
+          return {
+            ...chat,
+            pushName:
+              groupSubject ||
+              normalizeText(chat.pushName),
+            groupSubject,
+          };
         }
 
         const officialName =
           normalizeText(customer.name);
 
+        const displayName =
+          groupSubject ||
+          officialName ||
+          normalizeText(chat.pushName);
+
         return {
           ...chat,
 
           /*
-           * O CRM e a fonte oficial do nome.
-           * A Evolution so sera usada quando
-           * ainda nao existir nome salvo.
+           * Para grupos, o subject retornado
+           * pela Evolution e o nome oficial.
+           *
+           * Para contatos individuais, o CRM
+           * continua sendo a fonte oficial.
            */
-          pushName:
-            officialName ||
-            normalizeText(chat.pushName),
+          pushName: displayName,
+
+          groupSubject,
 
           crmCustomerId: customer.id,
-          crmName: customer.name,
+          crmName:
+            groupSubject ||
+            customer.name,
           crmPhone: customer.phone,
           crmCompany: customer.company,
           crmCity: customer.city,

@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import useMediaLoader from "@/hooks/useMediaLoader";
 import ImageViewer from "./ImageViewer";
@@ -63,6 +67,68 @@ export type ChatMessage = {
 type MessageRendererProps = {
   message: ChatMessage;
 };
+
+function useNearViewport(
+  rootMargin = "600px 0px",
+) {
+  const elementRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const [
+    shouldLoad,
+    setShouldLoad,
+  ] = useState(false);
+
+  useEffect(() => {
+    const element =
+      elementRef.current;
+
+    if (!element || shouldLoad) {
+      return;
+    }
+
+    if (
+      typeof IntersectionObserver ===
+      "undefined"
+    ) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0];
+
+          if (
+            entry?.isIntersecting
+          ) {
+            setShouldLoad(true);
+            observer.disconnect();
+          }
+        },
+        {
+          root: null,
+          rootMargin,
+          threshold: 0.01,
+        },
+      );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    rootMargin,
+    shouldLoad,
+  ]);
+
+  return {
+    elementRef,
+    shouldLoad,
+  };
+}
 
 const LINK_PATTERN =
   /((?:https?:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+(?:com\.br|net\.br|org\.br|com|net|org|io|me|app|dev|co)(?:\/[^\s]*)?)/gi;
@@ -234,7 +300,7 @@ function TextMessage({
   return <LinkifiedText text={text} />;
 }
 
-function ImageMessage({
+function LoadedImageMessage({
   message,
 }: MessageRendererProps) {
   const [isViewerOpen, setIsViewerOpen] =
@@ -363,7 +429,34 @@ function ImageMessage({
   );
 }
 
-function AudioMessage({
+
+function ImageMessage({
+  message,
+}: MessageRendererProps) {
+  const {
+    elementRef,
+    shouldLoad,
+  } = useNearViewport();
+
+  if (!shouldLoad) {
+    return (
+      <div
+        ref={elementRef}
+        className="flex min-h-40 w-72 items-center justify-center rounded-xl bg-black/5 px-4 text-center text-xs text-black/45"
+      >
+        A imagem será carregada ao aparecer na tela.
+      </div>
+    );
+  }
+
+  return (
+    <LoadedImageMessage
+      message={message}
+    />
+  );
+}
+
+function LoadedAudioMessage({
   message,
 }: MessageRendererProps) {
   const {
@@ -432,6 +525,41 @@ function AudioMessage({
         </p>
       )}
     </div>
+  );
+}
+
+
+function AudioMessage({
+  message,
+}: MessageRendererProps) {
+  const {
+    elementRef,
+    shouldLoad,
+  } = useNearViewport(
+    "400px 0px",
+  );
+
+  if (!shouldLoad) {
+    return (
+      <div
+        ref={elementRef}
+        className="flex min-h-16 w-72 items-center gap-3 rounded-xl bg-black/5 px-4"
+      >
+        <span className="text-2xl">
+          🎤
+        </span>
+
+        <p className="text-xs text-black/45">
+          O áudio será carregado ao aparecer na tela.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <LoadedAudioMessage
+      message={message}
+    />
   );
 }
 

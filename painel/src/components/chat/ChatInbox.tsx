@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ChangeEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -63,6 +64,40 @@ type Contact = {
 };
 
 type Message = ChatMessage;
+
+type MediaType =
+  | "image"
+  | "document"
+  | "video"
+  | "audio";
+
+function getMediaType(file: File): MediaType {
+  if (file.type.startsWith("image/")) {
+    return "image";
+  }
+
+  if (file.type.startsWith("video/")) {
+    return "video";
+  }
+
+  if (file.type.startsWith("audio/")) {
+    return "audio";
+  }
+
+  return "document";
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function isGroupChat(chat: Chat) {
   return chat.remoteJid.endsWith("@g.us");
@@ -467,6 +502,9 @@ export default function ChatInbox() {
   const [text, setText] =
     useState("");
 
+  const [selectedFile, setSelectedFile] =
+    useState<File | null>(null);
+
   const [searchQuery, setSearchQuery] =
     useState("");
 
@@ -489,12 +527,20 @@ export default function ChatInbox() {
     useState(false);
 
   const [
+    isSendingMedia,
+    setIsSendingMedia,
+  ] = useState(false);
+
+  const [
     errorMessage,
     setErrorMessage,
   ] = useState("");
 
   const messagesEndRef =
     useRef<HTMLDivElement | null>(null);
+
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(null);
 
   const previousChatJidRef =
     useRef<string | null>(null);
@@ -796,6 +842,8 @@ export default function ChatInbox() {
 
   useEffect(() => {
     setIsCustomerPanelOpen(false);
+    setSelectedFile(null);
+    setText("");
 
     if (selectedChat) {
       loadMessages(
@@ -941,14 +989,110 @@ export default function ChatInbox() {
     lastMessageSignature,
   ]);
 
+  function clearSelectedFile() {
+    setSelectedFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function handleFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0] ?? null;
+
+    setErrorMessage("");
+    setSelectedFile(file);
+  }
+
+  async function handleSendMedia() {
+    if (
+      !selectedChat ||
+      !selectedFile ||
+      isSending ||
+      isSendingMedia
+    ) {
+      return;
+    }
+
+    setIsSendingMedia(true);
+    setErrorMessage("");
+
+    try {
+      const formData = new FormData();
+
+      formData.append(
+        "remoteJid",
+        getRecipient(selectedChat),
+      );
+
+      formData.append(
+        "mediatype",
+        getMediaType(selectedFile),
+      );
+
+      formData.append(
+        "file",
+        selectedFile,
+        selectedFile.name,
+      );
+
+      const caption = text.trim();
+
+      if (caption) {
+        formData.append("caption", caption);
+      }
+
+      const response = await fetch(
+        "/api/chat/send-media",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Não foi possível enviar o arquivo.",
+        );
+      }
+
+      clearSelectedFile();
+      setText("");
+
+      await loadMessages(
+        selectedChat,
+        false,
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Erro ao enviar o arquivo.",
+      );
+    } finally {
+      setIsSendingMedia(false);
+    }
+  }
+
   async function handleSend() {
+    if (selectedFile) {
+      await handleSendMedia();
+      return;
+    }
+
     const messageText =
       text.trim();
 
     if (
       !selectedChat ||
       !messageText ||
-      isSending
+      isSending ||
+      isSendingMedia
     ) {
       return;
     }
@@ -1255,7 +1399,56 @@ export default function ChatInbox() {
             </div>
 
             <footer className="shrink-0 border-t border-black/5 bg-white p-4">
+              {selectedFile && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-[#ff3d00]/20 bg-[#fff1ec] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#191919]">
+                      {selectedFile.name}
+                    </p>
+
+                    <p className="mt-1 text-xs text-black/45">
+                      {formatFileSize(
+                        selectedFile.size,
+                      )}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={clearSelectedFile}
+                    disabled={isSendingMedia}
+                    className="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-[#e93800] transition hover:bg-[#ff3d00]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Remover
+                  </button>
+                </div>
+              )}
+
               <div className="flex items-end gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    fileInputRef.current?.click()
+                  }
+                  disabled={
+                    isSending ||
+                    isSendingMedia
+                  }
+                  aria-label="Selecionar arquivo"
+                  title="Anexar arquivo"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-xl transition hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  📎
+                </button>
+
                 <textarea
                   rows={1}
                   value={text}
@@ -1276,8 +1469,15 @@ export default function ChatInbox() {
                       handleSend();
                     }
                   }}
-                  disabled={isSending}
-                  placeholder="Digite sua mensagem..."
+                  disabled={
+                    isSending ||
+                    isSendingMedia
+                  }
+                  placeholder={
+                    selectedFile
+                      ? "Adicione uma legenda (opcional)..."
+                      : "Digite sua mensagem..."
+                  }
                   className="min-h-12 flex-1 resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:cursor-not-allowed disabled:bg-black/[0.03]"
                 />
 
@@ -1285,12 +1485,15 @@ export default function ChatInbox() {
                   type="button"
                   onClick={handleSend}
                   disabled={
-                    !text.trim() ||
-                    isSending
+                    (!selectedFile &&
+                      !text.trim()) ||
+                    isSending ||
+                    isSendingMedia
                   }
                   className="h-12 rounded-xl bg-[#ff3d00] px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {isSending
+                  {isSending ||
+                  isSendingMedia
                     ? "Enviando..."
                     : "Enviar"}
                 </button>
@@ -1341,5 +1544,4 @@ profilePicUrl={getChatProfilePicture(
     </div>
   );
 }
-
 
