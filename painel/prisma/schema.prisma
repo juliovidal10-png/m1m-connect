@@ -83,9 +83,10 @@ model M1MSector {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company         M1MCompany     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  m1Mattendance   M1MAttendance? @relation(fields: [m1MAttendanceId], references: [id])
+  company         M1MCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  m1Mattendance   M1MAttendance?  @relation(fields: [m1MAttendanceId], references: [id])
   m1MAttendanceId String?
+  sectorUsers     M1MSectorUser[]
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -110,9 +111,25 @@ model M1MUser {
   assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")
   assignedAttendances M1MAttendance[]      @relation("AttendanceResponsible")
   attendanceEvents    M1MAttendanceEvent[] @relation("AttendanceEventActor")
+  sectorUsers         M1MSectorUser[]
 
   @@index([companyId])
   @@map("m1m_users")
+}
+
+model M1MSectorUser {
+  id        String   @id @default(cuid())
+  sectorId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  sector M1MSector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  user   M1MUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sectorId, userId])
+  @@index([sectorId])
+  @@index([userId])
+  @@map("m1m_sector_users")
 }
 
 model M1MCustomer {

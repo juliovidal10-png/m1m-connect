@@ -8,6 +8,7 @@ import {
 import { useParams } from "next/navigation";
 
 import Sidebar from "@/components/layout/Sidebar";
+import SectorUsersSettings from "@/components/sector/SectorUsersSettings";
 
 type Sector = {
   id: string;
@@ -20,48 +21,64 @@ type Sector = {
   updatedAt: string;
 };
 
+type WorkspaceView =
+  | "overview"
+  | "responsibles";
+
 const modules = [
   {
+    id: "responsibles",
     title: "Responsáveis",
     icon: "👥",
     description:
       "Defina quais colaboradores podem atender neste setor.",
-    status: "Nenhum responsável",
+    status: "Configurar equipe",
+    enabled: true,
   },
   {
+    id: "hours",
     title: "Horários",
     icon: "🕒",
     description:
       "Configure os dias e horários de funcionamento do setor.",
     status: "Não configurado",
+    enabled: false,
   },
   {
+    id: "ai",
     title: "Inteligência Artificial",
     icon: "🤖",
     description:
       "Defina como a IA deve atuar nas conversas deste setor.",
     status: "Não configurada",
+    enabled: false,
   },
   {
+    id: "knowledge",
     title: "Base de Conhecimento",
     icon: "📚",
     description:
       "Cadastre serviços, informações e respostas utilizadas pela IA.",
     status: "Nenhum item",
+    enabled: false,
   },
   {
+    id: "routing",
     title: "Encaminhamento",
     icon: "➡️",
     description:
       "Configure quando e para quem as conversas devem ser encaminhadas.",
     status: "Nenhuma regra",
+    enabled: false,
   },
   {
+    id: "settings",
     title: "Configurações do Setor",
     icon: "⚙️",
     description:
       "Edite nome, descrição, ordem de exibição e situação do setor.",
     status: "Disponível em breve",
+    enabled: false,
   },
 ];
 
@@ -74,6 +91,9 @@ export default function SectorWorkspacePage() {
 
   const [sector, setSector] =
     useState<Sector | null>(null);
+
+  const [activeView, setActiveView] =
+    useState<WorkspaceView>("overview");
 
   const [isLoading, setIsLoading] =
     useState(true);
@@ -126,6 +146,12 @@ export default function SectorWorkspacePage() {
     }
   }, [sectorId]);
 
+  function openModule(moduleId: string) {
+    if (moduleId === "responsibles") {
+      setActiveView("responsibles");
+    }
+  }
+
   return (
     <main className="flex min-h-screen bg-[#f7f7f8] text-[#191919]">
       <Sidebar />
@@ -164,9 +190,30 @@ export default function SectorWorkspacePage() {
 
               <span>›</span>
 
-              <span className="text-black/70">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveView("overview")
+                }
+                className={
+                  activeView === "overview"
+                    ? "font-semibold text-black/70"
+                    : "transition hover:text-orange-600"
+                }
+              >
                 {sector?.name ?? "Carregando..."}
-              </span>
+              </button>
+
+              {activeView ===
+                "responsibles" && (
+                <>
+                  <span>›</span>
+
+                  <span className="font-semibold text-black/70">
+                    Responsáveis
+                  </span>
+                </>
+              )}
             </div>
 
             {isLoading ? (
@@ -201,6 +248,16 @@ export default function SectorWorkspacePage() {
                 >
                   Voltar para configurações
                 </Link>
+              </div>
+            ) : activeView ===
+              "responsibles" ? (
+              <div className="mt-6">
+                <SectorUsersSettings
+                  sectorId={sectorId}
+                  onBack={() =>
+                    setActiveView("overview")
+                  }
+                />
               </div>
             ) : (
               <>
@@ -261,38 +318,66 @@ export default function SectorWorkspacePage() {
                   </div>
 
                   <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {modules.map((module) => (
-                      <article
-                        key={module.title}
-                        className="flex min-h-56 flex-col rounded-2xl border border-black/5 bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-xl">
-                          {module.icon}
-                        </div>
+                    {modules.map((module) => {
+                      const cardClassName =
+                        module.enabled
+                          ? "flex min-h-56 cursor-pointer flex-col rounded-2xl border border-black/5 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
+                          : "flex min-h-56 flex-col rounded-2xl border border-black/5 bg-white p-5 shadow-sm";
 
-                        <h3 className="mt-4 text-lg font-bold">
-                          {module.title}
-                        </h3>
+                      return (
+                        <button
+                          key={module.id}
+                          type="button"
+                          disabled={
+                            !module.enabled
+                          }
+                          onClick={() =>
+                            openModule(
+                              module.id,
+                            )
+                          }
+                          className={
+                            cardClassName
+                          }
+                        >
+                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-xl">
+                            {module.icon}
+                          </div>
 
-                        <p className="mt-2 flex-1 text-sm leading-6 text-black/50">
-                          {module.description}
-                        </p>
+                          <h3 className="mt-4 text-lg font-bold">
+                            {module.title}
+                          </h3>
 
-                        <div className="mt-5 flex items-center justify-between gap-3 border-t border-black/5 pt-4">
-                          <span className="text-xs font-semibold text-black/35">
-                            {module.status}
-                          </span>
+                          <p className="mt-2 flex-1 text-sm leading-6 text-black/50">
+                            {module.description}
+                          </p>
 
-                          <button
-                            type="button"
-                            disabled
-                            className="cursor-not-allowed rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/25"
-                          >
-                            Em breve
-                          </button>
-                        </div>
-                      </article>
-                    ))}
+                          <div className="mt-5 flex w-full items-center justify-between gap-3 border-t border-black/5 pt-4">
+                            <span
+                              className={
+                                module.enabled
+                                  ? "text-xs font-semibold text-orange-600"
+                                  : "text-xs font-semibold text-black/35"
+                              }
+                            >
+                              {module.status}
+                            </span>
+
+                            <span
+                              className={
+                                module.enabled
+                                  ? "rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white"
+                                  : "rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/25"
+                              }
+                            >
+                              {module.enabled
+                                ? "Configurar →"
+                                : "Em breve"}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </>
