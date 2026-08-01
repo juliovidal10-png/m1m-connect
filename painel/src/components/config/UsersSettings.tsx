@@ -1,10 +1,14 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
   useEffect,
   useState,
 } from "react";
+
+import UserPermissionsEditor, {
+  type UserPermission,
+} from "@/components/users/UserPermissionsEditor";
 
 type UserRole =
   | "ADMIN"
@@ -21,6 +25,8 @@ type User = {
   jobTitle: string | null;
   phone: string | null;
   role: UserRole;
+  useCustomPermissions: boolean;
+  permissions: UserPermission[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -33,6 +39,8 @@ type UserFormData = {
   jobTitle: string;
   phone: string;
   role: UserRole;
+  useCustomPermissions: boolean;
+  permissions: UserPermission[];
   active: boolean;
 };
 
@@ -50,11 +58,15 @@ const emptyForm: UserFormData = {
   jobTitle: "",
   phone: "",
   role: "ATTENDANT",
+  useCustomPermissions: false,
+  permissions: [],
   active: true,
 };
 
 export default function UsersSettings() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] =
+    useState<User[]>([]);
+
   const [form, setForm] =
     useState<UserFormData>(emptyForm);
 
@@ -153,6 +165,10 @@ export default function UsersSettings() {
       phone:
         user.phone ?? "",
       role: user.role,
+      useCustomPermissions:
+        user.useCustomPermissions,
+      permissions:
+        user.permissions ?? [],
       active: user.active,
     });
 
@@ -185,6 +201,20 @@ export default function UsersSettings() {
     clearFeedback();
   }
 
+  function updateCustomPermissions(
+    enabled: boolean,
+  ) {
+    setForm((current) => ({
+      ...current,
+      useCustomPermissions: enabled,
+      permissions: enabled
+        ? current.permissions
+        : [],
+    }));
+
+    clearFeedback();
+  }
+
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
   ) {
@@ -198,6 +228,7 @@ export default function UsersSettings() {
       setError(
         "Informe o nome completo do usuário.",
       );
+
       return;
     }
 
@@ -205,6 +236,7 @@ export default function UsersSettings() {
       setError(
         "Informe o e-mail do usuário.",
       );
+
       return;
     }
 
@@ -236,6 +268,14 @@ export default function UsersSettings() {
               form.jobTitle,
             phone: form.phone,
             role: form.role,
+            useCustomPermissions:
+              form.role === "ADMIN"
+                ? false
+                : form.useCustomPermissions,
+            permissions:
+              form.role === "ADMIN"
+                ? []
+                : form.permissions,
             active: form.active,
           }),
         },
@@ -391,7 +431,7 @@ export default function UsersSettings() {
 
               <h3 className="mt-1 text-lg font-bold">
                 {editingUserId
-                  ? "Atualize os dados do colaborador"
+                  ? "Atualize os dados e acessos do colaborador"
                   : "Cadastre um novo colaborador"}
               </h3>
             </div>
@@ -543,7 +583,7 @@ export default function UsersSettings() {
               type="checkbox"
               checked={form.active}
               disabled={
-                editingUserId === "julio"
+                form.role === "ADMIN"
               }
               onChange={(event) =>
                 updateField(
@@ -565,6 +605,33 @@ export default function UsersSettings() {
               ativo e com perfil Administrador.
             </p>
           )}
+
+          <UserPermissionsEditor
+            enabled={
+              form.role === "ADMIN"
+                ? false
+                : form.useCustomPermissions
+            }
+            permissions={
+              form.role === "ADMIN"
+                ? []
+                : form.permissions
+            }
+            disabled={
+              form.role === "ADMIN"
+            }
+            onEnabledChange={
+              updateCustomPermissions
+            }
+            onPermissionsChange={(
+              permissions,
+            ) =>
+              updateField(
+                "permissions",
+                permissions,
+              )
+            }
+          />
 
           <div className="mt-6 flex justify-end">
             <button
@@ -600,6 +667,11 @@ export default function UsersSettings() {
           <h3 className="mt-5 text-lg font-bold">
             Nenhum usuário cadastrado
           </h3>
+
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-black/45">
+            Clique em “Novo usuário” para cadastrar
+            o primeiro colaborador da empresa.
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -647,6 +719,12 @@ export default function UsersSettings() {
                           {roleLabels[user.role]}
                         </span>
 
+                        {user.useCustomPermissions && (
+                          <span className="rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+                            Acesso personalizado
+                          </span>
+                        )}
+
                         {user.id === "julio" && (
                           <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
                             Usuário principal
@@ -675,6 +753,12 @@ export default function UsersSettings() {
                           </span>
                         )}
                       </div>
+
+                      {user.useCustomPermissions && (
+                        <p className="mt-3 text-xs font-semibold text-purple-700">
+                          {user.permissions.length} permissões personalizadas
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -718,3 +802,4 @@ export default function UsersSettings() {
     </div>
   );
 }
+

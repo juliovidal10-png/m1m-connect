@@ -1,4 +1,5 @@
 ﻿import {
+  M1MUserPermission,
   M1MUserRole,
 } from "@/generated/prisma/enums";
 
@@ -12,6 +13,8 @@ export type UserData = {
   jobTitle?: string | null;
   phone?: string | null;
   role?: M1MUserRole;
+  useCustomPermissions?: boolean;
+  permissions?: M1MUserPermission[];
   active?: boolean;
 };
 
@@ -22,6 +25,8 @@ export type UserUpdateData = {
   jobTitle?: string | null;
   phone?: string | null;
   role?: M1MUserRole;
+  useCustomPermissions?: boolean;
+  permissions?: M1MUserPermission[];
   active?: boolean;
 };
 
@@ -92,6 +97,11 @@ export const userRepository = {
         role:
           data.role ??
           M1MUserRole.ATTENDANT,
+        useCustomPermissions:
+          data.useCustomPermissions ??
+          false,
+        permissions:
+          data.permissions ?? [],
         active:
           data.active ?? true,
       },
@@ -152,6 +162,18 @@ export const userRepository = {
 
     if (data.role !== undefined) {
       updateData.role = data.role;
+    }
+
+    if (
+      data.useCustomPermissions !== undefined
+    ) {
+      updateData.useCustomPermissions =
+        data.useCustomPermissions;
+    }
+
+    if (data.permissions !== undefined) {
+      updateData.permissions =
+        data.permissions;
     }
 
     if (data.active !== undefined) {

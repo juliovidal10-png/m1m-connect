@@ -95,6 +95,23 @@ model M1MSector {
   @@map("m1m_sectors")
 }
 
+enum M1MUserPermission {
+  VIEW_ALL_CONVERSATIONS
+  ASSUME_ATTENDANCE
+  TRANSFER_ATTENDANCE
+  CLOSE_ATTENDANCE
+  EDIT_CRM
+  VIEW_RECEIPTS
+  DELETE_CUSTOMERS
+  DELETE_MESSAGES
+  MANAGE_USERS
+  MANAGE_SECTORS
+  MANAGE_HOURS
+  MANAGE_AI
+  MANAGE_KNOWLEDGE
+  ACCESS_SETTINGS
+}
+
 enum M1MUserRole {
   ADMIN
   MANAGER
@@ -103,17 +120,19 @@ enum M1MUserRole {
 }
 
 model M1MUser {
-  id          String      @id @default(cuid())
-  companyId   String
-  name        String
-  displayName String?
-  email       String      @unique
-  jobTitle    String?
-  phone       String?
-  role        M1MUserRole @default(ATTENDANT)
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id                   String              @id @default(cuid())
+  companyId            String
+  name                 String
+  displayName          String?
+  email                String              @unique
+  jobTitle             String?
+  phone                String?
+  role                 M1MUserRole         @default(ATTENDANT)
+  useCustomPermissions Boolean             @default(false)
+  permissions          M1MUserPermission[] @default([])
+  active               Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   company             M1MCompany           @relation(fields: [companyId], references: [id])
   assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")

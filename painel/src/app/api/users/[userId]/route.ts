@@ -49,6 +49,10 @@ export async function PUT(
             body.phone,
           role:
             body.role,
+          useCustomPermissions:
+            body.useCustomPermissions,
+          permissions:
+            body.permissions,
           active:
             body.active,
         },
@@ -74,4 +78,5 @@ export async function PUT(
     );
   }
 }
+
 

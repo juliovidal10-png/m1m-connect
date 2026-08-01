@@ -1,4 +1,5 @@
 ﻿import {
+  M1MUserPermission,
   M1MUserRole,
 } from "@/generated/prisma/enums";
 
@@ -14,6 +15,22 @@ const allowedRoles = new Set<M1MUserRole>([
   M1MUserRole.ATTENDANT,
   M1MUserRole.FINANCE,
 ]);
+
+const clientPermissions =
+  new Set<M1MUserPermission>([
+    M1MUserPermission.VIEW_ALL_CONVERSATIONS,
+    M1MUserPermission.ASSUME_ATTENDANCE,
+    M1MUserPermission.TRANSFER_ATTENDANCE,
+    M1MUserPermission.CLOSE_ATTENDANCE,
+    M1MUserPermission.EDIT_CRM,
+    M1MUserPermission.VIEW_RECEIPTS,
+    M1MUserPermission.DELETE_CUSTOMERS,
+    M1MUserPermission.DELETE_MESSAGES,
+    M1MUserPermission.MANAGE_USERS,
+    M1MUserPermission.MANAGE_SECTORS,
+    M1MUserPermission.MANAGE_HOURS,
+    M1MUserPermission.ACCESS_SETTINGS,
+  ]);
 
 function requireText(
   value: string | null | undefined,
@@ -68,6 +85,36 @@ function normalizeRole(
   return value as M1MUserRole;
 }
 
+function normalizeClientPermissions(
+  value: unknown,
+) {
+  if (!Array.isArray(value)) {
+    throw new Error(
+      "A lista de permissões é inválida.",
+    );
+  }
+
+  const permissions =
+    value.map((permission) => {
+      if (
+        typeof permission !== "string" ||
+        !clientPermissions.has(
+          permission as M1MUserPermission,
+        )
+      ) {
+        throw new Error(
+          "Uma ou mais permissões não estão disponíveis para usuários da empresa.",
+        );
+      }
+
+      return permission as M1MUserPermission;
+    });
+
+  return Array.from(
+    new Set(permissions),
+  );
+}
+
 export const userService = {
   async listUsers(companyId: string) {
     const normalizedCompanyId =
@@ -114,6 +161,13 @@ export const userService = {
       );
     }
 
+    const permissions =
+      input.permissions !== undefined
+        ? normalizeClientPermissions(
+            input.permissions,
+          )
+        : [];
+
     return userRepository.create({
       companyId:
         normalizedCompanyId,
@@ -128,6 +182,13 @@ export const userService = {
       role:
         input.role ??
         M1MUserRole.ATTENDANT,
+      useCustomPermissions:
+        input.useCustomPermissions ??
+        false,
+      permissions:
+        input.useCustomPermissions
+          ? permissions
+          : [],
       active:
         input.active ?? true,
     });
@@ -202,13 +263,43 @@ export const userService = {
     }
 
     if (
-      normalizedUserId === "julio" &&
-      data.role !== undefined &&
-      data.role !== M1MUserRole.ADMIN
+      input.permissions !== undefined
     ) {
-      throw new Error(
-        "O usuário principal deve permanecer como Administrador.",
-      );
+      data.permissions =
+        normalizeClientPermissions(
+          input.permissions,
+        );
+    }
+
+    if (
+      normalizedUserId === "julio"
+    ) {
+      if (
+        data.role !== undefined &&
+        data.role !==
+          M1MUserRole.ADMIN
+      ) {
+        throw new Error(
+          "O usuário principal deve permanecer como Administrador.",
+        );
+      }
+
+      if (
+        data.useCustomPermissions === true
+      ) {
+        throw new Error(
+          "O usuário principal utiliza acesso total pelo perfil Administrador.",
+        );
+      }
+
+      data.useCustomPermissions = false;
+      data.permissions = [];
+    }
+
+    if (
+      data.useCustomPermissions === false
+    ) {
+      data.permissions = [];
     }
 
     return userRepository.update(
