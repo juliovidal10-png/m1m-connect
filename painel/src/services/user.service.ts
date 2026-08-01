@@ -1,8 +1,19 @@
 ﻿import {
+  M1MUserRole,
+} from "@/generated/prisma/enums";
+
+import {
   userRepository,
   type UserData,
   type UserUpdateData,
 } from "@/repositories/user.repository";
+
+const allowedRoles = new Set<M1MUserRole>([
+  M1MUserRole.ADMIN,
+  M1MUserRole.MANAGER,
+  M1MUserRole.ATTENDANT,
+  M1MUserRole.FINANCE,
+]);
 
 function requireText(
   value: string | null | undefined,
@@ -38,6 +49,23 @@ function requireEmail(
   }
 
   return normalizedEmail;
+}
+
+function normalizeRole(
+  value: unknown,
+) {
+  if (
+    typeof value !== "string" ||
+    !allowedRoles.has(
+      value as M1MUserRole,
+    )
+  ) {
+    throw new Error(
+      "Perfil de acesso inválido.",
+    );
+  }
+
+  return value as M1MUserRole;
 }
 
 export const userService = {
@@ -87,7 +115,8 @@ export const userService = {
     }
 
     return userRepository.create({
-      companyId: normalizedCompanyId,
+      companyId:
+        normalizedCompanyId,
       name,
       displayName:
         input.displayName,
@@ -96,6 +125,9 @@ export const userService = {
         input.jobTitle,
       phone:
         input.phone,
+      role:
+        input.role ??
+        M1MUserRole.ATTENDANT,
       active:
         input.active ?? true,
     });
@@ -162,6 +194,21 @@ export const userService = {
       }
 
       data.email = email;
+    }
+
+    if (input.role !== undefined) {
+      data.role =
+        normalizeRole(input.role);
+    }
+
+    if (
+      normalizedUserId === "julio" &&
+      data.role !== undefined &&
+      data.role !== M1MUserRole.ADMIN
+    ) {
+      throw new Error(
+        "O usuário principal deve permanecer como Administrador.",
+      );
     }
 
     return userRepository.update(

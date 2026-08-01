@@ -95,17 +95,25 @@ model M1MSector {
   @@map("m1m_sectors")
 }
 
+enum M1MUserRole {
+  ADMIN
+  MANAGER
+  ATTENDANT
+  FINANCE
+}
+
 model M1MUser {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   companyId   String
   name        String
   displayName String?
-  email       String   @unique
+  email       String      @unique
   jobTitle    String?
   phone       String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  role        M1MUserRole @default(ATTENDANT)
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   company             M1MCompany           @relation(fields: [companyId], references: [id])
   assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")

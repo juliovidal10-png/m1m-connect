@@ -6,6 +6,12 @@ import {
   useState,
 } from "react";
 
+type UserRole =
+  | "ADMIN"
+  | "MANAGER"
+  | "ATTENDANT"
+  | "FINANCE";
+
 type User = {
   id: string;
   companyId: string;
@@ -14,6 +20,7 @@ type User = {
   email: string;
   jobTitle: string | null;
   phone: string | null;
+  role: UserRole;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,7 +32,15 @@ type UserFormData = {
   email: string;
   jobTitle: string;
   phone: string;
+  role: UserRole;
   active: boolean;
+};
+
+const roleLabels: Record<UserRole, string> = {
+  ADMIN: "Administrador",
+  MANAGER: "Gestor",
+  ATTENDANT: "Atendente",
+  FINANCE: "Financeiro",
 };
 
 const emptyForm: UserFormData = {
@@ -34,6 +49,7 @@ const emptyForm: UserFormData = {
   email: "",
   jobTitle: "",
   phone: "",
+  role: "ATTENDANT",
   active: true,
 };
 
@@ -136,6 +152,7 @@ export default function UsersSettings() {
         user.jobTitle ?? "",
       phone:
         user.phone ?? "",
+      role: user.role,
       active: user.active,
     });
 
@@ -218,6 +235,7 @@ export default function UsersSettings() {
             jobTitle:
               form.jobTitle,
             phone: form.phone,
+            role: form.role,
             active: form.active,
           }),
         },
@@ -464,7 +482,7 @@ export default function UsersSettings() {
               />
             </label>
 
-            <label className="block md:col-span-2">
+            <label className="block">
               <span className="mb-2 block text-sm font-semibold text-black/70">
                 Telefone
               </span>
@@ -481,6 +499,42 @@ export default function UsersSettings() {
                 }
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
               />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold text-black/70">
+                Perfil de acesso
+              </span>
+
+              <select
+                value={form.role}
+                disabled={
+                  editingUserId === "julio"
+                }
+                onChange={(event) =>
+                  updateField(
+                    "role",
+                    event.target.value as UserRole,
+                  )
+                }
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/45"
+              >
+                <option value="ADMIN">
+                  Administrador
+                </option>
+
+                <option value="MANAGER">
+                  Gestor
+                </option>
+
+                <option value="ATTENDANT">
+                  Atendente
+                </option>
+
+                <option value="FINANCE">
+                  Financeiro
+                </option>
+              </select>
             </label>
           </div>
 
@@ -507,8 +561,8 @@ export default function UsersSettings() {
 
           {editingUserId === "julio" && (
             <p className="mt-2 text-xs text-black/40">
-              O usuário principal não pode ser
-              inativado nesta etapa.
+              O usuário principal deve permanecer
+              ativo e com perfil Administrador.
             </p>
           )}
 
@@ -546,11 +600,6 @@ export default function UsersSettings() {
           <h3 className="mt-5 text-lg font-bold">
             Nenhum usuário cadastrado
           </h3>
-
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-black/45">
-            Clique em “Novo usuário” para cadastrar
-            o primeiro colaborador da empresa.
-          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -592,6 +641,10 @@ export default function UsersSettings() {
                           {user.active
                             ? "Ativo"
                             : "Inativo"}
+                        </span>
+
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                          {roleLabels[user.role]}
                         </span>
 
                         {user.id === "julio" && (

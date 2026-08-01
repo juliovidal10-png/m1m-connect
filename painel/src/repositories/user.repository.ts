@@ -1,4 +1,8 @@
-﻿import { prisma } from "@/lib/prisma";
+﻿import {
+  M1MUserRole,
+} from "@/generated/prisma/enums";
+
+import { prisma } from "@/lib/prisma";
 
 export type UserData = {
   companyId: string;
@@ -7,6 +11,7 @@ export type UserData = {
   email: string;
   jobTitle?: string | null;
   phone?: string | null;
+  role?: M1MUserRole;
   active?: boolean;
 };
 
@@ -16,6 +21,7 @@ export type UserUpdateData = {
   email?: string;
   jobTitle?: string | null;
   phone?: string | null;
+  role?: M1MUserRole;
   active?: boolean;
 };
 
@@ -73,7 +79,8 @@ export const userRepository = {
           normalizeOptionalText(
             data.displayName,
           ),
-        email: data.email.trim().toLowerCase(),
+        email:
+          data.email.trim().toLowerCase(),
         jobTitle:
           normalizeOptionalText(
             data.jobTitle,
@@ -82,7 +89,11 @@ export const userRepository = {
           normalizeOptionalText(
             data.phone,
           ),
-        active: data.active ?? true,
+        role:
+          data.role ??
+          M1MUserRole.ATTENDANT,
+        active:
+          data.active ?? true,
       },
     });
   },
@@ -107,7 +118,8 @@ export const userRepository = {
     const updateData: UserUpdateData = {};
 
     if (data.name !== undefined) {
-      updateData.name = data.name.trim();
+      updateData.name =
+        data.name.trim();
     }
 
     if (data.displayName !== undefined) {
@@ -119,7 +131,9 @@ export const userRepository = {
 
     if (data.email !== undefined) {
       updateData.email =
-        data.email.trim().toLowerCase();
+        data.email
+          .trim()
+          .toLowerCase();
     }
 
     if (data.jobTitle !== undefined) {
@@ -134,6 +148,10 @@ export const userRepository = {
         normalizeOptionalText(
           data.phone,
         );
+    }
+
+    if (data.role !== undefined) {
+      updateData.role = data.role;
     }
 
     if (data.active !== undefined) {

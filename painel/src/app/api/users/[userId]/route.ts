@@ -47,6 +47,8 @@ export async function PUT(
             body.jobTitle,
           phone:
             body.phone,
+          role:
+            body.role,
           active:
             body.active,
         },
@@ -72,3 +74,4 @@ export async function PUT(
     );
   }
 }
+
