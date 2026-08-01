@@ -88,11 +88,44 @@ model M1MSector {
   m1MAttendanceId String?
   sectorUsers     M1MSectorUser[]
 
+  schedules M1MSectorSchedule[]
+
   @@unique([companyId, name])
   @@index([companyId])
   @@index([companyId, active])
   @@index([companyId, sortOrder])
   @@map("m1m_sectors")
+}
+
+enum M1MWeekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model M1MSectorSchedule {
+  id                String     @id @default(cuid())
+  sectorId          String
+  dayOfWeek         M1MWeekday
+  enabled           Boolean    @default(false)
+  allDay            Boolean    @default(false)
+  openingTime       String?
+  closingTime       String?
+  secondOpeningTime String?
+  secondClosingTime String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  sector M1MSector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([sectorId, dayOfWeek])
+  @@index([sectorId])
+  @@index([sectorId, enabled])
+  @@map("m1m_sector_schedules")
 }
 
 enum M1MUserPermission {

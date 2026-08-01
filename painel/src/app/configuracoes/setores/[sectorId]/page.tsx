@@ -8,6 +8,7 @@ import {
 import { useParams } from "next/navigation";
 
 import Sidebar from "@/components/layout/Sidebar";
+import SectorSchedulesSettings from "@/components/sector/SectorSchedulesSettings";
 import SectorUsersSettings from "@/components/sector/SectorUsersSettings";
 
 type Sector = {
@@ -23,7 +24,8 @@ type Sector = {
 
 type WorkspaceView =
   | "overview"
-  | "responsibles";
+  | "responsibles"
+  | "schedules";
 
 const modules = [
   {
@@ -41,8 +43,8 @@ const modules = [
     icon: "🕒",
     description:
       "Configure os dias e horários de funcionamento do setor.",
-    status: "Não configurado",
-    enabled: false,
+    status: "Configurar horários",
+    enabled: true,
   },
   {
     id: "ai",
@@ -50,7 +52,7 @@ const modules = [
     icon: "🤖",
     description:
       "Defina como a IA deve atuar nas conversas deste setor.",
-    status: "Não configurada",
+    status: "Protegida pela M1M",
     enabled: false,
   },
   {
@@ -59,7 +61,7 @@ const modules = [
     icon: "📚",
     description:
       "Cadastre serviços, informações e respostas utilizadas pela IA.",
-    status: "Nenhum item",
+    status: "Protegida pela M1M",
     enabled: false,
   },
   {
@@ -149,7 +151,16 @@ export default function SectorWorkspacePage() {
   function openModule(moduleId: string) {
     if (moduleId === "responsibles") {
       setActiveView("responsibles");
+      return;
     }
+
+    if (moduleId === "hours") {
+      setActiveView("schedules");
+    }
+  }
+
+  function returnToOverview() {
+    setActiveView("overview");
   }
 
   return (
@@ -192,9 +203,7 @@ export default function SectorWorkspacePage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setActiveView("overview")
-                }
+                onClick={returnToOverview}
                 className={
                   activeView === "overview"
                     ? "font-semibold text-black/70"
@@ -204,13 +213,22 @@ export default function SectorWorkspacePage() {
                 {sector?.name ?? "Carregando..."}
               </button>
 
-              {activeView ===
-                "responsibles" && (
+              {activeView === "responsibles" && (
                 <>
                   <span>›</span>
 
                   <span className="font-semibold text-black/70">
                     Responsáveis
+                  </span>
+                </>
+              )}
+
+              {activeView === "schedules" && (
+                <>
+                  <span>›</span>
+
+                  <span className="font-semibold text-black/70">
+                    Horários
                   </span>
                 </>
               )}
@@ -249,14 +267,18 @@ export default function SectorWorkspacePage() {
                   Voltar para configurações
                 </Link>
               </div>
-            ) : activeView ===
-              "responsibles" ? (
+            ) : activeView === "responsibles" ? (
               <div className="mt-6">
                 <SectorUsersSettings
                   sectorId={sectorId}
-                  onBack={() =>
-                    setActiveView("overview")
-                  }
+                  onBack={returnToOverview}
+                />
+              </div>
+            ) : activeView === "schedules" ? (
+              <div className="mt-6">
+                <SectorSchedulesSettings
+                  sectorId={sectorId}
+                  onBack={returnToOverview}
                 />
               </div>
             ) : (
