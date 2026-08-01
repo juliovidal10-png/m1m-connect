@@ -68,8 +68,30 @@ model M1MCompany {
   reminders   M1MReminder[]
   attendances M1MAttendance[]
   messages    M1MMessage[]
+  sectors     M1MSector[]
 
   @@map("m1m_companies")
+}
+
+model M1MSector {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         M1MCompany     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  m1Mattendance   M1MAttendance? @relation(fields: [m1MAttendanceId], references: [id])
+  m1MAttendanceId String?
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([companyId, active])
+  @@index([companyId, sortOrder])
+  @@map("m1m_sectors")
 }
 
 model M1MUser {
@@ -163,6 +185,7 @@ model M1MAttendance {
   responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
   events      M1MAttendanceEvent[]
   messages    M1MMessage[]
+  sectors     M1MSector[]
 
   @@index([companyId])
   @@index([customerId])

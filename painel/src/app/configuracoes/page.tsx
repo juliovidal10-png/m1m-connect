@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
+import SectorsSettings from "@/components/config/SectorsSettings";
 import Sidebar from "@/components/layout/Sidebar";
 
 type CompanyProfile = {
@@ -63,7 +64,7 @@ const sections = [
     title: "Setores",
     description:
       "Cadastre os departamentos e defina como cada cliente será encaminhado.",
-    enabled: false,
+    enabled: true,
   },
   {
     title: "Horários",
@@ -118,7 +119,7 @@ function toFormData(
 
 export default function ConfiguracoesPage() {
   const [activeSection, setActiveSection] =
-    useState<"overview" | "company">(
+    useState<"overview" | "company" | "sectors">(
       "overview",
     );
 
@@ -364,6 +365,15 @@ export default function ConfiguracoesPage() {
                               "company",
                             );
                           }
+
+                          if (
+                            section.title ===
+                            "Setores"
+                          ) {
+                            setActiveSection(
+                              "sectors",
+                            );
+                          }
                         }}
                         className={
                           section.enabled
@@ -379,6 +389,14 @@ export default function ConfiguracoesPage() {
                   ))}
                 </div>
               </>
+            ) : activeSection === "sectors" ? (
+              <SectorsSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
             ) : (
               <div>
                 <button
