@@ -57,6 +57,37 @@ export const sectorService = {
     );
   },
 
+  async getSector(
+    companyId: string,
+    sectorId: string,
+  ) {
+    const normalizedCompanyId =
+      requireText(
+        companyId,
+        "Empresa",
+      );
+
+    const normalizedSectorId =
+      requireText(
+        sectorId,
+        "Setor",
+      );
+
+    const sector =
+      await sectorRepository.findById(
+        normalizedCompanyId,
+        normalizedSectorId,
+      );
+
+    if (!sector) {
+      throw new Error(
+        "Setor não encontrado.",
+      );
+    }
+
+    return sector;
+  },
+
   async createSector(
     companyId: string,
     input: Omit<

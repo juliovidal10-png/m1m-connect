@@ -21,6 +21,44 @@ type RouteContext = {
   }>;
 };
 
+export async function GET(
+  _request: NextRequest,
+  context: RouteContext,
+) {
+  try {
+    const companyId =
+      getCurrentCompanyId();
+
+    const { sectorId } =
+      await context.params;
+
+    const sector =
+      await sectorService.getSector(
+        companyId,
+        sectorId,
+      );
+
+    return NextResponse.json(sector);
+  } catch (error) {
+    console.error(
+      "ERRO SECTORS GET BY ID:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error: getErrorMessage(
+          error,
+          "Erro ao carregar o setor.",
+        ),
+      },
+      {
+        status: 500,
+      },
+    );
+  }
+}
+
 export async function PUT(
   request: NextRequest,
   context: RouteContext,
