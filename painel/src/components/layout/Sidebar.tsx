@@ -1,8 +1,33 @@
+﻿import Link from "next/link";
+
 import CentralPendencias from "./CentralPendencias";
+
+const menuItems = [
+  {
+    label: "Visão Geral",
+    href: "/",
+  },
+  {
+    label: "Conversas",
+    href: "/",
+  },
+  {
+    label: "Contatos",
+    href: "/",
+  },
+  {
+    label: "WhatsApp",
+    href: "/whatsapp",
+  },
+  {
+    label: "Configurações",
+    href: "/configuracoes",
+  },
+];
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
+    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
       <CentralPendencias />
 
       <div className="border-b p-6">
@@ -16,25 +41,15 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-2 p-4">
-        <button className="w-full rounded-lg px-4 py-3 text-left hover:bg-orange-50">
-          🏠 Visão Geral
-        </button>
-
-        <button className="w-full rounded-lg px-4 py-3 text-left hover:bg-orange-50">
-          💬 Conversas
-        </button>
-
-        <button className="w-full rounded-lg px-4 py-3 text-left hover:bg-orange-50">
-          👥 Contatos
-        </button>
-
-        <button className="w-full rounded-lg px-4 py-3 text-left hover:bg-orange-50">
-          📱 WhatsApp
-        </button>
-
-        <button className="w-full rounded-lg px-4 py-3 text-left hover:bg-orange-50">
-          ⚙️ Configurações
-        </button>
+        {menuItems.map((item) => (
+          <Link
+            key={`${item.label}-${item.href}`}
+            href={item.href}
+            className="block w-full rounded-lg px-4 py-3 text-left text-sm font-medium text-gray-700 transition hover:bg-orange-50 hover:text-orange-700"
+          >
+            {item.label}
+          </Link>
+        ))}
       </nav>
     </aside>
   );

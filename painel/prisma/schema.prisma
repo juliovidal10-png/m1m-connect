@@ -45,12 +45,23 @@ enum M1MMessageType {
 }
 
 model M1MCompany {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  segment      String?
+  presentation String?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  website      String?
+  instagram    String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   users       M1MUser[]
   customers   M1MCustomer[]
