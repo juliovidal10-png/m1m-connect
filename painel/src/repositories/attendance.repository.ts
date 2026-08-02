@@ -1,4 +1,4 @@
-import {
+﻿import {
   M1MAttendanceActorType,
   M1MAttendanceEventType,
   M1MAttendanceState,
@@ -16,6 +16,11 @@ export type AssignAttendanceData = {
   attendanceId: string;
   responsibleId: string;
   assignedAt?: Date;
+};
+
+export type TransferAttendanceToSectorData = {
+  attendanceId: string;
+  sectorId: string;
 };
 
 export type FinishAttendanceData = {
@@ -38,13 +43,16 @@ const activeAttendanceStates: M1MAttendanceState[] = [
 ];
 
 export const attendanceRepository = {
-  async createAttendance(data: CreateAttendanceData) {
+  async createAttendance(
+    data: CreateAttendanceData,
+  ) {
     return prisma.m1MAttendance.create({
       data: {
         companyId: data.companyId,
         customerId: data.customerId,
         state: M1MAttendanceState.IA,
-        startedAt: data.startedAt ?? new Date(),
+        startedAt:
+          data.startedAt ?? new Date(),
       },
     });
   },
@@ -76,6 +84,26 @@ export const attendanceRepository = {
       },
       include: {
         responsible: true,
+        sector: true,
+      },
+    });
+  },
+
+  async findSector(
+    companyId: string,
+    sectorId: string,
+  ) {
+    return prisma.m1MSector.findFirst({
+      where: {
+        id: sectorId,
+        companyId,
+        active: true,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        name: true,
+        active: true,
       },
     });
   },
@@ -88,10 +116,35 @@ export const attendanceRepository = {
         id: data.attendanceId,
       },
       data: {
-        state: M1MAttendanceState.HUMANO,
-        responsibleId: data.responsibleId,
-        assignedAt: data.assignedAt ?? new Date(),
+        state:
+          M1MAttendanceState.HUMANO,
+        responsibleId:
+          data.responsibleId,
+        assignedAt:
+          data.assignedAt ?? new Date(),
         finishedAt: null,
+      },
+    });
+  },
+
+  async transferToSector(
+    data: TransferAttendanceToSectorData,
+  ) {
+    return prisma.m1MAttendance.update({
+      where: {
+        id: data.attendanceId,
+      },
+      data: {
+        sectorId:
+          data.sectorId,
+        state:
+          M1MAttendanceState.IA,
+        responsibleId: null,
+        assignedAt: null,
+        finishedAt: null,
+      },
+      include: {
+        sector: true,
       },
     });
   },
@@ -104,8 +157,10 @@ export const attendanceRepository = {
         id: data.attendanceId,
       },
       data: {
-        state: M1MAttendanceState.FINALIZADO,
-        finishedAt: data.finishedAt ?? new Date(),
+        state:
+          M1MAttendanceState.FINALIZADO,
+        finishedAt:
+          data.finishedAt ?? new Date(),
       },
     });
   },
@@ -115,17 +170,25 @@ export const attendanceRepository = {
   ) {
     return prisma.m1MAttendanceEvent.create({
       data: {
-        attendanceId: data.attendanceId,
-        type: data.type,
-        actorType: data.actorType,
-        actorId: data.actorId ?? null,
-        metadata: data.metadata ?? undefined,
-        createdAt: data.createdAt ?? new Date(),
+        attendanceId:
+          data.attendanceId,
+        type:
+          data.type,
+        actorType:
+          data.actorType,
+        actorId:
+          data.actorId ?? null,
+        metadata:
+          data.metadata ?? undefined,
+        createdAt:
+          data.createdAt ?? new Date(),
       },
     });
   },
 
-  async listEvents(attendanceId: string) {
+  async listEvents(
+    attendanceId: string,
+  ) {
     return prisma.m1MAttendanceEvent.findMany({
       where: {
         attendanceId,

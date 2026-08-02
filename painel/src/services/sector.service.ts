@@ -8,7 +8,8 @@ function requireText(
   value: string | null | undefined,
   fieldName: string,
 ) {
-  const normalizedValue = value?.trim();
+  const normalizedValue =
+    value?.trim();
 
   if (!normalizedValue) {
     throw new Error(
@@ -30,10 +31,13 @@ function normalizeSortOrder(
     return 0;
   }
 
-  const normalizedValue = Number(value);
+  const normalizedValue =
+    Number(value);
 
   if (
-    !Number.isInteger(normalizedValue) ||
+    !Number.isInteger(
+      normalizedValue,
+    ) ||
     normalizedValue < 0
   ) {
     throw new Error(
@@ -45,7 +49,9 @@ function normalizeSortOrder(
 }
 
 export const sectorService = {
-  async listSectors(companyId: string) {
+  async listSectors(
+    companyId: string,
+  ) {
     const normalizedCompanyId =
       requireText(
         companyId,
@@ -53,6 +59,20 @@ export const sectorService = {
       );
 
     return sectorRepository.findAllByCompany(
+      normalizedCompanyId,
+    );
+  },
+
+  async listActiveSectors(
+    companyId: string,
+  ) {
+    const normalizedCompanyId =
+      requireText(
+        companyId,
+        "Empresa",
+      );
+
+    return sectorRepository.findActiveByCompany(
       normalizedCompanyId,
     );
   },
@@ -101,17 +121,20 @@ export const sectorService = {
         "Empresa",
       );
 
-    const name = requireText(
-      input.name,
-      "Nome do setor",
-    );
+    const name =
+      requireText(
+        input.name,
+        "Nome do setor",
+      );
 
     return sectorRepository.create({
-      companyId: normalizedCompanyId,
+      companyId:
+        normalizedCompanyId,
       name,
       description:
         input.description,
-      active: input.active ?? true,
+      active:
+        input.active ?? true,
       sortOrder:
         normalizeSortOrder(
           input.sortOrder,
@@ -152,14 +175,20 @@ export const sectorService = {
       ...input,
     };
 
-    if (input.name !== undefined) {
-      data.name = requireText(
-        input.name,
-        "Nome do setor",
-      );
+    if (
+      input.name !== undefined
+    ) {
+      data.name =
+        requireText(
+          input.name,
+          "Nome do setor",
+        );
     }
 
-    if (input.sortOrder !== undefined) {
+    if (
+      input.sortOrder !==
+      undefined
+    ) {
       data.sortOrder =
         normalizeSortOrder(
           input.sortOrder,

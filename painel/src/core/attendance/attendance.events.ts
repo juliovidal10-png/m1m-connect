@@ -18,6 +18,36 @@ export function createStartedByAIEvent(
   };
 }
 
+export function createTransferredToSectorEvent(
+  attendance: AttendanceSnapshot,
+  input: {
+    previousSectorId: string | null;
+    sectorId: string;
+    sectorName: string;
+    actorType: "AI" | "USER" | "SYSTEM";
+    actorId?: string | null;
+  },
+  occurredAt = new Date(),
+): AttendanceEvent {
+  return {
+    attendanceId: attendance.id,
+    customerId: attendance.customerId,
+    type:
+      ATTENDANCE_EVENT_TYPES.TRANSFERRED_TO_SECTOR,
+    actorType: input.actorType,
+    actorId: input.actorId ?? null,
+    createdAt: occurredAt,
+    metadata: {
+      previousSectorId:
+        input.previousSectorId,
+      sectorId:
+        input.sectorId,
+      sectorName:
+        input.sectorName,
+    },
+  };
+}
+
 export function createTakenByHumanEvent(
   attendance: AttendanceSnapshot,
   userId: string,
@@ -41,7 +71,8 @@ export function createFinishedByHumanEvent(
   return {
     attendanceId: attendance.id,
     customerId: attendance.customerId,
-    type: ATTENDANCE_EVENT_TYPES.FINISHED_BY_HUMAN,
+    type:
+      ATTENDANCE_EVENT_TYPES.FINISHED_BY_HUMAN,
     actorType: "USER",
     actorId: userId,
     createdAt: occurredAt,

@@ -15,6 +15,7 @@ enum M1MAttendanceState {
 
 enum M1MAttendanceEventType {
   STARTED_BY_AI
+  TRANSFERRED_TO_SECTOR
   TAKEN_BY_HUMAN
   FINISHED_BY_HUMAN
   FINISHED_BY_AI
@@ -45,50 +46,54 @@ enum M1MMessageType {
 }
 
 model M1MCompany {
-  id           String   @id @default(cuid())
-  name         String
-  slug         String   @unique
-  segment      String?
-  presentation String?
-  address      String?
-  city         String?
-  state        String?
-  zipCode      String?
-  phone        String?
-  whatsapp     String?
-  email        String?
-  website      String?
-  instagram    String?
-  active       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  segment           String?
+  presentation      String?
+  address           String?
+  city              String?
+  state             String?
+  zipCode           String?
+  phone             String?
+  whatsapp          String?
+  email             String?
+  website           String?
+  instagram         String?
+  outOfHoursMessage String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   users       M1MUser[]
   customers   M1MCustomer[]
   reminders   M1MReminder[]
   attendances M1MAttendance[]
   messages    M1MMessage[]
-  sectors     M1MSector[]
+
+  schedules M1MCompanySchedule[]
+  sectors   M1MSector[]
 
   @@map("m1m_companies")
 }
 
 model M1MSector {
-  id          String   @id @default(cuid())
-  companyId   String
-  name        String
-  description String?
-  active      Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                         String   @id @default(cuid())
+  companyId                  String
+  name                       String
+  description                String?
+  useCustomSchedule          Boolean  @default(false)
+  useCustomOutOfHoursMessage Boolean  @default(false)
+  outOfHoursMessage          String?
+  active                     Boolean  @default(true)
+  sortOrder                  Int      @default(0)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
-  company         M1MCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  m1Mattendance   M1MAttendance?  @relation(fields: [m1MAttendanceId], references: [id])
-  m1MAttendanceId String?
-  sectorUsers     M1MSectorUser[]
-
-  schedules M1MSectorSchedule[]
+  company     M1MCompany          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sectorUsers M1MSectorUser[]
+  schedules   M1MSectorSchedule[]
+  attendances M1MAttendance[]
 
   @@unique([companyId, name])
   @@index([companyId])
@@ -105,6 +110,27 @@ enum M1MWeekday {
   FRIDAY
   SATURDAY
   SUNDAY
+}
+
+model M1MCompanySchedule {
+  id                String     @id @default(cuid())
+  companyId         String
+  dayOfWeek         M1MWeekday
+  enabled           Boolean    @default(false)
+  allDay            Boolean    @default(false)
+  openingTime       String?
+  closingTime       String?
+  secondOpeningTime String?
+  secondClosingTime String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, dayOfWeek])
+  @@index([companyId])
+  @@index([companyId, enabled])
+  @@map("m1m_company_schedules")
 }
 
 model M1MSectorSchedule {
@@ -252,6 +278,7 @@ model M1MAttendance {
   companyId     String
   customerId    String
   responsibleId String?
+  sectorId      String?
   state         M1MAttendanceState @default(IA)
   startedAt     DateTime           @default(now())
   assignedAt    DateTime?
@@ -262,13 +289,14 @@ model M1MAttendance {
   company     M1MCompany           @relation(fields: [companyId], references: [id], onDelete: Restrict)
   customer    M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  sector      M1MSector?           @relation(fields: [sectorId], references: [id], onDelete: SetNull)
   events      M1MAttendanceEvent[]
   messages    M1MMessage[]
-  sectors     M1MSector[]
 
   @@index([companyId])
   @@index([customerId])
   @@index([responsibleId])
+  @@index([sectorId])
   @@index([state])
   @@index([startedAt])
   @@index([finishedAt])

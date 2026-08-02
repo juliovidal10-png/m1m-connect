@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "M1MAttendanceEventType" ADD VALUE 'TRANSFERRED_TO_SECTOR';

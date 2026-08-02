@@ -503,15 +503,11 @@ export const conversationSyncService = {
         ),
       });
 
-    const attendance = message.fromMe
-      ? await attendanceService.getOpenAttendanceByCustomer(
-          companyId,
-          customer.id,
-        )
-      : await attendanceService.startAttendance(
-          companyId,
-          customer.id,
-        );
+    const attendance =
+      await attendanceService.getOpenAttendanceByCustomer(
+        companyId,
+        customer.id,
+      );
 
     return messageService.registerMessage({
       companyId,
@@ -532,4 +528,3 @@ export const conversationSyncService = {
     });
   },
 };
-

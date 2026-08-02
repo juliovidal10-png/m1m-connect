@@ -24,10 +24,38 @@ function normalizeOptionalText(
 }
 
 export const sectorRepository = {
-  async findAllByCompany(companyId: string) {
+  async findAllByCompany(
+    companyId: string,
+  ) {
     return prisma.m1MSector.findMany({
       where: {
         companyId,
+      },
+      orderBy: [
+        {
+          sortOrder: "asc",
+        },
+        {
+          name: "asc",
+        },
+      ],
+    });
+  },
+
+  async findActiveByCompany(
+    companyId: string,
+  ) {
+    return prisma.m1MSector.findMany({
+      where: {
+        companyId,
+        active: true,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        name: true,
+        description: true,
+        sortOrder: true,
       },
       orderBy: [
         {
@@ -52,17 +80,23 @@ export const sectorRepository = {
     });
   },
 
-  async create(data: SectorData) {
+  async create(
+    data: SectorData,
+  ) {
     return prisma.m1MSector.create({
       data: {
-        companyId: data.companyId,
-        name: data.name.trim(),
+        companyId:
+          data.companyId,
+        name:
+          data.name.trim(),
         description:
           normalizeOptionalText(
             data.description,
           ),
-        active: data.active ?? true,
-        sortOrder: data.sortOrder ?? 0,
+        active:
+          data.active ?? true,
+        sortOrder:
+          data.sortOrder ?? 0,
       },
     });
   },
@@ -72,24 +106,35 @@ export const sectorRepository = {
     sectorId: string,
     data: SectorUpdateData,
   ) {
-    const updateData: SectorUpdateData = {};
+    const updateData:
+      SectorUpdateData = {};
 
     if (data.name !== undefined) {
-      updateData.name = data.name.trim();
+      updateData.name =
+        data.name.trim();
     }
 
-    if (data.description !== undefined) {
+    if (
+      data.description !==
+      undefined
+    ) {
       updateData.description =
         normalizeOptionalText(
           data.description,
         );
     }
 
-    if (data.active !== undefined) {
-      updateData.active = data.active;
+    if (
+      data.active !== undefined
+    ) {
+      updateData.active =
+        data.active;
     }
 
-    if (data.sortOrder !== undefined) {
+    if (
+      data.sortOrder !==
+      undefined
+    ) {
       updateData.sortOrder =
         data.sortOrder;
     }
