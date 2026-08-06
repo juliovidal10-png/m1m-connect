@@ -651,6 +651,21 @@ export default function ChatInbox() {
     useState("");
 
   const [
+    isConversationSearchOpen,
+    setIsConversationSearchOpen,
+  ] = useState(false);
+
+  const [
+    conversationSearchQuery,
+    setConversationSearchQuery,
+  ] = useState("");
+
+  const [
+    activeConversationMatchIndex,
+    setActiveConversationMatchIndex,
+  ] = useState(0);
+
+  const [
     isEmojiPickerOpen,
     setIsEmojiPickerOpen,
   ] = useState(false);
@@ -736,6 +751,17 @@ export default function ChatInbox() {
 
   const messagesEndRef =
     useRef<HTMLDivElement | null>(null);
+
+  const conversationSearchInputRef =
+    useRef<HTMLInputElement | null>(null);
+
+  const messageElementRefs =
+    useRef<
+      Map<
+        string,
+        HTMLDivElement
+      >
+    >(new Map());
 
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -1023,6 +1049,43 @@ export default function ChatInbox() {
       };
     }, [messages]);
 
+  const conversationSearchMatches =
+    useMemo(() => {
+      const normalizedQuery =
+        normalizeSearchText(
+          conversationSearchQuery,
+        );
+
+      if (!normalizedQuery) {
+        return [];
+      }
+
+      return reactionData
+        .visibleMessages
+        .filter((message) =>
+          normalizeSearchText(
+            getMessageText(
+              message,
+            ),
+          ).includes(
+            normalizedQuery,
+          ),
+        )
+        .map(
+          (message) =>
+            message.key.id ||
+            message.id,
+        );
+    }, [
+      conversationSearchQuery,
+      reactionData.visibleMessages,
+    ]);
+
+  const activeConversationMatchId =
+    conversationSearchMatches[
+      activeConversationMatchIndex
+    ] ?? null;
+
   const loadChats = useCallback(
     async (
       showLoading = false,
@@ -1238,6 +1301,13 @@ export default function ChatInbox() {
     setForwardMessage(null);
     setForwardSearch("");
     setText("");
+    setIsConversationSearchOpen(
+      false,
+    );
+    setConversationSearchQuery("");
+    setActiveConversationMatchIndex(
+      0,
+    );
 
     if (selectedChat) {
       loadMessages(
@@ -1399,6 +1469,120 @@ export default function ChatInbox() {
       );
     };
   }, [chats]);
+
+  useEffect(() => {
+    setActiveConversationMatchIndex(
+      0,
+    );
+  }, [conversationSearchQuery]);
+
+  useEffect(() => {
+    if (
+      conversationSearchMatches.length ===
+      0
+    ) {
+      setActiveConversationMatchIndex(
+        0,
+      );
+      return;
+    }
+
+    if (
+      activeConversationMatchIndex >=
+      conversationSearchMatches.length
+    ) {
+      setActiveConversationMatchIndex(
+        conversationSearchMatches.length -
+          1,
+      );
+    }
+  }, [
+    activeConversationMatchIndex,
+    conversationSearchMatches.length,
+  ]);
+
+  useEffect(() => {
+    if (
+      !activeConversationMatchId
+    ) {
+      return;
+    }
+
+    const element =
+      messageElementRefs.current.get(
+        activeConversationMatchId,
+      );
+
+    element?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [activeConversationMatchId]);
+
+  useEffect(() => {
+    if (!isConversationSearchOpen) {
+      return;
+    }
+
+    window.requestAnimationFrame(
+      () => {
+        conversationSearchInputRef.current?.focus();
+      },
+    );
+  }, [isConversationSearchOpen]);
+
+  function openConversationSearch() {
+    setIsConversationSearchOpen(true);
+
+    window.requestAnimationFrame(
+      () => {
+        conversationSearchInputRef.current?.focus();
+      },
+    );
+  }
+
+  function closeConversationSearch() {
+    setIsConversationSearchOpen(false);
+    setConversationSearchQuery("");
+    setActiveConversationMatchIndex(
+      0,
+    );
+  }
+
+  function goToPreviousConversationMatch() {
+    if (
+      conversationSearchMatches.length ===
+      0
+    ) {
+      return;
+    }
+
+    setActiveConversationMatchIndex(
+      (currentIndex) =>
+        currentIndex === 0
+          ? conversationSearchMatches.length -
+            1
+          : currentIndex - 1,
+    );
+  }
+
+  function goToNextConversationMatch() {
+    if (
+      conversationSearchMatches.length ===
+      0
+    ) {
+      return;
+    }
+
+    setActiveConversationMatchIndex(
+      (currentIndex) =>
+        currentIndex ===
+        conversationSearchMatches.length -
+          1
+          ? 0
+          : currentIndex + 1,
+    );
+  }
 
   useEffect(() => {
     if (!isEmojiPickerOpen) {
@@ -3081,20 +3265,208 @@ export default function ChatInbox() {
       >
         {selectedChat ? (
           <>
-            <header className="flex h-20 shrink-0 items-center justify-between border-b border-black/5 bg-white px-6">
-              <div>
-                <h2 className="font-bold">
-                  {getChatName(
-                    selectedChat,
-                    contactsMap,
-                  )}
-                </h2>
+            <header className="flex h-20 shrink-0 items-center justify-between gap-4 border-b border-black/5 bg-white px-6">
+              {isConversationSearchOpen ? (
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/10 bg-[#f7f7f8] px-3">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="h-5 w-5 shrink-0 text-black/45"
+                    >
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="6.5"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="m16 16 4 4"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
 
-                <p className="mt-1 text-xs text-green-600">
-                  Atualização automática
-                  ativa
-                </p>
-              </div>
+                    <input
+                      ref={
+                        conversationSearchInputRef
+                      }
+                      value={
+                        conversationSearchQuery
+                      }
+                      onChange={(event) =>
+                        setConversationSearchQuery(
+                          event.target.value,
+                        )
+                      }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key ===
+                          "Escape"
+                        ) {
+                          closeConversationSearch();
+                        }
+
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          if (
+                            event.shiftKey
+                          ) {
+                            goToPreviousConversationMatch();
+                          } else {
+                            goToNextConversationMatch();
+                          }
+                        }
+                      }}
+                      placeholder="Pesquisar nesta conversa"
+                      className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-black/35"
+                    />
+                  </div>
+
+                  <span className="min-w-[64px] text-center text-xs font-medium text-black/45">
+                    {conversationSearchQuery.trim()
+                      ? conversationSearchMatches.length >
+                        0
+                        ? `${activeConversationMatchIndex + 1} de ${conversationSearchMatches.length}`
+                        : "0 de 0"
+                      : ""}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={
+                      goToPreviousConversationMatch
+                    }
+                    disabled={
+                      conversationSearchMatches.length ===
+                      0
+                    }
+                    title="Resultado anterior"
+                    aria-label="Resultado anterior"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <path
+                        d="m6 15 6-6 6 6"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      goToNextConversationMatch
+                    }
+                    disabled={
+                      conversationSearchMatches.length ===
+                      0
+                    }
+                    title="Próximo resultado"
+                    aria-label="Próximo resultado"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <path
+                        d="m6 9 6 6 6-6"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={
+                      closeConversationSearch
+                    }
+                    title="Fechar pesquisa"
+                    aria-label="Fechar pesquisa"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05]"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <path
+                        d="M6 6l12 12M18 6 6 18"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="min-w-0">
+                    <h2 className="truncate font-bold">
+                      {getChatName(
+                        selectedChat,
+                        contactsMap,
+                      )}
+                    </h2>
+
+                    <p className="mt-1 text-xs text-green-600">
+                      Atualização automática
+                      ativa
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      openConversationSearch
+                    }
+                    title="Pesquisar nesta conversa"
+                    aria-label="Pesquisar nesta conversa"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] hover:text-[#e93800]"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                      className="h-5 w-5"
+                    >
+                      <circle
+                        cx="11"
+                        cy="11"
+                        r="6.5"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      />
+                      <path
+                        d="m16 16 4 4"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </>
+              )}
             </header>
 
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
@@ -3121,6 +3493,15 @@ export default function ChatInbox() {
                     const messageId =
                       message.key.id ||
                       message.id;
+
+                    const isConversationMatch =
+                      conversationSearchMatches.includes(
+                        messageId,
+                      );
+
+                    const isActiveConversationMatch =
+                      activeConversationMatchId ===
+                      messageId;
 
                     const messageReactions =
                       reactionData
@@ -3157,7 +3538,25 @@ export default function ChatInbox() {
                         key={
                           message.id
                         }
-                        className={`group flex items-start gap-2 ${
+                        ref={(element) => {
+                          if (element) {
+                            messageElementRefs.current.set(
+                              messageId,
+                              element,
+                            );
+                          } else {
+                            messageElementRefs.current.delete(
+                              messageId,
+                            );
+                          }
+                        }}
+                        className={`group flex items-start gap-2 rounded-2xl transition ${
+                          isActiveConversationMatch
+                            ? "bg-amber-200/55 ring-4 ring-amber-200/35"
+                            : isConversationMatch
+                              ? "bg-amber-100/35"
+                              : ""
+                        } ${
                           isFromMe
                             ? "justify-end"
                             : "justify-start"
