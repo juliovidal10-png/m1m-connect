@@ -71,6 +71,10 @@ export async function PUT(
           email: body.email,
           website: body.website,
           instagram: body.instagram,
+          humanReturnMode:
+            body.humanReturnMode,
+          humanClosingMessage:
+            body.humanClosingMessage,
         },
       );
 

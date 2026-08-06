@@ -1,9 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import {
-  useCallback,
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -11,6 +10,18 @@ import CustomerAudioPlayer from "./CustomerAudioPlayer";
 import CustomerDocumentViewer from "./CustomerDocumentViewer";
 import CustomerImageViewer from "./CustomerImageViewer";
 import CustomerVideoPlayer from "./CustomerVideoPlayer";
+
+import CustomerHeader from "@/components/customer/CustomerHeader";
+import CustomerInformation from "@/components/customer/CustomerInformation";
+import CustomerNotes from "@/components/customer/CustomerNotes";
+import CustomerReminders from "@/components/customer/CustomerReminders";
+import CustomerFiles from "@/components/customer/CustomerFiles";
+import CustomerActions from "@/components/customer/CustomerActions";
+import ReceiptPanel from "@/components/layout/ReceiptPanel";
+import useCustomer from "@/hooks/customer/useCustomer";
+import useCustomerReminders from "@/hooks/customer/useCustomerReminders";
+import useCustomerMedia from "@/hooks/customer/useCustomerMedia";
+import useCustomerReceipts from "@/hooks/customer/useCustomerReceipts";
 
 import type { ChatMessage } from "./MessageRenderer";
 
@@ -23,6 +34,8 @@ type CustomerPanelProps = {
   profilePicUrl?: string | null;
   lastInteraction?: string;
   messages?: ChatMessage[];
+  conversationHref?: string;
+  initialTab?: CustomerTab;
 };
 
 type CustomerTab =
@@ -31,276 +44,80 @@ type CustomerTab =
   | "lembretes"
   | "arquivos";
 
-type MediaCategory =
-  | "imageMessage"
-  | "audioMessage"
-  | "videoMessage"
-  | "documentMessage";
+type IconName =
+  | "user"
+  | "folder"
+  | "calendar"
+  | "note"
+  | "message";
 
-type MediaFilter = "all" | MediaCategory;
+function AppIcon({
+  name,
+  className = "h-4 w-4",
+}: {
+  name: IconName;
+  className?: string;
+}) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: `${className} shrink-0`,
+    width: 16,
+    height: 16,
+    style: {
+      width: 16,
+      height: 16,
+      minWidth: 16,
+      minHeight: 16,
+      display: "block",
+    },
+    "aria-hidden": true,
+  };
 
-type CustomerRecord = {
-  id: string;
-  companyId: string;
-  remoteJid: string;
-  name: string | null;
-  phone: string | null;
-  company: string | null;
-  city: string | null;
-  responsible: string | null;
-  observations: string | null;
-  status: string | null;
-};
-
-type ReminderRecord = {
-  id: string;
-  companyId: string;
-  customerId: string;
-  title: string;
-  description: string | null;
-  remindAt: string;
-  responsible: string | null;
-  status: string;
-  completedAt: string | null;
-  notifiedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-function getInitial(name: string) {
-  return name.trim().charAt(0).toUpperCase() || "?";
-}
-
-function formatMessageTime(timestamp: number) {
-  const date = new Date(timestamp * 1000);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function formatReminderDate(value: string) {
-  const reminderDate = new Date(value);
-
-  if (Number.isNaN(reminderDate.getTime())) {
-    return "Data indisponível";
-  }
-
-  const now = new Date();
-  const differenceInMilliseconds =
-    reminderDate.getTime() - now.getTime();
-
-  const minuteInMilliseconds = 60_000;
-  const hourInMilliseconds =
-    60 * minuteInMilliseconds;
-  const dayInMilliseconds =
-    24 * hourInMilliseconds;
-
-  const formatTime = (date: Date) =>
-    new Intl.DateTimeFormat("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date);
-
-  const startOfToday = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  );
-
-  const startOfReminderDay = new Date(
-    reminderDate.getFullYear(),
-    reminderDate.getMonth(),
-    reminderDate.getDate(),
-  );
-
-  const calendarDayDifference = Math.round(
-    (startOfReminderDay.getTime() -
-      startOfToday.getTime()) /
-      dayInMilliseconds,
-  );
-
-  if (differenceInMilliseconds < 0) {
-    const delayInMilliseconds =
-      Math.abs(differenceInMilliseconds);
-
-    if (delayInMilliseconds < hourInMilliseconds) {
-      const minutes = Math.max(
-        1,
-        Math.floor(
-          delayInMilliseconds /
-            minuteInMilliseconds,
-        ),
-      );
-
-      return `Atrasado há ${minutes} minuto${
-        minutes === 1 ? "" : "s"
-      }`;
-    }
-
-    if (delayInMilliseconds < dayInMilliseconds) {
-      const hours = Math.max(
-        1,
-        Math.floor(
-          delayInMilliseconds /
-            hourInMilliseconds,
-        ),
-      );
-
-      return `Atrasado há ${hours} hora${
-        hours === 1 ? "" : "s"
-      }`;
-    }
-
-    const days = Math.max(
-      1,
-      Math.floor(
-        delayInMilliseconds /
-          dayInMilliseconds,
-      ),
-    );
-
-    return `Atrasado há ${days} dia${
-      days === 1 ? "" : "s"
-    }`;
-  }
-
-  if (calendarDayDifference === 0) {
-    return `Retorno previsto para hoje às ${formatTime(
-      reminderDate,
-    )}`;
-  }
-
-  if (calendarDayDifference === 1) {
-    return `Retorno amanhã às ${formatTime(
-      reminderDate,
-    )}`;
-  }
-
-  if (calendarDayDifference > 1) {
-    return `Retorno em ${calendarDayDifference} dias`;
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(reminderDate);
-}
-
-function getLocalDateInputValue() {
-  const now = new Date();
-
-  const localDate = new Date(
-    now.getTime() -
-      now.getTimezoneOffset() * 60_000,
-  );
-
-  return localDate.toISOString().slice(0, 10);
-}
-
-function getLocalTimeInputValue() {
-  const date = new Date(
-    Date.now() + 30 * 60_000,
-  );
-
-  return [
-    date.getHours().toString().padStart(2, "0"),
-    date.getMinutes().toString().padStart(2, "0"),
-  ].join(":");
-}
-
-function getDocumentName(message: ChatMessage) {
-  return (
-    message.message?.documentMessage?.fileName?.trim() ||
-    message.message?.documentMessage?.title?.trim() ||
-    "Documento"
-  );
-}
-
-function getMediaLabel(message: ChatMessage) {
-  if (message.messageType === "imageMessage") {
+  if (name === "user") {
     return (
-      message.message?.imageMessage?.caption?.trim() ||
-      "Imagem"
+      <svg {...commonProps}>
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
     );
   }
 
-  if (message.messageType === "audioMessage") {
-    const seconds =
-      message.message?.audioMessage?.seconds;
-
-    return typeof seconds === "number"
-      ? `Áudio de ${seconds} segundo${
-          seconds === 1 ? "" : "s"
-        }`
-      : "Áudio";
-  }
-
-  if (message.messageType === "videoMessage") {
+  if (name === "folder") {
     return (
-      message.message?.videoMessage?.caption?.trim() ||
-      "Vídeo"
+      <svg {...commonProps}>
+        <path d="M3 7.5h6l2 2H21v8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Z" />
+        <path d="M3 7.5V6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1.5" />
+      </svg>
     );
   }
 
-  if (message.messageType === "documentMessage") {
-    return getDocumentName(message);
+  if (name === "calendar") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M16 3v4M8 3v4M3 10h18" />
+      </svg>
+    );
   }
 
-  return "Arquivo";
-}
-
-function getMediaIcon(messageType?: string) {
-  if (messageType === "imageMessage") {
-    return "📷";
+  if (name === "note") {
+    return (
+      <svg {...commonProps}>
+        <path d="M5 4h14v16H5z" />
+        <path d="M8 8h8M8 12h8M8 16h5" />
+      </svg>
+    );
   }
-
-  if (messageType === "audioMessage") {
-    return "🎤";
-  }
-
-  if (messageType === "videoMessage") {
-    return "🎥";
-  }
-
-  if (messageType === "documentMessage") {
-    return "📄";
-  }
-
-  return "📎";
-}
-
-function getFilterLabel(filter: MediaFilter) {
-  if (filter === "imageMessage") {
-    return "Imagens";
-  }
-
-  if (filter === "audioMessage") {
-    return "Áudios";
-  }
-
-  if (filter === "videoMessage") {
-    return "Vídeos";
-  }
-
-  if (filter === "documentMessage") {
-    return "Documentos";
-  }
-
-  return "Todos os arquivos";
-}
-
-function isReminderOverdue(remindAt: string) {
-  const date = new Date(remindAt);
 
   return (
-    !Number.isNaN(date.getTime()) &&
-    date.getTime() < Date.now()
+    <svg {...commonProps}>
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+    </svg>
   );
 }
 
@@ -313,311 +130,120 @@ export default function CustomerPanel({
   profilePicUrl,
   lastInteraction,
   messages = [],
+  conversationHref,
+  initialTab = "dados",
 }: CustomerPanelProps) {
   const [activeTab, setActiveTab] =
     useState<CustomerTab>("dados");
 
-  const [activeMediaFilter, setActiveMediaFilter] =
-    useState<MediaFilter>("all");
-
   const [
-    selectedImageMessage,
-    setSelectedImageMessage,
-  ] = useState<ChatMessage | null>(null);
-
-  const [
-    selectedAudioMessage,
-    setSelectedAudioMessage,
-  ] = useState<ChatMessage | null>(null);
-
-  const [
-    selectedVideoMessage,
-    setSelectedVideoMessage,
-  ] = useState<ChatMessage | null>(null);
-
-  const [
-    selectedDocumentMessage,
-    setSelectedDocumentMessage,
-  ] = useState<ChatMessage | null>(null);
-
-  const [customerId, setCustomerId] =
-    useState<string | null>(null);
-
-  const [company, setCompany] = useState("");
-  const [city, setCity] = useState("");
-
-  const [responsible, setResponsible] =
-    useState("Julinho");
-
-  const [attendanceStatus, setAttendanceStatus] =
-    useState("IA");
-
-  const [notes, setNotes] = useState("");
-
-  const [reminders, setReminders] = useState<
-    ReminderRecord[]
-  >([]);
-
-  const [reminderTitle, setReminderTitle] =
-    useState("");
-
-  const [
-    reminderDescription,
-    setReminderDescription,
-  ] = useState("");
-
-  const [reminderDate, setReminderDate] =
-    useState(getLocalDateInputValue);
-
-  const [reminderTime, setReminderTime] =
-    useState(getLocalTimeInputValue);
-
-  const [
-    reminderResponsible,
-    setReminderResponsible,
-  ] = useState("Julinho");
-
-  const [
-    isLoadingCustomer,
-    setIsLoadingCustomer,
-  ] = useState(false);
-
-  const [
-    isLoadingReminders,
-    setIsLoadingReminders,
-  ] = useState(false);
-
-  const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [isAssigning, setIsAssigning] =
-    useState(false);
-
-  const [
-    isSavingReminder,
-    setIsSavingReminder,
-  ] = useState(false);
-
-  const [
-    completingReminderId,
-    setCompletingReminderId,
+    selectedReceiptId,
+    setSelectedReceiptId,
   ] = useState<string | null>(null);
 
-  const [
-    feedbackMessage,
-    setFeedbackMessage,
-  ] = useState("");
-
-  const [
-    feedbackType,
-    setFeedbackType,
-  ] = useState<"success" | "error" | "">("");
-
-  const clearFeedback = useCallback(() => {
-    setFeedbackMessage("");
-    setFeedbackType("");
-  }, []);
-
-  const showSuccess = useCallback(
-    (message: string) => {
-      setFeedbackType("success");
-      setFeedbackMessage(message);
-    },
-    [],
-  );
-
-  const showError = useCallback(
-    (message: string) => {
-      setFeedbackType("error");
-      setFeedbackMessage(message);
-    },
-    [],
-  );
-
-  const loadReminders = useCallback(
-    async (
-      currentCustomerId: string,
-      signal?: AbortSignal,
-    ) => {
-      setIsLoadingReminders(true);
-
-      try {
-        const params = new URLSearchParams({
-          customerId: currentCustomerId,
-        });
-
-        const response = await fetch(
-          `/api/reminders?${params.toString()}`,
-          {
-            cache: "no-store",
-            signal,
-          },
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.error ||
-              "Não foi possível carregar os lembretes.",
-          );
-        }
-
-        setReminders(
-          Array.isArray(data) ? data : [],
-        );
-      } catch (error) {
-        if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
-        ) {
-          return;
-        }
-
-        showError(
-          error instanceof Error
-            ? error.message
-            : "Erro ao carregar os lembretes.",
-        );
-      } finally {
-        if (!signal?.aborted) {
-          setIsLoadingReminders(false);
-        }
-      }
-    },
-    [showError],
-  );
-
   useEffect(() => {
-    if (isOpen) {
-      setActiveTab("dados");
-      setActiveMediaFilter("all");
-      setSelectedImageMessage(null);
-      setSelectedAudioMessage(null);
-      setSelectedVideoMessage(null);
-      setSelectedDocumentMessage(null);
-      setCustomerId(null);
-      setReminders([]);
-      setReminderTitle("");
-      setReminderDescription("");
-      setReminderDate(getLocalDateInputValue());
-      setReminderTime(getLocalTimeInputValue());
-      setReminderResponsible("Julinho");
-      setAttendanceStatus("IA");
-      clearFeedback();
-    }
-  }, [isOpen, clearFeedback]);
-
-  useEffect(() => {
-    if (!isOpen || !remoteJid) {
+    if (!isOpen) {
       return;
     }
 
-    const controller = new AbortController();
-
-    async function loadCustomer() {
-      setIsLoadingCustomer(true);
-      clearFeedback();
-
-      setCustomerId(null);
-      setCompany("");
-      setCity("");
-      setResponsible("Julinho");
-      setAttendanceStatus("IA");
-      setNotes("");
-      setReminders([]);
-
-      try {
-        const params = new URLSearchParams({
-          remoteJid,
-        });
-
-        const response = await fetch(
-          `/api/customers?${params.toString()}`,
-          {
-            cache: "no-store",
-            signal: controller.signal,
-          },
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.error ||
-              "Não foi possível carregar os dados do cliente.",
-          );
-        }
-
-        const customer =
-          data as CustomerRecord | null;
-
-        if (!customer) {
-          return;
-        }
-
-        setCustomerId(customer.id);
-        setCompany(customer.company || "");
-        setCity(customer.city || "");
-
-        setResponsible(
-          customer.responsible || "Julinho",
-        );
-
-        setAttendanceStatus(
-          customer.status || "IA",
-        );
-
-        setReminderResponsible(
-          customer.responsible || "Julinho",
-        );
-
-        setNotes(customer.observations || "");
-
-        await loadReminders(
-          customer.id,
-          controller.signal,
-        );
-      } catch (error) {
-        if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
-        ) {
-          return;
-        }
-
-        showError(
-          error instanceof Error
-            ? error.message
-            : "Erro ao carregar os dados do cliente.",
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingCustomer(false);
-        }
-      }
-    }
-
-    loadCustomer();
-
-    return () => {
-      controller.abort();
-    };
+    setActiveTab(initialTab);
   }, [
     isOpen,
-    remoteJid,
-    clearFeedback,
-    loadReminders,
-    showError,
+    initialTab,
   ]);
+
+  const {
+    customerId,
+    company,
+    setCompany,
+    city,
+    setCity,
+    responsible,
+    setResponsible,
+    attendanceStatus,
+    notes,
+    setNotes,
+    isLoadingCustomer,
+    isSaving,
+    isAssigning,
+    feedbackMessage,
+    feedbackType,
+    clearFeedback,
+    showSuccess,
+    showError,
+    saveCustomerRecord,
+    handleSaveCustomer,
+    handleAssignResponsible,
+  } = useCustomer({
+    isOpen,
+    remoteJid,
+    name,
+    phone,
+  });
+
+  const {
+    reminders,
+    reminderTitle,
+    setReminderTitle,
+    reminderDescription,
+    setReminderDescription,
+    reminderDate,
+    setReminderDate,
+    reminderTime,
+    setReminderTime,
+    reminderResponsible,
+    setReminderResponsible,
+    isLoadingReminders,
+    isSavingReminder,
+    completingReminderId,
+    handleCreateReminder,
+    handleCompleteReminder,
+  } = useCustomerReminders({
+    isOpen,
+    customerId,
+    responsible,
+    saveCustomerRecord,
+    clearFeedback,
+    showSuccess,
+    showError,
+  });
+
+  const {
+    activeMediaFilter,
+    setActiveMediaFilter,
+    selectedImageMessage,
+    setSelectedImageMessage,
+    selectedAudioMessage,
+    setSelectedAudioMessage,
+    selectedVideoMessage,
+    setSelectedVideoMessage,
+    selectedDocumentMessage,
+    setSelectedDocumentMessage,
+    mediaMessages,
+    mediaCards,
+    filteredMedia,
+    visibleMedia,
+    hasOpenViewer,
+  } = useCustomerMedia({
+    isOpen,
+    messages,
+  });
+
+  const {
+    receipts,
+    isLoadingReceipts,
+    receiptsError,
+    reloadReceipts,
+  } = useCustomerReceipts({
+    isOpen,
+    customerId,
+  });
 
   useEffect(() => {
     if (
       !isOpen ||
-      selectedImageMessage ||
-      selectedAudioMessage ||
-      selectedVideoMessage ||
-      selectedDocumentMessage
+      hasOpenViewer ||
+      Boolean(selectedReceiptId)
     ) {
       return;
     }
@@ -642,335 +268,9 @@ export default function CustomerPanel({
   }, [
     isOpen,
     onClose,
-    selectedImageMessage,
-    selectedAudioMessage,
-    selectedVideoMessage,
-    selectedDocumentMessage,
+    hasOpenViewer,
+    selectedReceiptId,
   ]);
-
-  const mediaMessages = useMemo(
-    () =>
-      messages
-        .filter((message) =>
-          [
-            "imageMessage",
-            "audioMessage",
-            "videoMessage",
-            "documentMessage",
-          ].includes(message.messageType || ""),
-        )
-        .sort(
-          (firstMessage, secondMessage) =>
-            secondMessage.messageTimestamp -
-            firstMessage.messageTimestamp,
-        ),
-    [messages],
-  );
-
-  const mediaCounts = useMemo(() => {
-    const counts: Record<MediaCategory, number> = {
-      imageMessage: 0,
-      audioMessage: 0,
-      videoMessage: 0,
-      documentMessage: 0,
-    };
-
-    for (const message of mediaMessages) {
-      const messageType =
-        message.messageType as MediaCategory;
-
-      if (messageType in counts) {
-        counts[messageType] += 1;
-      }
-    }
-
-    return counts;
-  }, [mediaMessages]);
-
-  const filteredMedia = useMemo(() => {
-    if (activeMediaFilter === "all") {
-      return mediaMessages;
-    }
-
-    return mediaMessages.filter(
-      (message) =>
-        message.messageType === activeMediaFilter,
-    );
-  }, [activeMediaFilter, mediaMessages]);
-
-  const visibleMedia = useMemo(
-    () => filteredMedia.slice(0, 20),
-    [filteredMedia],
-  );
-
-  async function saveCustomerRecord() {
-    const response = await fetch("/api/customers", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        remoteJid,
-        name,
-        phone,
-        company,
-        city,
-        responsible,
-        observations: notes,
-        status: attendanceStatus,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.error ||
-          "Não foi possível salvar os dados.",
-      );
-    }
-
-    const customer = data as CustomerRecord;
-
-    setCustomerId(customer.id);
-
-    return customer;
-  }
-
-  async function handleSaveCustomer() {
-    if (isSaving || !remoteJid) {
-      return;
-    }
-
-    setIsSaving(true);
-    clearFeedback();
-
-    try {
-      await saveCustomerRecord();
-
-      showSuccess(
-        "Dados do cliente salvos com sucesso.",
-      );
-    } catch (error) {
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao salvar os dados do cliente.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleAssignResponsible() {
-    if (isAssigning) {
-      return;
-    }
-
-    if (!customerId) {
-      showError(
-        "Salve o cliente antes de assumir o atendimento.",
-      );
-      return;
-    }
-
-    setIsAssigning(true);
-    clearFeedback();
-
-    try {
-      const response = await fetch(
-        "/api/customers/assign",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            customerId,
-            responsibleId: "julio",
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Não foi possível assumir o atendimento.",
-        );
-      }
-
-      setResponsible("Julinho");
-      setReminderResponsible("Julinho");
-      setAttendanceStatus("HUMANO");
-
-      showSuccess(
-        "Atendimento assumido com sucesso.",
-      );
-    } catch (error) {
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao assumir o atendimento.",
-      );
-    } finally {
-      setIsAssigning(false);
-    }
-  }
-
-  async function handleCreateReminder() {
-    if (isSavingReminder) {
-      return;
-    }
-
-    const normalizedTitle =
-      reminderTitle.trim();
-
-    if (!normalizedTitle) {
-      showError(
-        "Informe o título do lembrete.",
-      );
-
-      return;
-    }
-
-    if (!reminderDate || !reminderTime) {
-      showError(
-        "Informe a data e o horário do lembrete.",
-      );
-
-      return;
-    }
-
-    const remindAt = new Date(
-      `${reminderDate}T${reminderTime}:00`,
-    );
-
-    if (Number.isNaN(remindAt.getTime())) {
-      showError(
-        "A data ou o horário do lembrete é inválido.",
-      );
-
-      return;
-    }
-
-    setIsSavingReminder(true);
-    clearFeedback();
-
-    try {
-      let currentCustomerId = customerId;
-
-      if (!currentCustomerId) {
-        const savedCustomer =
-          await saveCustomerRecord();
-
-        currentCustomerId = savedCustomer.id;
-      }
-
-      const response = await fetch(
-        "/api/reminders",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            customerId: currentCustomerId,
-            title: normalizedTitle,
-            description:
-              reminderDescription.trim() || null,
-            remindAt: remindAt.toISOString(),
-            responsible:
-              reminderResponsible.trim() || null,
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Não foi possível criar o lembrete.",
-        );
-      }
-
-      setReminderTitle("");
-      setReminderDescription("");
-      setReminderDate(getLocalDateInputValue());
-      setReminderTime(getLocalTimeInputValue());
-
-      showSuccess(
-        "Lembrete criado com sucesso.",
-      );
-
-      await loadReminders(currentCustomerId);
-    } catch (error) {
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao criar o lembrete.",
-      );
-    } finally {
-      setIsSavingReminder(false);
-    }
-  }
-
-  async function handleCompleteReminder(
-    reminderId: string,
-  ) {
-    if (completingReminderId) {
-      return;
-    }
-
-    setCompletingReminderId(reminderId);
-    clearFeedback();
-
-    try {
-      const response = await fetch(
-        "/api/reminders",
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: reminderId,
-            action: "complete",
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            "Não foi possível concluir o lembrete.",
-        );
-      }
-
-      setReminders((currentReminders) =>
-        currentReminders.filter(
-          (reminder) =>
-            reminder.id !== reminderId,
-        ),
-      );
-
-      showSuccess(
-        "Lembrete concluído com sucesso.",
-      );
-    } catch (error) {
-      showError(
-        error instanceof Error
-          ? error.message
-          : "Erro ao concluir o lembrete.",
-      );
-    } finally {
-      setCompletingReminderId(null);
-    }
-  }
 
   if (!isOpen) {
     return null;
@@ -979,59 +279,27 @@ export default function CustomerPanel({
   const tabs: Array<{
     id: CustomerTab;
     label: string;
-    icon: string;
+    icon: IconName;
   }> = [
     {
       id: "dados",
       label: "Dados",
-      icon: "👤",
-    },
-    {
-      id: "notas",
-      label: "Notas",
-      icon: "📝",
-    },
-    {
-      id: "lembretes",
-      label: "Lembretes",
-      icon: "📅",
+      icon: "user",
     },
     {
       id: "arquivos",
-      label: "Arquivos",
-      icon: "📎",
-    },
-  ];
-
-  const mediaCards: Array<{
-    label: string;
-    icon: string;
-    count: number;
-    filter: MediaCategory;
-  }> = [
-    {
-      label: "Imagens",
-      icon: "📷",
-      count: mediaCounts.imageMessage,
-      filter: "imageMessage",
-    },
-    {
-      label: "Áudios",
-      icon: "🎤",
-      count: mediaCounts.audioMessage,
-      filter: "audioMessage",
-    },
-    {
-      label: "Vídeos",
-      icon: "🎥",
-      count: mediaCounts.videoMessage,
-      filter: "videoMessage",
-    },
-    {
       label: "Documentos",
-      icon: "📄",
-      count: mediaCounts.documentMessage,
-      filter: "documentMessage",
+      icon: "folder",
+    },
+    {
+      id: "lembretes",
+      label: "Pendências",
+      icon: "calendar",
+    },
+    {
+      id: "notas",
+      label: "Observações",
+      icon: "note",
     },
   ];
 
@@ -1041,7 +309,8 @@ export default function CustomerPanel({
 
   return (
     <>
-      <div className="absolute inset-0 z-40 flex justify-end bg-black/20">
+      {!selectedReceiptId && (
+        <div className="absolute inset-0 z-40 flex justify-end bg-black/20">
         <button
           type="button"
           aria-label="Fechar central do cliente"
@@ -1054,22 +323,37 @@ export default function CustomerPanel({
             <div className="flex h-20 items-center justify-between px-6">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">
-                  CRM
+                  Contato
                 </p>
 
                 <h2 className="mt-1 text-xl font-bold">
-                  Central do cliente
+                  Central do Cliente
                 </h2>
               </div>
 
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar painel"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl text-black/45 transition hover:bg-black/[0.03]"
-              >
-                ×
-              </button>
+              <div className="flex items-center gap-2">
+                {conversationHref && (
+                  <Link
+                    href={conversationHref}
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#ff3d00]/20 bg-white px-3 text-xs font-bold text-[#e93800] transition hover:bg-[#fff5f1]"
+                  >
+                    <AppIcon
+                      name="message"
+                      className="h-4 w-4"
+                    />
+                    Conversa
+                  </Link>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Fechar painel"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl text-black/45 transition hover:bg-black/[0.03]"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             <div className="flex overflow-x-auto px-2">
@@ -1091,9 +375,10 @@ export default function CustomerPanel({
                         : "text-black/40 hover:text-black/70"
                     }`}
                   >
-                    <span aria-hidden="true">
-                      {tab.icon}
-                    </span>
+                    <AppIcon
+                      name={tab.icon}
+                      className="h-3.5 w-3.5"
+                    />
 
                     {tab.label}
 
@@ -1114,35 +399,26 @@ export default function CustomerPanel({
           </header>
 
           <div className="flex-1 overflow-y-auto">
-            <section className="border-b border-black/5 p-6">
-              <div className="flex items-center gap-4">
-                {profilePicUrl ? (
-                  <img
-                    src={profilePicUrl}
-                    alt=""
-                    className="h-16 w-16 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] text-xl font-bold text-[#e93800]">
-                    {getInitial(name)}
-                  </div>
-                )}
-
-                <div className="min-w-0">
-                  <h3 className="truncate text-lg font-bold">
-                    {name}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-black/45">
-                    {phone}
-                  </p>
-
-                  <span className="mt-2 inline-flex rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
-                    WhatsApp conectado
-                  </span>
-                </div>
-              </div>
-            </section>
+            <div className="border-b border-black/5 bg-[#f7f7f8] p-4">
+              <CustomerHeader
+                avatar={profilePicUrl}
+                name={name}
+                phone={phone}
+                company={company}
+                city={city}
+                responsible={responsible}
+                status={attendanceStatus}
+                lastInteraction={lastInteraction}
+                remindersCount={reminders.length}
+                documentsCount={
+                  mediaMessages.length +
+                  receipts.length
+                }
+                onOpenDocuments={() =>
+                  setActiveTab("arquivos")
+                }
+              />
+            </div>
 
             {isLoadingCustomer && (
               <div className="border-b border-black/5 px-6 py-3 text-xs font-medium text-black/40">
@@ -1163,750 +439,156 @@ export default function CustomerPanel({
             )}
 
             {activeTab === "dados" && (
-              <div className="space-y-5 p-6">
-                <section>
-                  <label
-                    htmlFor="customer-company"
-                    className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                  >
-                    Empresa
-                  </label>
-
-                  <input
-                    id="customer-company"
-                    type="text"
-                    value={company}
-                    onChange={(event) =>
-                      setCompany(event.target.value)
-                    }
-                    disabled={isLoadingCustomer}
-                    placeholder="Nome da empresa"
-                    className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:bg-black/[0.03]"
-                  />
-                </section>
-
-                <section>
-                  <label
-                    htmlFor="customer-city"
-                    className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                  >
-                    Cidade
-                  </label>
-
-                  <input
-                    id="customer-city"
-                    type="text"
-                    value={city}
-                    onChange={(event) =>
-                      setCity(event.target.value)
-                    }
-                    disabled={isLoadingCustomer}
-                    placeholder="Cidade do cliente"
-                    className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:bg-black/[0.03]"
-                  />
-                </section>
-
-                <section>
-                  <label
-                    htmlFor="customer-responsible"
-                    className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                  >
-                    Responsável
-                  </label>
-
-                  <select
-                    id="customer-responsible"
-                    value={responsible}
-                    onChange={(event) =>
-                      setResponsible(
-                        event.target.value,
-                      )
-                    }
-                    disabled={isLoadingCustomer}
-                    className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:bg-black/[0.03]"
-                  >
-                    <option value="Julinho">
-                      Julinho
-                    </option>
-
-                    <option value="">
-                      Sem responsável
-                    </option>
-                  </select>
-
-                  <div
-                    className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${
-                      attendanceStatus === "HUMANO"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-blue-50 text-blue-700"
-                    }`}
-                  >
-                    <span aria-hidden="true">
-                      {attendanceStatus === "HUMANO"
-                        ? "🟢"
-                        : "🤖"}
-                    </span>
-
-                    {attendanceStatus === "HUMANO"
-                      ? `Atendimento assumido por ${
-                          responsible || "um atendente"
-                        }`
-                      : "Atendimento conduzido pela IA"}
-                  </div>
-                </section>
-
-                <section className="rounded-xl bg-black/[0.025] p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                    Última interação
-                  </p>
-
-                  <p className="mt-2 text-sm text-black/60">
-                    {lastInteraction ||
-                      "Informação indisponível"}
-                  </p>
-                </section>
-
-                <section className="rounded-xl border border-dashed border-black/10 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                    Identificação
-                  </p>
-
-                  <div className="mt-3 space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-black/40">
-                        Telefone
-                      </span>
-
-                      <span className="text-right font-medium text-black/70">
-                        {phone}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-black/40">
-                        Canal
-                      </span>
-
-                      <span className="text-right font-medium text-black/70">
-                        WhatsApp
-                      </span>
-                    </div>
-                  </div>
-                </section>
+              <div className="p-6">
+                <CustomerInformation
+                  company={company}
+                  city={city}
+                  responsible={responsible}
+                  phone={phone}
+                  attendanceStatus={
+                    attendanceStatus === "HUMANO"
+                      ? "HUMANO"
+                      : "IA"
+                  }
+                  lastInteraction={lastInteraction}
+                  isLoading={isLoadingCustomer}
+                  onCompanyChange={setCompany}
+                  onCityChange={setCity}
+                  onResponsibleChange={setResponsible}
+                />
               </div>
             )}
 
             {activeTab === "notas" && (
               <div className="p-6">
-                <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                  Estas observações são internas e o
-                  cliente não poderá visualizá-las.
-                </div>
-
-                <section className="mt-5">
-                  <label
-                    htmlFor="customer-notes"
-                    className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                  >
-                    Observações
-                  </label>
-
-                  <textarea
-                    id="customer-notes"
-                    rows={10}
-                    value={notes}
-                    onChange={(event) =>
-                      setNotes(event.target.value)
-                    }
-                    disabled={isLoadingCustomer}
-                    placeholder="Adicione informações importantes sobre este cliente..."
-                    className="mt-2 w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:bg-black/[0.03]"
-                  />
-                </section>
+                <CustomerNotes
+                  value={notes}
+                  isSaving={isSaving}
+                  onChange={setNotes}
+                  onSave={handleSaveCustomer}
+                />
               </div>
             )}
 
             {activeTab === "lembretes" && (
-              <div className="space-y-6 p-6">
-                <section className="rounded-2xl border border-black/10 bg-black/[0.015] p-5">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                        Novo lembrete
-                      </p>
-
-                      <h3 className="mt-1 text-lg font-bold">
-                        Agendar retorno
-                      </h3>
-                    </div>
-
-                    <span className="text-3xl">
-                      📅
-                    </span>
-                  </div>
-
-                  <div className="mt-5 space-y-4">
-                    <section>
-                      <label
-                        htmlFor="reminder-title"
-                        className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                      >
-                        Título
-                      </label>
-
-                      <input
-                        id="reminder-title"
-                        type="text"
-                        value={reminderTitle}
-                        onChange={(event) =>
-                          setReminderTitle(
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Ex.: Ligar para o cliente"
-                        className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                      />
-                    </section>
-
-                    <section>
-                      <label
-                        htmlFor="reminder-description"
-                        className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                      >
-                        Descrição opcional
-                      </label>
-
-                      <textarea
-                        id="reminder-description"
-                        rows={3}
-                        value={reminderDescription}
-                        onChange={(event) =>
-                          setReminderDescription(
-                            event.target.value,
-                          )
-                        }
-                        placeholder="Ex.: Cliente pediu retorno sobre o orçamento."
-                        className="mt-2 w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                      />
-                    </section>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <section>
-                        <label
-                          htmlFor="reminder-date"
-                          className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                        >
-                          Data
-                        </label>
-
-                        <input
-                          id="reminder-date"
-                          type="date"
-                          value={reminderDate}
-                          onChange={(event) =>
-                            setReminderDate(
-                              event.target.value,
-                            )
-                          }
-                          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                        />
-                      </section>
-
-                      <section>
-                        <label
-                          htmlFor="reminder-time"
-                          className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                        >
-                          Horário
-                        </label>
-
-                        <input
-                          id="reminder-time"
-                          type="time"
-                          value={reminderTime}
-                          onChange={(event) =>
-                            setReminderTime(
-                              event.target.value,
-                            )
-                          }
-                          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-3 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                        />
-                      </section>
-                    </div>
-
-                    <section>
-                      <label
-                        htmlFor="reminder-responsible"
-                        className="text-xs font-semibold uppercase tracking-wide text-black/40"
-                      >
-                        Responsável
-                      </label>
-
-                      <select
-                        id="reminder-responsible"
-                        value={reminderResponsible}
-                        onChange={(event) =>
-                          setReminderResponsible(
-                            event.target.value,
-                          )
-                        }
-                        className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                      >
-                        <option value="Julinho">
-                          Julinho
-                        </option>
-
-                        <option value="">
-                          Sem responsável
-                        </option>
-                      </select>
-                    </section>
-
-                    <button
-                      type="button"
-                      onClick={handleCreateReminder}
-                      disabled={isSavingReminder}
-                      className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      {isSavingReminder
-                        ? "Salvando lembrete..."
-                        : "Salvar lembrete"}
-                    </button>
-                  </div>
-                </section>
-
-                <section>
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                        Pendentes
-                      </p>
-
-                      <h3 className="mt-1 text-lg font-bold">
-                        {reminders.length} lembrete
-                        {reminders.length === 1
-                          ? ""
-                          : "s"}
-                      </h3>
-                    </div>
-
-                    {isLoadingReminders && (
-                      <span className="text-xs text-black/40">
-                        Atualizando...
-                      </span>
-                    )}
-                  </div>
-
-                  {!isLoadingReminders &&
-                  reminders.length === 0 ? (
-                    <div className="mt-4 rounded-xl border border-dashed border-black/15 p-6 text-center">
-                      <span className="text-3xl">
-                        ✅
-                      </span>
-
-                      <p className="mt-3 text-sm font-semibold text-black/60">
-                        Nenhum lembrete pendente
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-black/40">
-                        Os próximos retornos deste
-                        cliente aparecerão aqui.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-4 space-y-3">
-                      {reminders.map((reminder) => {
-                        const overdue =
-                          isReminderOverdue(
-                            reminder.remindAt,
-                          );
-
-                        const isCompleting =
-                          completingReminderId ===
-                          reminder.id;
-
-                        return (
-                          <article
-                            key={reminder.id}
-                            className={`rounded-xl border p-4 ${
-                              overdue
-                                ? "border-red-200 bg-red-50"
-                                : "border-black/10 bg-white"
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div
-                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${
-                                  overdue
-                                    ? "bg-red-100"
-                                    : "bg-[#fff1ec]"
-                                }`}
-                              >
-                                {overdue ? "⚠️" : "📅"}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                  <h4 className="break-words text-sm font-bold">
-                                    {reminder.title}
-                                  </h4>
-
-                                  {overdue && (
-                                    <span className="shrink-0 rounded-full bg-red-100 px-2 py-1 text-[9px] font-bold uppercase text-red-700">
-                                      Atrasado
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p
-                                  className={`mt-1 text-xs font-semibold ${
-                                    overdue
-                                      ? "text-red-700"
-                                      : "text-[#e93800]"
-                                  }`}
-                                >
-                                  {formatReminderDate(
-                                    reminder.remindAt,
-                                  )}
-                                </p>
-
-                                {reminder.description && (
-                                  <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-5 text-black/55">
-                                    {reminder.description}
-                                  </p>
-                                )}
-
-                                {reminder.responsible && (
-                                  <p className="mt-3 text-xs text-black/40">
-                                    Responsável:{" "}
-                                    <span className="font-semibold text-black/60">
-                                      {
-                                        reminder.responsible
-                                      }
-                                    </span>
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCompleteReminder(
-                                  reminder.id,
-                                )
-                              }
-                              disabled={
-                                Boolean(
-                                  completingReminderId,
-                                )
-                              }
-                              className="mt-4 h-10 w-full rounded-xl border border-green-200 bg-green-50 text-xs font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-45"
-                            >
-                              {isCompleting
-                                ? "Concluindo..."
-                                : "✓ Concluir lembrete"}
-                            </button>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
+              <div className="p-6">
+                <CustomerReminders
+                  reminders={reminders}
+                  reminderTitle={reminderTitle}
+                  reminderDescription={
+                    reminderDescription
+                  }
+                  reminderDate={reminderDate}
+                  reminderTime={reminderTime}
+                  reminderResponsible={
+                    reminderResponsible
+                  }
+                  isLoading={isLoadingReminders}
+                  isSaving={isSavingReminder}
+                  completingReminderId={
+                    completingReminderId
+                  }
+                  onTitleChange={
+                    setReminderTitle
+                  }
+                  onDescriptionChange={
+                    setReminderDescription
+                  }
+                  onDateChange={
+                    setReminderDate
+                  }
+                  onTimeChange={
+                    setReminderTime
+                  }
+                  onResponsibleChange={
+                    setReminderResponsible
+                  }
+                  onSave={handleCreateReminder}
+                  onComplete={
+                    handleCompleteReminder
+                  }
+                />
               </div>
             )}
 
             {activeTab === "arquivos" && (
-              <div className="p-6">
-                <div className="rounded-xl border border-black/10 bg-black/[0.015] p-5">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-black/40">
-                        Central de arquivos
-                      </p>
-
-                      <h3 className="mt-1 text-lg font-bold">
-                        {mediaMessages.length} arquivo
-                        {mediaMessages.length === 1
-                          ? ""
-                          : "s"}
-                      </h3>
-                    </div>
-
-                    <span className="text-4xl">
-                      📎
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-sm leading-6 text-black/45">
-                    Clique em uma categoria para
-                    filtrar os arquivos desta
-                    conversa.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveMediaFilter("all")
-                  }
-                  className={`mt-4 w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                    activeMediaFilter === "all"
-                      ? "border-[#ff3d00] bg-[#fff1ec] text-[#e93800]"
-                      : "border-black/10 hover:bg-black/[0.02]"
-                  }`}
-                >
-                  📎 Todos os arquivos
-
-                  <span className="float-right">
-                    {mediaMessages.length}
-                  </span>
-                </button>
-
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  {mediaCards.map((card) => {
-                    const isSelected =
-                      activeMediaFilter === card.filter;
-
-                    return (
-                      <button
-                        key={card.label}
-                        type="button"
-                        onClick={() =>
-                          setActiveMediaFilter(
-                            card.filter,
-                          )
-                        }
-                        className={`rounded-xl border p-4 text-left transition ${
-                          isSelected
-                            ? "border-[#ff3d00] bg-[#fff1ec]"
-                            : "border-black/10 hover:bg-black/[0.02]"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <span className="text-2xl">
-                            {card.icon}
-                          </span>
-
-                          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-2 text-xs font-bold text-[#e93800]">
-                            {card.count}
-                          </span>
-                        </div>
-
-                        <p
-                          className={`mt-3 text-sm font-semibold ${
-                            isSelected
-                              ? "text-[#e93800]"
-                              : ""
-                          }`}
-                        >
-                          {card.label}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <section className="mt-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <h4 className="text-sm font-bold">
-                      {getFilterLabel(
-                        activeMediaFilter,
-                      )}
-                    </h4>
-
-                    <span className="text-xs text-black/35">
-                      {filteredMedia.length} resultado
-                      {filteredMedia.length === 1
-                        ? ""
-                        : "s"}
-                    </span>
-                  </div>
-
-                  {visibleMedia.length === 0 ? (
-                    <div className="mt-3 rounded-xl border border-dashed border-black/15 p-6 text-center">
-                      <span className="text-3xl">
-                        📭
-                      </span>
-
-                      <p className="mt-3 text-sm font-semibold text-black/60">
-                        Nenhum arquivo encontrado
-                      </p>
-
-                      <p className="mt-1 text-xs leading-5 text-black/40">
-                        Não existem arquivos nesta
-                        categoria entre as mensagens
-                        carregadas.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="mt-3 space-y-2">
-                      {visibleMedia.map((message) => {
-                        const itemContent = (
-                          <>
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/[0.035] text-xl">
-                              {getMediaIcon(
-                                message.messageType,
-                              )}
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold">
-                                {getMediaLabel(message)}
-                              </p>
-
-                              <p className="mt-1 text-xs text-black/40">
-                                {formatMessageTime(
-                                  message.messageTimestamp,
-                                )}
-                              </p>
-                            </div>
-
-                            <div className="shrink-0 text-right">
-                              <span className="block text-xs font-semibold text-black/30">
-                                {message.key.fromMe
-                                  ? "Enviado"
-                                  : "Recebido"}
-                              </span>
-
-                              <span className="mt-1 block text-[10px] font-semibold text-[#e93800]">
-                                Abrir
-                              </span>
-                            </div>
-                          </>
-                        );
-
-                        if (
-                          message.messageType ===
-                          "imageMessage"
-                        ) {
-                          return (
-                            <button
-                              key={message.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedImageMessage(
-                                  message,
-                                )
-                              }
-                              className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left transition hover:border-[#ff3d00]/40 hover:bg-[#fff1ec]"
-                            >
-                              {itemContent}
-                            </button>
-                          );
-                        }
-
-                        if (
-                          message.messageType ===
-                          "audioMessage"
-                        ) {
-                          return (
-                            <button
-                              key={message.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedAudioMessage(
-                                  message,
-                                )
-                              }
-                              className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left transition hover:border-[#ff3d00]/40 hover:bg-[#fff1ec]"
-                            >
-                              {itemContent}
-                            </button>
-                          );
-                        }
-
-                        if (
-                          message.messageType ===
-                          "videoMessage"
-                        ) {
-                          return (
-                            <button
-                              key={message.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedVideoMessage(
-                                  message,
-                                )
-                              }
-                              className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left transition hover:border-[#ff3d00]/40 hover:bg-[#fff1ec]"
-                            >
-                              {itemContent}
-                            </button>
-                          );
-                        }
-
-                        if (
-                          message.messageType ===
-                          "documentMessage"
-                        ) {
-                          return (
-                            <button
-                              key={message.id}
-                              type="button"
-                              onClick={() =>
-                                setSelectedDocumentMessage(
-                                  message,
-                                )
-                              }
-                              className="flex w-full items-center gap-3 rounded-xl border border-black/10 p-3 text-left transition hover:border-[#ff3d00]/40 hover:bg-[#fff1ec]"
-                            >
-                              {itemContent}
-                            </button>
-                          );
-                        }
-
-                        return null;
-                      })}
-                    </div>
-                  )}
-                </section>
-              </div>
+              <CustomerFiles
+                mediaMessages={mediaMessages}
+                mediaCards={mediaCards}
+                activeMediaFilter={
+                  activeMediaFilter
+                }
+                filteredMedia={filteredMedia}
+                visibleMedia={visibleMedia}
+                onFilterChange={(filter) =>
+                  setActiveMediaFilter(
+                    filter as
+                      | "all"
+                      | "imageMessage"
+                      | "audioMessage"
+                      | "videoMessage"
+                      | "documentMessage",
+                  )
+                }
+                onOpenImage={(message) =>
+                  setSelectedImageMessage(
+                    message as ChatMessage,
+                  )
+                }
+                onOpenAudio={(message) =>
+                  setSelectedAudioMessage(
+                    message as ChatMessage,
+                  )
+                }
+                onOpenVideo={(message) =>
+                  setSelectedVideoMessage(
+                    message as ChatMessage,
+                  )
+                }
+                onOpenDocument={(message) =>
+                  setSelectedDocumentMessage(
+                    message as ChatMessage,
+                  )
+                }
+                receipts={receipts}
+                isLoadingReceipts={
+                  isLoadingReceipts
+                }
+                receiptsError={
+                  receiptsError
+                }
+                onOpenReceipt={
+                  setSelectedReceiptId
+                }
+              />
             )}
           </div>
 
           {shouldShowCustomerFooter && (
-            <footer className="shrink-0 border-t border-black/5 bg-white p-4">
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleAssignResponsible}
-                  disabled={
-                    isAssigning ||
-                    isLoadingCustomer ||
-                    !customerId ||
-                    attendanceStatus === "HUMANO"
-                  }
-                  className="h-12 w-full rounded-xl border border-green-200 bg-green-50 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isAssigning
-                    ? "Assumindo atendimento..."
-                    : attendanceStatus === "HUMANO"
-                      ? `Atendimento com ${
-                          responsible || "atendente"
-                        }`
-                      : "🟢 Assumir atendimento"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveCustomer}
-                  disabled={
-                    isSaving ||
-                    isLoadingCustomer ||
-                    !remoteJid
-                  }
-                  className="h-12 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  {isSaving
-                    ? "Salvando..."
-                    : "💾 Salvar alterações"}
-                </button>
-              </div>
-            </footer>
+            <CustomerActions
+              attendanceStatus={
+                attendanceStatus === "HUMANO"
+                  ? "HUMANO"
+                  : "IA"
+              }
+              responsible={responsible}
+              isAssigning={isAssigning}
+              isSaving={isSaving}
+              isLoadingCustomer={
+                isLoadingCustomer
+              }
+              customerId={customerId}
+              remoteJid={remoteJid}
+              onAssign={
+                handleAssignResponsible
+              }
+              onSave={handleSaveCustomer}
+            />
           )}
+
         </aside>
       </div>
+      )}
 
       {selectedImageMessage && (
         <CustomerImageViewer
@@ -1943,6 +625,17 @@ export default function CustomerPanel({
           }
         />
       )}
+
+      <ReceiptPanel
+        receiptId={selectedReceiptId}
+        isOpen={Boolean(selectedReceiptId)}
+        onClose={() =>
+          setSelectedReceiptId(null)
+        }
+        onUpdated={() =>
+          void reloadReceipts()
+        }
+      />
     </>
   );
 }

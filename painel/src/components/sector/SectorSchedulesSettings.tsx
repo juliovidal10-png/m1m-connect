@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -15,9 +15,9 @@ type Weekday =
   | "SATURDAY"
   | "SUNDAY";
 
-type SectorSchedule = {
-  id: string;
-  sectorId: string;
+type CompanySchedule = {
+  id?: string;
+  companyId?: string;
   dayOfWeek: Weekday;
   enabled: boolean;
   allDay: boolean;
@@ -25,8 +25,6 @@ type SectorSchedule = {
   closingTime: string | null;
   secondOpeningTime: string | null;
   secondClosingTime: string | null;
-  createdAt: string;
-  updatedAt: string;
 };
 
 type ScheduleForm = {
@@ -40,12 +38,12 @@ type ScheduleForm = {
   secondClosingTime: string;
 };
 
-type SectorSchedulesResponse = {
-  sector: {
+type CompanySchedulesResponse = {
+  company: {
     id: string;
     name: string;
   };
-  schedules: SectorSchedule[];
+  schedules: CompanySchedule[];
 };
 
 type SectorSchedulesSettingsProps = {
@@ -53,7 +51,10 @@ type SectorSchedulesSettingsProps = {
   onBack: () => void;
 };
 
-const weekdayLabels: Record<Weekday, string> = {
+const weekdayLabels: Record<
+  Weekday,
+  string
+> = {
   MONDAY: "Segunda-feira",
   TUESDAY: "Terça-feira",
   WEDNESDAY: "Quarta-feira",
@@ -63,87 +64,108 @@ const weekdayLabels: Record<Weekday, string> = {
   SUNDAY: "Domingo",
 };
 
+function mapSchedulesToForm(
+  schedules: CompanySchedule[],
+): ScheduleForm[] {
+  return schedules.map(
+    (schedule) => ({
+      dayOfWeek:
+        schedule.dayOfWeek,
+      enabled:
+        schedule.enabled,
+      allDay:
+        schedule.allDay,
+      closesForLunch:
+        Boolean(
+          schedule.secondOpeningTime &&
+            schedule.secondClosingTime,
+        ),
+      openingTime:
+        schedule.openingTime ?? "",
+      closingTime:
+        schedule.closingTime ?? "",
+      secondOpeningTime:
+        schedule.secondOpeningTime ?? "",
+      secondClosingTime:
+        schedule.secondClosingTime ?? "",
+    }),
+  );
+}
+
 export default function SectorSchedulesSettings({
-  sectorId,
   onBack,
 }: SectorSchedulesSettingsProps) {
-  const [sectorName, setSectorName] =
-    useState("");
+  const [
+    companyName,
+    setCompanyName,
+  ] = useState("");
 
-  const [schedules, setSchedules] =
-    useState<ScheduleForm[]>([]);
+  const [
+    schedules,
+    setSchedules,
+  ] = useState<ScheduleForm[]>([]);
 
-  const [isLoading, setIsLoading] =
-    useState(true);
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true);
 
-  const [isSaving, setIsSaving] =
-    useState(false);
+  const [
+    isSaving,
+    setIsSaving,
+  ] = useState(false);
 
-  const [error, setError] =
-    useState<string | null>(null);
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(null);
 
-  const [success, setSuccess] =
-    useState<string | null>(null);
+  const [
+    success,
+    setSuccess,
+  ] = useState<string | null>(null);
 
-  const loadSchedules = useCallback(
-    async () => {
+  const loadSchedules =
+    useCallback(async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/sectors/${sectorId}/schedules`,
-          {
-            method: "GET",
-            cache: "no-store",
-          },
-        );
+        const response =
+          await fetch(
+            "/api/company/schedules",
+            {
+              method: "GET",
+              cache: "no-store",
+            },
+          );
 
         const data =
           (await response.json()) as
-            | SectorSchedulesResponse
+            | CompanySchedulesResponse
             | {
                 error?: string;
               };
 
         if (!response.ok) {
           throw new Error(
-            "error" in data && data.error
+            "error" in data &&
+              data.error
               ? data.error
               : "Não foi possível carregar os horários.",
           );
         }
 
         const result =
-          data as SectorSchedulesResponse;
+          data as CompanySchedulesResponse;
 
-        setSectorName(
-          result.sector.name,
+        setCompanyName(
+          result.company.name,
         );
 
         setSchedules(
-          result.schedules.map(
-            (schedule) => ({
-              dayOfWeek:
-                schedule.dayOfWeek,
-              enabled:
-                schedule.enabled,
-              allDay:
-                schedule.allDay,
-              closesForLunch:
-                Boolean(
-                  schedule.secondOpeningTime &&
-                  schedule.secondClosingTime,
-                ),
-              openingTime:
-                schedule.openingTime ?? "",
-              closingTime:
-                schedule.closingTime ?? "",
-              secondOpeningTime:
-                schedule.secondOpeningTime ?? "",
-              secondClosingTime:
-                schedule.secondClosingTime ?? "",
-            }),
+          mapSchedulesToForm(
+            result.schedules,
           ),
         );
       } catch (loadError) {
@@ -155,9 +177,7 @@ export default function SectorSchedulesSettings({
       } finally {
         setIsLoading(false);
       }
-    },
-    [sectorId],
-  );
+    }, []);
 
   useEffect(() => {
     void loadSchedules();
@@ -194,6 +214,16 @@ export default function SectorSchedulesSettings({
         }
 
         if (
+          field === "enabled" &&
+          value === true
+        ) {
+          return {
+            ...schedule,
+            enabled: true,
+          };
+        }
+
+        if (
           field === "allDay" &&
           value === true
         ) {
@@ -209,7 +239,18 @@ export default function SectorSchedulesSettings({
         }
 
         if (
-          field === "closesForLunch" &&
+          field === "allDay" &&
+          value === false
+        ) {
+          return {
+            ...schedule,
+            allDay: false,
+          };
+        }
+
+        if (
+          field ===
+            "closesForLunch" &&
           value === false
         ) {
           return {
@@ -241,45 +282,46 @@ export default function SectorSchedulesSettings({
     setSuccess(null);
 
     try {
-      const response = await fetch(
-        `/api/sectors/${sectorId}/schedules`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type":
-              "application/json",
+      const response =
+        await fetch(
+          "/api/company/schedules",
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              schedules:
+                schedules.map(
+                  (schedule) => ({
+                    dayOfWeek:
+                      schedule.dayOfWeek,
+                    enabled:
+                      schedule.enabled,
+                    allDay:
+                      schedule.allDay,
+                    openingTime:
+                      schedule.openingTime ||
+                      null,
+                    closingTime:
+                      schedule.closingTime ||
+                      null,
+                    secondOpeningTime:
+                      schedule.closesForLunch
+                        ? schedule.secondOpeningTime ||
+                          null
+                        : null,
+                    secondClosingTime:
+                      schedule.closesForLunch
+                        ? schedule.secondClosingTime ||
+                          null
+                        : null,
+                  }),
+                ),
+            }),
           },
-          body: JSON.stringify({
-            schedules:
-              schedules.map(
-                (schedule) => ({
-                  dayOfWeek:
-                    schedule.dayOfWeek,
-                  enabled:
-                    schedule.enabled,
-                  allDay:
-                    schedule.allDay,
-                  openingTime:
-                    schedule.openingTime ||
-                    null,
-                  closingTime:
-                    schedule.closingTime ||
-                    null,
-                  secondOpeningTime:
-                    schedule.closesForLunch
-                      ? schedule.secondOpeningTime ||
-                        null
-                      : null,
-                  secondClosingTime:
-                    schedule.closesForLunch
-                      ? schedule.secondClosingTime ||
-                        null
-                      : null,
-                }),
-              ),
-          }),
-        },
-      );
+        );
 
       const data =
         (await response.json()) as {
@@ -294,7 +336,7 @@ export default function SectorSchedulesSettings({
       }
 
       setSuccess(
-        "Horários do setor salvos com sucesso.",
+        "Horário geral da empresa salvo com sucesso.",
       );
 
       await loadSchedules();
@@ -322,18 +364,24 @@ export default function SectorSchedulesSettings({
       <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">
           <p className="text-sm font-semibold text-orange-600">
-            Horários
+            Horário geral
           </p>
 
           <h2 className="mt-2 text-2xl font-bold">
-            Funcionamento do setor {sectorName}
+            Funcionamento da empresa
+            {companyName
+              ? ` ${companyName}`
+              : ""}
           </h2>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/50">
-            Informe o horário normal de funcionamento.
-            Marque “Fecha para almoço” somente quando o
-            setor possuir dois períodos de atendimento.
+            Configure o horário geral de
+            atendimento. Esta configuração
+            será aplicada automaticamente a
+            todos os setores da empresa.
           </p>
+
+
         </div>
 
         <div className="p-6 lg:p-8">
@@ -351,200 +399,165 @@ export default function SectorSchedulesSettings({
 
           {isLoading ? (
             <div className="space-y-4">
-              {[1, 2, 3, 4, 5, 6, 7].map(
-                (item) => (
-                  <div
-                    key={item}
-                    className="h-32 animate-pulse rounded-2xl bg-black/5"
-                  />
-                ),
-              )}
+              {[
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="h-32 animate-pulse rounded-2xl bg-black/5"
+                />
+              ))}
             </div>
           ) : (
             <div className="space-y-4">
-              {schedules.map((schedule) => (
-                <article
-                  key={schedule.dayOfWeek}
-                  className="rounded-2xl border border-black/5 bg-white p-5"
-                >
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-                    <div className="min-w-44">
-                      <h3 className="text-base font-bold">
-                        {
-                          weekdayLabels[
-                            schedule.dayOfWeek
-                          ]
-                        }
-                      </h3>
+              {schedules.map(
+                (schedule) => (
+                  <article
+                    key={
+                      schedule.dayOfWeek
+                    }
+                    className="rounded-2xl border border-black/5 bg-white p-5"
+                  >
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+                      <div className="min-w-44">
+                        <h3 className="text-base font-bold">
+                          {
+                            weekdayLabels[
+                              schedule
+                                .dayOfWeek
+                            ]
+                          }
+                        </h3>
 
-                      <p className="mt-1 text-sm text-black/40">
-                        {schedule.enabled
-                          ? schedule.allDay
-                            ? "Aberto 24 horas"
-                            : schedule.closesForLunch
-                              ? "Dois períodos"
-                              : "Horário contínuo"
-                          : "Fechado"}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-1 flex-col gap-4">
-                      <div className="flex flex-wrap gap-5">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={
-                              schedule.enabled
-                            }
-                            onChange={(event) =>
-                              updateSchedule(
-                                schedule.dayOfWeek,
-                                "enabled",
-                                event.target.checked,
-                              )
-                            }
-                            className="h-4 w-4 accent-orange-600"
-                          />
-
-                          <span className="text-sm font-semibold text-black/65">
-                            Aberto
-                          </span>
-                        </label>
-
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={
-                              schedule.allDay
-                            }
-                            disabled={
-                              !schedule.enabled
-                            }
-                            onChange={(event) =>
-                              updateSchedule(
-                                schedule.dayOfWeek,
-                                "allDay",
-                                event.target.checked,
-                              )
-                            }
-                            className="h-4 w-4 accent-orange-600 disabled:opacity-40"
-                          />
-
-                          <span className="text-sm font-semibold text-black/65">
-                            24 horas
-                          </span>
-                        </label>
-
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={
-                              schedule.closesForLunch
-                            }
-                            disabled={
-                              !schedule.enabled ||
-                              schedule.allDay
-                            }
-                            onChange={(event) =>
-                              updateSchedule(
-                                schedule.dayOfWeek,
-                                "closesForLunch",
-                                event.target.checked,
-                              )
-                            }
-                            className="h-4 w-4 accent-orange-600 disabled:opacity-40"
-                          />
-
-                          <span className="text-sm font-semibold text-black/65">
-                            Fecha para almoço
-                          </span>
-                        </label>
+                        <p className="mt-1 text-sm text-black/40">
+                          {schedule.enabled
+                            ? schedule.allDay
+                              ? "Aberto 24 horas"
+                              : schedule.closesForLunch
+                                ? "Fecha para almoço"
+                                : "Horário contínuo"
+                            : "Fechado"}
+                        </p>
                       </div>
 
-                      {schedule.enabled &&
-                        !schedule.allDay && (
-                          <div
-                            className={
-                              schedule.closesForLunch
-                                ? "grid gap-4 md:grid-cols-2"
-                                : "max-w-xl"
-                            }
-                          >
-                            <div className="rounded-xl bg-black/[0.025] p-4">
-                              <p className="text-xs font-bold uppercase tracking-wide text-black/40">
-                                {schedule.closesForLunch
-                                  ? "Primeiro período"
-                                  : "Horário de funcionamento"}
-                              </p>
+                      <div className="flex flex-1 flex-col gap-4">
+                        <div className="flex flex-wrap gap-5">
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={
+                                schedule.enabled
+                              }
+                              onChange={(
+                                event,
+                              ) =>
+                                updateSchedule(
+                                  schedule.dayOfWeek,
+                                  "enabled",
+                                  event.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 accent-orange-600"
+                            />
 
-                              <div className="mt-3 grid grid-cols-2 gap-3">
-                                <label>
-                                  <span className="mb-1 block text-xs font-semibold text-black/50">
-                                    Abertura
-                                  </span>
+                            <span className="text-sm font-semibold text-black/65">
+                              Aberto
+                            </span>
+                          </label>
 
-                                  <input
-                                    type="time"
-                                    value={
-                                      schedule.openingTime
-                                    }
-                                    onChange={(event) =>
-                                      updateSchedule(
-                                        schedule.dayOfWeek,
-                                        "openingTime",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
-                                  />
-                                </label>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={
+                                schedule.allDay
+                              }
+                              disabled={
+                                !schedule.enabled
+                              }
+                              onChange={(
+                                event,
+                              ) =>
+                                updateSchedule(
+                                  schedule.dayOfWeek,
+                                  "allDay",
+                                  event.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 accent-orange-600 disabled:opacity-40"
+                            />
 
-                                <label>
-                                  <span className="mb-1 block text-xs font-semibold text-black/50">
-                                    {schedule.closesForLunch
-                                      ? "Saída para almoço"
-                                      : "Fechamento"}
-                                  </span>
+                            <span className="text-sm font-semibold text-black/65">
+                              24 horas
+                            </span>
+                          </label>
 
-                                  <input
-                                    type="time"
-                                    value={
-                                      schedule.closingTime
-                                    }
-                                    onChange={(event) =>
-                                      updateSchedule(
-                                        schedule.dayOfWeek,
-                                        "closingTime",
-                                        event.target.value,
-                                      )
-                                    }
-                                    className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
-                                  />
-                                </label>
-                              </div>
-                            </div>
+                          <label className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={
+                                schedule.closesForLunch
+                              }
+                              disabled={
+                                !schedule.enabled ||
+                                schedule.allDay
+                              }
+                              onChange={(
+                                event,
+                              ) =>
+                                updateSchedule(
+                                  schedule.dayOfWeek,
+                                  "closesForLunch",
+                                  event.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 accent-orange-600 disabled:opacity-40"
+                            />
 
-                            {schedule.closesForLunch && (
-                              <div className="rounded-xl bg-orange-50/60 p-4">
-                                <p className="text-xs font-bold uppercase tracking-wide text-orange-700/60">
-                                  Segundo período
+                            <span className="text-sm font-semibold text-black/65">
+                              Fecha para almoço
+                            </span>
+                          </label>
+                        </div>
+
+                        {schedule.enabled &&
+                          !schedule.allDay && (
+                            <div
+                              className={
+                                schedule.closesForLunch
+                                  ? "grid gap-4 md:grid-cols-2"
+                                  : "max-w-xl"
+                              }
+                            >
+                              <div className="rounded-xl bg-black/[0.025] p-4">
+                                <p className="text-xs font-bold uppercase tracking-wide text-black/40">
+                                  {schedule.closesForLunch
+                                    ? "Primeiro período"
+                                    : "Horário de funcionamento"}
                                 </p>
 
                                 <div className="mt-3 grid grid-cols-2 gap-3">
                                   <label>
                                     <span className="mb-1 block text-xs font-semibold text-black/50">
-                                      Retorno do almoço
+                                      Abertura
                                     </span>
 
                                     <input
                                       type="time"
                                       value={
-                                        schedule.secondOpeningTime
+                                        schedule.openingTime
                                       }
-                                      onChange={(event) =>
+                                      onChange={(
+                                        event,
+                                      ) =>
                                         updateSchedule(
                                           schedule.dayOfWeek,
-                                          "secondOpeningTime",
+                                          "openingTime",
                                           event.target.value,
                                         )
                                       }
@@ -554,18 +567,22 @@ export default function SectorSchedulesSettings({
 
                                   <label>
                                     <span className="mb-1 block text-xs font-semibold text-black/50">
-                                      Fechamento
+                                      {schedule.closesForLunch
+                                        ? "Saída para almoço"
+                                        : "Fechamento"}
                                     </span>
 
                                     <input
                                       type="time"
                                       value={
-                                        schedule.secondClosingTime
+                                        schedule.closingTime
                                       }
-                                      onChange={(event) =>
+                                      onChange={(
+                                        event,
+                                      ) =>
                                         updateSchedule(
                                           schedule.dayOfWeek,
-                                          "secondClosingTime",
+                                          "closingTime",
                                           event.target.value,
                                         )
                                       }
@@ -574,13 +591,69 @@ export default function SectorSchedulesSettings({
                                   </label>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        )}
+
+                              {schedule.closesForLunch && (
+                                <div className="rounded-xl bg-orange-50/60 p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-orange-700/60">
+                                    Após o almoço
+                                  </p>
+
+                                  <div className="mt-3 grid grid-cols-2 gap-3">
+                                    <label>
+                                      <span className="mb-1 block text-xs font-semibold text-black/50">
+                                        Retorno
+                                      </span>
+
+                                      <input
+                                        type="time"
+                                        value={
+                                          schedule.secondOpeningTime
+                                        }
+                                        onChange={(
+                                          event,
+                                        ) =>
+                                          updateSchedule(
+                                            schedule.dayOfWeek,
+                                            "secondOpeningTime",
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                      />
+                                    </label>
+
+                                    <label>
+                                      <span className="mb-1 block text-xs font-semibold text-black/50">
+                                        Fechamento
+                                      </span>
+
+                                      <input
+                                        type="time"
+                                        value={
+                                          schedule.secondClosingTime
+                                        }
+                                        onChange={(
+                                          event,
+                                        ) =>
+                                          updateSchedule(
+                                            schedule.dayOfWeek,
+                                            "secondClosingTime",
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ),
+              )}
             </div>
           )}
 
@@ -598,7 +671,7 @@ export default function SectorSchedulesSettings({
             >
               {isSaving
                 ? "Salvando..."
-                : "Salvar horários"}
+                : "Salvar horário geral"}
             </button>
           </div>
         </div>

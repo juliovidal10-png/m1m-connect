@@ -1,6 +1,10 @@
-﻿import {
+import {
   M1MAttendanceActorType,
+  M1MAttendanceState,
 } from "@/generated/prisma/enums";
+import {
+  intentInterpreterService,
+} from "@/core/router/intent-interpreter.service";
 import {
   sectorIdentificationService,
 } from "@/core/router/sector-identification.service";
@@ -63,6 +67,30 @@ export class RouterService {
     const wasCreated =
       !existingAttendance;
 
+    if (
+      attendance.state ===
+      M1MAttendanceState.HUMANO
+    ) {
+      return {
+        processed: true,
+        action:
+          "ATTENDANCE_REUSED",
+        attendanceId:
+          attendance.id,
+        attendanceNumber:
+          attendance.number,
+        sectorId:
+          attendance.sectorId,
+        sectorName: null,
+        responsibleId:
+          attendance.responsibleId,
+        state:
+          attendance.state,
+        requiresSectorIdentification:
+          false,
+      };
+    }
+
     if (attendance.sectorId) {
       return {
         processed: true,
@@ -88,6 +116,56 @@ export class RouterService {
       await sectorService.listActiveSectors(
         context.companyId,
       );
+
+    const intent =
+      await intentInterpreterService.interpret(
+        context.companyId,
+        context.messageContent,
+      );
+
+    if (
+      intent.matched &&
+      intent.sectorId
+    ) {
+      const matchedSector =
+        sectors.find(
+          (sector) =>
+            sector.id ===
+            intent.sectorId,
+        );
+
+      if (matchedSector) {
+        const transferred =
+          await attendanceService.transferAttendanceToSector({
+            attendanceId:
+              attendance.id,
+            sectorId:
+              matchedSector.id,
+            actorType:
+              M1MAttendanceActorType.AI,
+          });
+
+        return {
+          processed: true,
+          action:
+            "ROUTED_TO_SECTOR",
+          attendanceId:
+            transferred.id,
+          attendanceNumber:
+            transferred.number,
+          sectorId:
+            matchedSector.id,
+          sectorName:
+            matchedSector.name,
+          responsibleId:
+            transferred.responsibleId,
+          state:
+            transferred.state,
+          requiresSectorIdentification:
+            false,
+        };
+      }
+    }
 
     const identification =
       sectorIdentificationService.identify(

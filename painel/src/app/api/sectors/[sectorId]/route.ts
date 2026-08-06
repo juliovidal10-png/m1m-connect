@@ -80,6 +80,8 @@ export async function PUT(
           name: body.name,
           description:
             body.description,
+          knowledge:
+            body.knowledge,
           active: body.active,
           sortOrder: body.sortOrder,
         },

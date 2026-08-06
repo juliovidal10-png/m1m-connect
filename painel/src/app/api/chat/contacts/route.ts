@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 
-const API_URL = process.env.EVOLUTION_API_URL;
-const API_KEY = process.env.EVOLUTION_API_KEY;
-const INSTANCE_NAME = "Financeiro";
+const API_URL =
+  process.env.EVOLUTION_API_URL;
+
+const API_KEY =
+  process.env.EVOLUTION_API_KEY;
+
+const INSTANCE_NAME =
+  process.env.INSTANCE_NAME?.trim() ||
+  process.env.DEFAULT_INSTANCE?.trim() ||
+  "Financeiro";
 
 type EvolutionContact = {
   id?: string;
@@ -14,7 +21,15 @@ type EvolutionContact = {
   type?: string;
 };
 
-function normalizeContactsResponse(data: unknown): EvolutionContact[] {
+type EvolutionInstance = {
+  name?: string | null;
+  ownerJid?: string | null;
+  profileName?: string | null;
+};
+
+function normalizeContactsResponse(
+  data: unknown,
+): EvolutionContact[] {
   if (Array.isArray(data)) {
     return data;
   }
@@ -24,13 +39,169 @@ function normalizeContactsResponse(data: unknown): EvolutionContact[] {
     typeof data === "object" &&
     "value" in data &&
     Array.isArray(
-      (data as { value?: EvolutionContact[] }).value,
+      (
+        data as {
+          value?: EvolutionContact[];
+        }
+      ).value,
     )
   ) {
-    return (data as { value: EvolutionContact[] }).value;
+    return (
+      data as {
+        value: EvolutionContact[];
+      }
+    ).value;
   }
 
   return [];
+}
+
+function normalizeInstancesResponse(
+  data: unknown,
+): EvolutionInstance[] {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (
+    data &&
+    typeof data === "object" &&
+    "value" in data &&
+    Array.isArray(
+      (
+        data as {
+          value?: EvolutionInstance[];
+        }
+      ).value,
+    )
+  ) {
+    return (
+      data as {
+        value: EvolutionInstance[];
+      }
+    ).value;
+  }
+
+  return [];
+}
+
+function normalizeJid(
+  value?: string | null,
+) {
+  return value
+    ?.trim()
+    .toLowerCase() || "";
+}
+
+function isPhoneLikeName(
+  value?: string | null,
+) {
+  const normalized =
+    value?.trim() || "";
+
+  if (!normalized) {
+    return true;
+  }
+
+  const digits =
+    normalized.replace(/\D/g, "");
+
+  const letters =
+    normalized.replace(
+      /[^A-Za-zÀ-ÿ]/g,
+      "",
+    );
+
+  return (
+    digits.length >= 8 &&
+    letters.length === 0
+  );
+}
+
+function repairText(
+  value?: string | null,
+) {
+  const normalized =
+    value?.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  if (
+    !/[ÃÂðâ�]/.test(
+      normalized,
+    )
+  ) {
+    return normalized;
+  }
+
+  try {
+    const bytes =
+      Uint8Array.from(
+        Array.from(
+          normalized,
+        ).map(
+          (character) =>
+            character.charCodeAt(0) &
+            0xff,
+        ),
+      );
+
+    const repaired =
+      new TextDecoder(
+        "utf-8",
+        {
+          fatal: true,
+        },
+      )
+        .decode(bytes)
+        .trim();
+
+    return repaired || normalized;
+  } catch {
+    return normalized;
+  }
+}
+
+async function getCurrentInstance() {
+  if (!API_URL || !API_KEY) {
+    return null;
+  }
+
+  try {
+    const response =
+      await fetch(
+        `${API_URL}/instance/fetchInstances`,
+        {
+          headers: {
+            apikey:
+              API_KEY,
+          },
+          cache:
+            "no-store",
+        },
+      );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data =
+      await response.json();
+
+    return (
+      normalizeInstancesResponse(
+        data,
+      ).find(
+        (instance) =>
+          instance.name ===
+          INSTANCE_NAME,
+      ) ?? null
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function GET() {
@@ -41,68 +212,145 @@ export async function GET() {
           error:
             "Configuração da Evolution API não encontrada.",
         },
-        { status: 500 },
+        {
+          status: 500,
+        },
       );
     }
 
-    const response = await fetch(
-      `${API_URL}/chat/findContacts/${INSTANCE_NAME}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: API_KEY,
+    const [
+      response,
+      currentInstance,
+    ] = await Promise.all([
+      fetch(
+        `${API_URL}/chat/findContacts/${INSTANCE_NAME}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            apikey:
+              API_KEY,
+          },
+          body:
+            JSON.stringify({
+              where: {},
+            }),
+          cache:
+            "no-store",
         },
-        body: JSON.stringify({
-          where: {},
-        }),
-        cache: "no-store",
-      },
-    );
+      ),
+      getCurrentInstance(),
+    ]);
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         {
           error:
             "Não foi possível buscar os contatos.",
-          details: data,
+          details:
+            data,
+          instanceName:
+            INSTANCE_NAME,
         },
-        { status: response.status },
+        {
+          status:
+            response.status,
+        },
       );
     }
 
-    const contacts = normalizeContactsResponse(data)
-      .filter(
-        (contact) =>
-          typeof contact.remoteJid === "string" &&
-          contact.remoteJid.length > 0,
-      )
-      .map((contact) => ({
-        id: contact.id ?? null,
-        remoteJid: contact.remoteJid,
-        pushName:
-          typeof contact.pushName === "string"
-            ? contact.pushName.trim() || null
-            : null,
-        profilePicUrl:
-          contact.profilePicUrl ?? null,
-        isGroup: Boolean(contact.isGroup),
-        isSaved: Boolean(contact.isSaved),
-        type: contact.type ?? null,
-      }));
+    const ownerJid =
+      normalizeJid(
+        currentInstance?.ownerJid,
+      );
 
-    return NextResponse.json(contacts);
+    const ownerName =
+      repairText(
+        currentInstance?.profileName,
+      );
+
+    const contacts =
+      normalizeContactsResponse(
+        data,
+      )
+        .filter(
+          (contact) =>
+            typeof contact.remoteJid ===
+              "string" &&
+            contact.remoteJid.length > 0,
+        )
+        .map((contact) => {
+          const remoteJid =
+            normalizeJid(
+              contact.remoteJid,
+            );
+
+          const originalName =
+            repairText(
+              contact.pushName,
+            );
+
+          const isOwner =
+            Boolean(
+              ownerJid &&
+              remoteJid ===
+                ownerJid,
+            );
+
+          const pushName =
+            isOwner &&
+            ownerName &&
+            isPhoneLikeName(
+              originalName,
+            )
+              ? ownerName
+              : originalName;
+
+          return {
+            id:
+              contact.id ?? null,
+            remoteJid:
+              contact.remoteJid,
+            pushName,
+            profilePicUrl:
+              contact.profilePicUrl ??
+              null,
+            isGroup:
+              Boolean(
+                contact.isGroup,
+              ),
+            isSaved:
+              Boolean(
+                contact.isSaved,
+              ),
+            type:
+              contact.type ?? null,
+          };
+        });
+
+    return NextResponse.json(
+      contacts,
+    );
   } catch (error) {
-    console.error("Erro ao buscar contatos:", error);
+    console.error(
+      "Erro ao buscar contatos:",
+      error,
+    );
 
     return NextResponse.json(
       {
         error:
-          "Erro interno ao buscar os contatos.",
+          error instanceof Error
+            ? error.message
+            : "Erro interno ao buscar os contatos.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

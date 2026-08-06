@@ -13,6 +13,11 @@ export type CompanyProfileData = {
   email?: string | null;
   website?: string | null;
   instagram?: string | null;
+  humanReturnMode?:
+    | "IMMEDIATE"
+    | "NEXT_CONVERSATION"
+    | "MANUAL";
+  humanClosingMessage?: string | null;
 };
 
 function normalizeOptionalText(
@@ -97,6 +102,24 @@ export const companyRepository = {
     if (data.instagram !== undefined) {
       updateData.instagram =
         normalizeOptionalText(data.instagram);
+    }
+
+    if (
+      data.humanReturnMode !==
+      undefined
+    ) {
+      updateData.humanReturnMode =
+        data.humanReturnMode;
+    }
+
+    if (
+      data.humanClosingMessage !==
+      undefined
+    ) {
+      updateData.humanClosingMessage =
+        normalizeOptionalText(
+          data.humanClosingMessage,
+        );
     }
 
     return prisma.m1MCompany.update({

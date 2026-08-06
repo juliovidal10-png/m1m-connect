@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum M1MAttendanceState {
+  IA
+  HUMANO
+  FINALIZADO
+}
+
+enum M1MAttendanceEventType {
+  STARTED_BY_AI
+  TAKEN_BY_HUMAN
+  FINISHED_BY_HUMAN
+  FINISHED_BY_AI
+}
+
+enum M1MAttendanceActorType {
+  AI
+  USER
+  SYSTEM
+}
+
+enum M1MMessageDirection {
+  IN
+  OUT
+}
+
+enum M1MMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  LOCATION
+  CONTACT
+  STICKER
+  REACTION
+  UNKNOWN
+}
+
+model M1MCompany {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  segment      String?
+  presentation String?
+  address      String?
+  city         String?
+  state        String?
+  zipCode      String?
+  phone        String?
+  whatsapp     String?
+  email        String?
+  website      String?
+  instagram    String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users       M1MUser[]
+  customers   M1MCustomer[]
+  reminders   M1MReminder[]
+  attendances M1MAttendance[]
+  messages    M1MMessage[]
+  sectors     M1MSector[]
+
+  @@map("m1m_companies")
+}
+
+model M1MSector {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         M1MCompany      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  m1Mattendance   M1MAttendance?  @relation(fields: [m1MAttendanceId], references: [id])
+  m1MAttendanceId String?
+  sectorUsers     M1MSectorUser[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([companyId, active])
+  @@index([companyId, sortOrder])
+  @@map("m1m_sectors")
+}
+
+enum M1MUserPermission {
+  VIEW_ALL_CONVERSATIONS
+  ASSUME_ATTENDANCE
+  TRANSFER_ATTENDANCE
+  CLOSE_ATTENDANCE
+  EDIT_CRM
+  VIEW_RECEIPTS
+  DELETE_CUSTOMERS
+  DELETE_MESSAGES
+  MANAGE_USERS
+  MANAGE_SECTORS
+  MANAGE_HOURS
+  MANAGE_AI
+  MANAGE_KNOWLEDGE
+  ACCESS_SETTINGS
+}
+
+enum M1MUserRole {
+  ADMIN
+  MANAGER
+  ATTENDANT
+  FINANCE
+}
+
+model M1MUser {
+  id                   String              @id @default(cuid())
+  companyId            String
+  name                 String
+  displayName          String?
+  email                String              @unique
+  jobTitle             String?
+  phone                String?
+  role                 M1MUserRole         @default(ATTENDANT)
+  useCustomPermissions Boolean             @default(false)
+  permissions          M1MUserPermission[] @default([])
+  active               Boolean             @default(true)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  company             M1MCompany           @relation(fields: [companyId], references: [id])
+  assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")
+  assignedAttendances M1MAttendance[]      @relation("AttendanceResponsible")
+  attendanceEvents    M1MAttendanceEvent[] @relation("AttendanceEventActor")
+  sectorUsers         M1MSectorUser[]
+
+  @@index([companyId])
+  @@map("m1m_users")
+}
+
+model M1MSectorUser {
+  id        String   @id @default(cuid())
+  sectorId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  sector M1MSector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  user   M1MUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sectorId, userId])
+  @@index([sectorId])
+  @@index([userId])
+  @@map("m1m_sector_users")
+}
+
+model M1MCustomer {
+  id            String    @id @default(cuid())
+  companyId     String
+  remoteJid     String    @unique
+  name          String?
+  phone         String?
+  company       String?
+  city          String?
+  responsible   String?
+  responsibleId String?
+  observations  String?
+  status        String?   @default("IA")
+  assignedAt    DateTime?
+  releasedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  owner        M1MCompany      @relation(fields: [companyId], references: [id])
+  assignedUser M1MUser?        @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
+  reminders    M1MReminder[]
+  attendances  M1MAttendance[]
+  messages     M1MMessage[]
+
+  @@index([companyId])
+  @@index([remoteJid])
+  @@index([responsibleId])
+  @@index([status])
+  @@map("m1m_customers")
+}
+
+model M1MReminder {
+  id          String    @id @default(cuid())
+  companyId   String
+  customerId  String
+  title       String
+  description String?
+  remindAt    DateTime
+  responsible String?
+  status      String    @default("PENDING")
+  completedAt DateTime?
+  notifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company  M1MCompany  @relation(fields: [companyId], references: [id])
+  customer M1MCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([remindAt])
+  @@index([status])
+  @@map("m1m_reminders")
+}
+
+model M1MAttendance {
+  id            String             @id @default(cuid())
+  number        Int                @unique @default(autoincrement())
+  companyId     String
+  customerId    String
+  responsibleId String?
+  state         M1MAttendanceState @default(IA)
+  startedAt     DateTime           @default(now())
+  assignedAt    DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  company     M1MCompany           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer    M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  events      M1MAttendanceEvent[]
+  messages    M1MMessage[]
+  sectors     M1MSector[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([responsibleId])
+  @@index([state])
+  @@index([startedAt])
+  @@index([finishedAt])
+  @@index([companyId, customerId])
+  @@map("m1m_attendances")
+}
+
+model M1MAttendanceEvent {
+  id           String                 @id @default(cuid())
+  attendanceId String
+  type         M1MAttendanceEventType
+  actorType    M1MAttendanceActorType
+  actorId      String?
+  metadata     Json?
+  createdAt    DateTime               @default(now())
+
+  attendance M1MAttendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  actor      M1MUser?      @relation("AttendanceEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([attendanceId])
+  @@index([type])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("m1m_attendance_events")
+}
+
+model M1MMessage {
+  id                 String              @id @default(cuid())
+  companyId          String
+  customerId         String
+  attendanceId       String?
+  instanceName       String
+  evolutionMessageId String
+  remoteJid          String
+  direction          M1MMessageDirection
+  type               M1MMessageType
+  fromMe             Boolean
+  content            String?
+  mediaUrl           String?
+  mimeType           String?
+  rawPayload         Json?
+  sentAt             DateTime
+  processedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  company    M1MCompany     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer   M1MCustomer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  attendance M1MAttendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, instanceName, evolutionMessageId])
+  @@index([companyId])
+  @@index([customerId])
+  @@index([attendanceId])
+  @@index([remoteJid])
+  @@index([direction])
+  @@index([type])
+  @@index([sentAt])
+  @@index([processedAt])
+  @@index([companyId, remoteJid, sentAt])
+  @@map("m1m_messages")
+}

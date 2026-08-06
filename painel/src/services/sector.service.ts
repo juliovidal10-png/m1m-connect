@@ -133,6 +133,8 @@ export const sectorService = {
       name,
       description:
         input.description,
+      knowledge:
+        input.knowledge,
       active:
         input.active ?? true,
       sortOrder:

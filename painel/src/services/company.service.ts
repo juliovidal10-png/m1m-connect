@@ -18,6 +18,34 @@ function requireText(
   return normalizedValue;
 }
 
+const humanReturnModes = [
+  "IMMEDIATE",
+  "NEXT_CONVERSATION",
+  "MANUAL",
+] as const;
+
+function normalizeHumanReturnMode(
+  value:
+    | CompanyProfileData["humanReturnMode"]
+    | undefined,
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (
+    !humanReturnModes.includes(
+      value,
+    )
+  ) {
+    throw new Error(
+      "Política de retorno da IA inválida.",
+    );
+  }
+
+  return value;
+}
+
 export const companyService = {
   async getCompanyProfile(companyId: string) {
     const normalizedCompanyId = requireText(
@@ -53,6 +81,16 @@ export const companyService = {
         data.name,
         "Nome da empresa",
       );
+    }
+
+    if (
+      data.humanReturnMode !==
+      undefined
+    ) {
+      data.humanReturnMode =
+        normalizeHumanReturnMode(
+          data.humanReturnMode,
+        );
     }
 
     return companyRepository.updateProfile(

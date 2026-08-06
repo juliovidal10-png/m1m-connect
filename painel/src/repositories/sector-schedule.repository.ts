@@ -14,7 +14,7 @@ export type SectorScheduleInput = {
   secondClosingTime: string | null;
 };
 
-const weekdays = [
+const weekdays: M1MWeekday[] = [
   M1MWeekday.MONDAY,
   M1MWeekday.TUESDAY,
   M1MWeekday.WEDNESDAY,
@@ -37,16 +37,63 @@ export const sectorScheduleRepository = {
       select: {
         id: true,
         name: true,
+        companyId: true,
+        useCustomSchedule: true,
       },
     });
   },
 
-  async ensureWeekdays(
+  async updateScheduleMode(
+    companyId: string,
+    sectorId: string,
+    useCustomSchedule: boolean,
+  ) {
+    const sector =
+      await this.findSector(
+        companyId,
+        sectorId,
+      );
+
+    if (!sector) {
+      throw new Error(
+        "Setor não encontrado.",
+      );
+    }
+
+    return prisma.m1MSector.update({
+      where: {
+        id: sectorId,
+      },
+      data: {
+        useCustomSchedule,
+      },
+      select: {
+        id: true,
+        name: true,
+        companyId: true,
+        useCustomSchedule: true,
+      },
+    });
+  },
+
+  async ensureSectorWeekdays(
     sectorId: string,
   ) {
     await prisma.m1MSectorSchedule.createMany({
       data: weekdays.map((dayOfWeek) => ({
         sectorId,
+        dayOfWeek,
+      })),
+      skipDuplicates: true,
+    });
+  },
+
+  async ensureCompanyWeekdays(
+    companyId: string,
+  ) {
+    await prisma.m1MCompanySchedule.createMany({
+      data: weekdays.map((dayOfWeek) => ({
+        companyId,
         dayOfWeek,
       })),
       skipDuplicates: true,
@@ -63,55 +110,71 @@ export const sectorScheduleRepository = {
     });
   },
 
+  async findAllByCompany(
+    companyId: string,
+  ) {
+    return prisma.m1MCompanySchedule.findMany({
+      where: {
+        companyId,
+      },
+    });
+  },
+
   async replaceAll(
     sectorId: string,
     schedules: SectorScheduleInput[],
   ) {
-    return prisma.$transaction(async (transaction) => {
-      for (const schedule of schedules) {
-        await transaction.m1MSectorSchedule.upsert({
-          where: {
-            sectorId_dayOfWeek: {
+    return prisma.$transaction(
+      async (transaction) => {
+        for (const schedule of schedules) {
+          await transaction.m1MSectorSchedule.upsert({
+            where: {
+              sectorId_dayOfWeek: {
+                sectorId,
+                dayOfWeek:
+                  schedule.dayOfWeek,
+              },
+            },
+            update: {
+              enabled:
+                schedule.enabled,
+              allDay:
+                schedule.allDay,
+              openingTime:
+                schedule.openingTime,
+              closingTime:
+                schedule.closingTime,
+              secondOpeningTime:
+                schedule.secondOpeningTime,
+              secondClosingTime:
+                schedule.secondClosingTime,
+            },
+            create: {
               sectorId,
               dayOfWeek:
                 schedule.dayOfWeek,
+              enabled:
+                schedule.enabled,
+              allDay:
+                schedule.allDay,
+              openingTime:
+                schedule.openingTime,
+              closingTime:
+                schedule.closingTime,
+              secondOpeningTime:
+                schedule.secondOpeningTime,
+              secondClosingTime:
+                schedule.secondClosingTime,
             },
-          },
-          update: {
-            enabled: schedule.enabled,
-            allDay: schedule.allDay,
-            openingTime:
-              schedule.openingTime,
-            closingTime:
-              schedule.closingTime,
-            secondOpeningTime:
-              schedule.secondOpeningTime,
-            secondClosingTime:
-              schedule.secondClosingTime,
-          },
-          create: {
+          });
+        }
+
+        return transaction.m1MSectorSchedule.findMany({
+          where: {
             sectorId,
-            dayOfWeek:
-              schedule.dayOfWeek,
-            enabled: schedule.enabled,
-            allDay: schedule.allDay,
-            openingTime:
-              schedule.openingTime,
-            closingTime:
-              schedule.closingTime,
-            secondOpeningTime:
-              schedule.secondOpeningTime,
-            secondClosingTime:
-              schedule.secondClosingTime,
           },
         });
-      }
-
-      return transaction.m1MSectorSchedule.findMany({
-        where: {
-          sectorId,
-        },
-      });
-    });
+      },
+    );
   },
 };

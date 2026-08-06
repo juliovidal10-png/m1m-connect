@@ -1,4 +1,4 @@
-﻿import {
+import {
   M1MMessageDirection,
   M1MMessageType,
 } from "@/generated/prisma/enums";
@@ -62,6 +62,31 @@ export const messageRepository = {
     });
   },
 
+  async markMessageAsRevoked(
+    companyId: string,
+    instanceName: string,
+    evolutionMessageId: string,
+    rawPayload?: Prisma.InputJsonValue | null,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        companyId_instanceName_evolutionMessageId: {
+          companyId,
+          instanceName,
+          evolutionMessageId,
+        },
+      },
+      data: {
+        type: M1MMessageType.TEXT,
+        content: "🚫 Esta mensagem foi apagada.",
+        mediaUrl: null,
+        mimeType: null,
+        rawPayload:
+          rawPayload ?? undefined,
+      },
+    });
+  },
+
   async listMessagesByCustomer(
     companyId: string,
     customerId: string,
@@ -86,6 +111,36 @@ export const messageRepository = {
       },
       orderBy: {
         sentAt: "asc",
+      },
+    });
+  },
+
+  async claimProcessing(
+    messageId: string,
+  ) {
+    const result =
+      await prisma.m1MMessage.updateMany({
+        where: {
+          id: messageId,
+          processedAt: null,
+        },
+        data: {
+          processedAt: new Date(),
+        },
+      });
+
+    return result.count === 1;
+  },
+
+  async releaseProcessing(
+    messageId: string,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        id: messageId,
+      },
+      data: {
+        processedAt: null,
       },
     });
   },

@@ -1,10 +1,13 @@
-﻿import {
+import {
   M1MWeekday,
 } from "@/generated/prisma/enums";
 
 import {
-  sectorScheduleRepository,
-} from "@/repositories/sector-schedule.repository";
+  effectiveScheduleRepository,
+} from "@/repositories/effective-schedule.repository";
+import {
+  companyScheduleRepository,
+} from "@/repositories/company-schedule.repository";
 
 type ScheduleLike = {
   dayOfWeek: M1MWeekday;
@@ -107,7 +110,7 @@ function getCurrentParts(
     !weekdayMap[weekday]
   ) {
     throw new Error(
-      "Não foi possível identificar o horário atual.",
+      "NÃ£o foi possÃ­vel identificar o horÃ¡rio atual.",
     );
   }
 
@@ -370,6 +373,60 @@ export const sectorAvailabilityService = {
     };
   },
 
+  async isCompanyOpenNow(
+    companyId: string,
+    options?: {
+      date?: Date;
+      timeZone?: string;
+    },
+  ) {
+    const company =
+      await companyScheduleRepository.findCompany(
+        companyId,
+      );
+
+    if (!company) {
+      throw new Error(
+        "Empresa não encontrada.",
+      );
+    }
+
+    await companyScheduleRepository.ensureWeekdays(
+      companyId,
+    );
+
+    const schedules =
+      await companyScheduleRepository.findAll(
+        companyId,
+      );
+
+    const {
+      dayOfWeek,
+      currentTime,
+    } = getCurrentParts(
+      options?.date ??
+        new Date(),
+      options?.timeZone ??
+        "America/Cuiaba",
+    );
+
+    const schedule =
+      schedules.find(
+        (item) =>
+          item.dayOfWeek ===
+          dayOfWeek,
+      );
+
+    return {
+      company,
+      ...this.evaluateSchedule(
+        schedule,
+        schedules,
+        dayOfWeek,
+        currentTime,
+      ),
+    };
+  },
   async isSectorOpenNow(
     companyId: string,
     sectorId: string,
@@ -378,24 +435,13 @@ export const sectorAvailabilityService = {
       timeZone?: string;
     },
   ) {
-    const sector =
-      await sectorScheduleRepository.findSector(
+    const {
+      sector,
+      source,
+      schedules,
+    } =
+      await effectiveScheduleRepository.getEffectiveSchedules(
         companyId,
-        sectorId,
-      );
-
-    if (!sector) {
-      throw new Error(
-        "Setor não encontrado.",
-      );
-    }
-
-    await sectorScheduleRepository.ensureWeekdays(
-      sectorId,
-    );
-
-    const schedules =
-      await sectorScheduleRepository.findAllBySector(
         sectorId,
       );
 
@@ -418,6 +464,7 @@ export const sectorAvailabilityService = {
 
     return {
       sector,
+      scheduleSource: source,
       ...this.evaluateSchedule(
         schedule,
         schedules,

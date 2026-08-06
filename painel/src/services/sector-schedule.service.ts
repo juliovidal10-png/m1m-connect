@@ -26,7 +26,8 @@ function requireText(
   value: string | null | undefined,
   fieldName: string,
 ) {
-  const normalizedValue = value?.trim();
+  const normalizedValue =
+    value?.trim();
 
   if (!normalizedValue) {
     throw new Error(
@@ -148,7 +149,7 @@ function normalizeSchedule(
     timeToMinutes(closingTime)
   ) {
     throw new Error(
-      "O horário de abertura deve ser anterior ao fechamento.",
+      "A abertura deve ser anterior ao fechamento.",
     );
   }
 
@@ -176,7 +177,7 @@ function normalizeSchedule(
     )
   ) {
     throw new Error(
-      "Preencha os dois horários do segundo período.",
+      "Preencha os dois horários do período após o almoço.",
     );
   }
 
@@ -193,7 +194,7 @@ function normalizeSchedule(
       )
     ) {
       throw new Error(
-        "O início do segundo período deve ser anterior ao término.",
+        "O retorno do almoço deve ser anterior ao fechamento.",
       );
     }
 
@@ -206,7 +207,7 @@ function normalizeSchedule(
       )
     ) {
       throw new Error(
-        "O segundo período não pode começar antes do término do primeiro.",
+        "O retorno do almoço não pode ocorrer antes da saída.",
       );
     }
   }
@@ -221,6 +222,27 @@ function normalizeSchedule(
     secondOpeningTime,
     secondClosingTime,
   };
+}
+
+function orderSchedules<
+  T extends {
+    dayOfWeek: M1MWeekday;
+  },
+>(
+  schedules: T[],
+) {
+  const scheduleMap =
+    new Map(
+      schedules.map((schedule) => [
+        schedule.dayOfWeek,
+        schedule,
+      ]),
+    );
+
+  return weekdayOrder.map(
+    (dayOfWeek) =>
+      scheduleMap.get(dayOfWeek),
+  );
 }
 
 export const sectorScheduleService = {
@@ -252,31 +274,43 @@ export const sectorScheduleService = {
       );
     }
 
-    await sectorScheduleRepository.ensureWeekdays(
-      normalizedSectorId,
-    );
-
-    const schedules =
-      await sectorScheduleRepository.findAllBySector(
+    if (sector.useCustomSchedule) {
+      await sectorScheduleRepository.ensureSectorWeekdays(
         normalizedSectorId,
       );
 
-    const scheduleMap =
-      new Map(
-        schedules.map((schedule) => [
-          schedule.dayOfWeek,
-          schedule,
-        ]),
+      const schedules =
+        await sectorScheduleRepository.findAllBySector(
+          normalizedSectorId,
+        );
+
+      return {
+        sector,
+        scheduleSource:
+          "SECTOR" as const,
+        schedules:
+          orderSchedules(
+            schedules,
+          ),
+      };
+    }
+
+    await sectorScheduleRepository.ensureCompanyWeekdays(
+      normalizedCompanyId,
+    );
+
+    const schedules =
+      await sectorScheduleRepository.findAllByCompany(
+        normalizedCompanyId,
       );
 
     return {
       sector,
+      scheduleSource:
+        "COMPANY" as const,
       schedules:
-        weekdayOrder.map(
-          (dayOfWeek) =>
-            scheduleMap.get(
-              dayOfWeek,
-            ),
+        orderSchedules(
+          schedules,
         ),
     };
   },
@@ -284,7 +318,10 @@ export const sectorScheduleService = {
   async updateSchedules(
     companyId: string,
     sectorId: string,
-    input: unknown,
+    input: {
+      useCustomSchedule?: unknown;
+      schedules?: unknown;
+    },
   ) {
     const normalizedCompanyId =
       requireText(
@@ -298,26 +335,45 @@ export const sectorScheduleService = {
         "Setor",
       );
 
+    const useCustomSchedule =
+      input.useCustomSchedule === true;
+
     const sector =
-      await sectorScheduleRepository.findSector(
+      await sectorScheduleRepository.updateScheduleMode(
         normalizedCompanyId,
         normalizedSectorId,
+        useCustomSchedule,
       );
 
-    if (!sector) {
-      throw new Error(
-        "Setor não encontrado.",
+    if (!useCustomSchedule) {
+      await sectorScheduleRepository.ensureCompanyWeekdays(
+        normalizedCompanyId,
       );
+
+      const companySchedules =
+        await sectorScheduleRepository.findAllByCompany(
+          normalizedCompanyId,
+        );
+
+      return {
+        sector,
+        scheduleSource:
+          "COMPANY" as const,
+        schedules:
+          orderSchedules(
+            companySchedules,
+          ),
+      };
     }
 
-    if (!Array.isArray(input)) {
+    if (!Array.isArray(input.schedules)) {
       throw new Error(
-        "A lista de horários é inválida.",
+        "A lista de horários próprios é inválida.",
       );
     }
 
     const schedules =
-      input.map(
+      input.schedules.map(
         normalizeSchedule,
       );
 
@@ -344,22 +400,13 @@ export const sectorScheduleService = {
         schedules,
       );
 
-    const scheduleMap =
-      new Map(
-        savedSchedules.map((schedule) => [
-          schedule.dayOfWeek,
-          schedule,
-        ]),
-      );
-
     return {
       sector,
+      scheduleSource:
+        "SECTOR" as const,
       schedules:
-        weekdayOrder.map(
-          (dayOfWeek) =>
-            scheduleMap.get(
-              dayOfWeek,
-            ),
+        orderSchedules(
+          savedSchedules,
         ),
     };
   },

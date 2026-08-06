@@ -51,7 +51,7 @@ export async function GET(
       {
         error: getErrorMessage(
           error,
-          "Erro ao carregar os horários do setor.",
+          "Erro ao carregar os horários.",
         ),
       },
       {
@@ -79,7 +79,12 @@ export async function PUT(
       await sectorScheduleService.updateSchedules(
         companyId,
         sectorId,
-        body.schedules,
+        {
+          useCustomSchedule:
+            body.useCustomSchedule,
+          schedules:
+            body.schedules,
+        },
       );
 
     return NextResponse.json(
@@ -95,7 +100,7 @@ export async function PUT(
       {
         error: getErrorMessage(
           error,
-          "Erro ao salvar os horários do setor.",
+          "Erro ao salvar os horários.",
         ),
       },
       {

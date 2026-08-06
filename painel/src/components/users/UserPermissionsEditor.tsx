@@ -198,10 +198,10 @@ export default function UserPermissionsEditor({
             </h3>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">
-              Este usuário possui acesso a todas as
-              funcionalidades operacionais da empresa.
-              Não é necessário configurar permissões
-              individualmente.
+              Este usuário possui acesso total aos
+              recursos operacionais do M1M Connect.
+              As permissões individuais são
+              desnecessárias para este perfil.
             </p>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -233,8 +233,10 @@ export default function UserPermissionsEditor({
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-purple-700/70">
-                  O acesso total não pode ser reduzido
-                  enquanto o perfil for Administrador.
+                  Enquanto este colaborador possuir o
+                  perfil Administrador, todas as
+                  permissões operacionais permanecerão
+                  liberadas automaticamente.
                 </p>
               </div>
             </div>

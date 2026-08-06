@@ -1,4 +1,4 @@
-﻿import {
+import {
   M1MAttendanceActorType,
   M1MAttendanceEventType,
   M1MAttendanceState,
@@ -13,6 +13,13 @@ type TransferAttendanceToSectorInput = {
   sectorId: string;
   actorType: M1MAttendanceActorType;
   actorId?: string | null;
+};
+
+type TakeoverFromWhatsAppInput = {
+  companyId: string;
+  customerId: string;
+  remoteJid: string;
+  messageId: string;
 };
 
 export const attendanceService = {
@@ -171,6 +178,57 @@ export const attendanceService = {
         M1MAttendanceActorType.USER,
       actorId:
         responsibleId,
+    });
+
+    return updatedAttendance;
+  },
+
+  async takeoverFromWhatsApp(
+    input: TakeoverFromWhatsAppInput,
+  ) {
+    const activeAttendance =
+      await attendanceRepository.findActiveAttendance(
+        input.companyId,
+        input.customerId,
+      );
+
+    const attendance =
+      activeAttendance ??
+      (await this.startAttendance(
+        input.companyId,
+        input.customerId,
+      ));
+
+    if (
+      attendance.state ===
+      M1MAttendanceState.HUMANO
+    ) {
+      return attendance;
+    }
+
+    const updatedAttendance =
+      await attendanceRepository.takeoverAttendance({
+        attendanceId:
+          attendance.id,
+      });
+
+    await attendanceRepository.createEvent({
+      attendanceId:
+        attendance.id,
+      type:
+        M1MAttendanceEventType.TAKEN_BY_HUMAN,
+      actorType:
+        M1MAttendanceActorType.USER,
+      actorId:
+        attendance.responsibleId ?? null,
+      metadata: {
+        source:
+          "WHATSAPP_MANUAL_MESSAGE",
+        remoteJid:
+          input.remoteJid,
+        messageId:
+          input.messageId,
+      },
     });
 
     return updatedAttendance;

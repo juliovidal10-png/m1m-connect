@@ -1,4 +1,4 @@
-﻿import {
+import {
   M1MAttendanceActorType,
   M1MAttendanceEventType,
   M1MAttendanceState,
@@ -15,6 +15,11 @@ export type CreateAttendanceData = {
 export type AssignAttendanceData = {
   attendanceId: string;
   responsibleId: string;
+  assignedAt?: Date;
+};
+
+export type TakeoverAttendanceData = {
+  attendanceId: string;
   assignedAt?: Date;
 };
 
@@ -120,6 +125,23 @@ export const attendanceRepository = {
           M1MAttendanceState.HUMANO,
         responsibleId:
           data.responsibleId,
+        assignedAt:
+          data.assignedAt ?? new Date(),
+        finishedAt: null,
+      },
+    });
+  },
+
+  async takeoverAttendance(
+    data: TakeoverAttendanceData,
+  ) {
+    return prisma.m1MAttendance.update({
+      where: {
+        id: data.attendanceId,
+      },
+      data: {
+        state:
+          M1MAttendanceState.HUMANO,
         assignedAt:
           data.assignedAt ?? new Date(),
         finishedAt: null,

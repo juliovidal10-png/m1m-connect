@@ -1,14 +1,13 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import Sidebar from "@/components/layout/Sidebar";
-import SectorSchedulesSettings from "@/components/sector/SectorSchedulesSettings";
+import SectorBasicSettings from "@/components/sector/SectorBasicSettings";
+import SectorKeywordsSettings from "@/components/sector/SectorKeywordsSettings";
+import SectorKnowledgeSettings from "@/components/sector/SectorKnowledgeSettings";
 import SectorUsersSettings from "@/components/sector/SectorUsersSettings";
 
 type Sector = {
@@ -16,6 +15,7 @@ type Sector = {
   companyId: string;
   name: string;
   description: string | null;
+  knowledge: string | null;
   active: boolean;
   sortOrder: number;
   createdAt: string;
@@ -25,64 +25,189 @@ type Sector = {
 type WorkspaceView =
   | "overview"
   | "responsibles"
-  | "schedules";
+  | "knowledge"
+  | "routing"
+  | "settings";
 
 const modules = [
   {
     id: "responsibles",
     title: "Responsáveis",
-    icon: "👥",
+    icon: "users",
     description:
-      "Defina quais colaboradores podem atender neste setor.",
-    status: "Configurar equipe",
-    enabled: true,
-  },
-  {
-    id: "hours",
-    title: "Horários",
-    icon: "🕒",
-    description:
-      "Configure os dias e horários de funcionamento do setor.",
-    status: "Configurar horários",
-    enabled: true,
-  },
-  {
-    id: "ai",
-    title: "Inteligência Artificial",
-    icon: "🤖",
-    description:
-      "Defina como a IA deve atuar nas conversas deste setor.",
-    status: "Protegida pela M1M",
-    enabled: false,
+      "Defina quais colaboradores podem atender e assumir conversas neste setor.",
   },
   {
     id: "knowledge",
     title: "Base de Conhecimento",
-    icon: "📚",
+    icon: "book",
     description:
-      "Cadastre serviços, informações e respostas utilizadas pela IA.",
-    status: "Protegida pela M1M",
-    enabled: false,
+      "Cadastre todas as informações que a IA precisa conhecer sobre este setor para responder corretamente aos clientes.",
   },
   {
     id: "routing",
-    title: "Encaminhamento",
-    icon: "➡️",
+    title: "Encaminhamento Automático",
+    icon: "routing",
     description:
-      "Configure quando e para quem as conversas devem ser encaminhadas.",
-    status: "Nenhuma regra",
-    enabled: false,
+      "Informe palavras e expressões que identificam quando uma conversa deve ser enviada para este setor.",
   },
   {
     id: "settings",
     title: "Configurações do Setor",
-    icon: "⚙️",
+    icon: "settings",
     description:
-      "Edite nome, descrição, ordem de exibição e situação do setor.",
-    status: "Disponível em breve",
-    enabled: false,
+      "Edite o nome, a descrição, a ordem de exibição e a situação deste setor.",
   },
-];
+] as const;
+
+type ModuleIconName =
+  | "users"
+  | "book"
+  | "routing"
+  | "settings";
+
+function ModuleIcon({
+  type,
+}: {
+  type: ModuleIconName;
+}) {
+  const className = "h-5 w-5";
+
+  if (type === "users") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <circle
+          cx="9"
+          cy="8"
+          r="3"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <path
+          d="M3.5 19c.6-3.1 2.5-4.8 5.5-4.8s4.9 1.7 5.5 4.8"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+        <path
+          d="M15.5 5.5a2.8 2.8 0 0 1 0 5.5M16.5 14.5c2.1.4 3.4 1.8 4 4.2"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === "book") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <path
+          d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5v-16Z"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5v-16Z"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === "routing") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <path
+          d="M5 6h5a4 4 0 0 1 4 4v8"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M5 18h5a4 4 0 0 0 4-4V9"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="m17 15 3 3-3 3M17 3l3 3-3 3"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="3.2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M19.4 13.7a7.8 7.8 0 0 0 0-3.4l2-1.5-2-3.4-2.4 1a7.5 7.5 0 0 0-3-1.7L13.7 2h-3.9l-.4 2.7a7.5 7.5 0 0 0-3 1.7l-2.4-1-2 3.4 2 1.5a7.8 7.8 0 0 0 0 3.4l-2 1.5 2 3.4 2.4-1a7.5 7.5 0 0 0 3 1.7l.4 2.7h3.9l.4-2.7a7.5 7.5 0 0 0 3-1.7l2.4 1 2-3.4-2.1-1.5Z"
+        stroke="currentColor"
+        strokeWidth="1.45"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SectorIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="h-6 w-6"
+    >
+      <path
+        d="M4 20V8.5L12 4l8 4.5V20"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 20v-5h8v5M8 10h.01M12 10h.01M16 10h.01"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export default function SectorWorkspacePage() {
   const params = useParams<{
@@ -148,20 +273,34 @@ export default function SectorWorkspacePage() {
     }
   }, [sectorId]);
 
-  function openModule(moduleId: string) {
-    if (moduleId === "responsibles") {
-      setActiveView("responsibles");
-      return;
-    }
-
-    if (moduleId === "hours") {
-      setActiveView("schedules");
-    }
+  function openModule(
+    moduleId: WorkspaceView,
+  ) {
+    setActiveView(moduleId);
   }
 
-  function returnToOverview() {
-    setActiveView("overview");
+  function getActiveViewLabel() {
+    if (activeView === "responsibles") {
+      return "Responsáveis";
+    }
+
+    if (activeView === "knowledge") {
+      return "Base de Conhecimento";
+    }
+
+    if (activeView === "routing") {
+      return "Encaminhamento Automático";
+    }
+
+    if (activeView === "settings") {
+      return "Configurações do Setor";
+    }
+
+    return null;
   }
+
+  const activeViewLabel =
+    getActiveViewLabel();
 
   return (
     <main className="flex min-h-screen bg-[#f7f7f8] text-[#191919]">
@@ -203,7 +342,9 @@ export default function SectorWorkspacePage() {
 
               <button
                 type="button"
-                onClick={returnToOverview}
+                onClick={() =>
+                  setActiveView("overview")
+                }
                 className={
                   activeView === "overview"
                     ? "font-semibold text-black/70"
@@ -213,22 +354,12 @@ export default function SectorWorkspacePage() {
                 {sector?.name ?? "Carregando..."}
               </button>
 
-              {activeView === "responsibles" && (
+              {activeViewLabel && (
                 <>
                   <span>›</span>
 
                   <span className="font-semibold text-black/70">
-                    Responsáveis
-                  </span>
-                </>
-              )}
-
-              {activeView === "schedules" && (
-                <>
-                  <span>›</span>
-
-                  <span className="font-semibold text-black/70">
-                    Horários
+                    {activeViewLabel}
                   </span>
                 </>
               )}
@@ -238,8 +369,8 @@ export default function SectorWorkspacePage() {
               <div className="mt-6 space-y-5">
                 <div className="h-52 animate-pulse rounded-2xl bg-white" />
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {[1, 2, 3, 4, 5, 6].map(
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[1, 2, 3, 4].map(
                     (item) => (
                       <div
                         key={item}
@@ -267,18 +398,68 @@ export default function SectorWorkspacePage() {
                   Voltar para configurações
                 </Link>
               </div>
-            ) : activeView === "responsibles" ? (
+            ) : activeView ===
+              "responsibles" ? (
               <div className="mt-6">
                 <SectorUsersSettings
                   sectorId={sectorId}
-                  onBack={returnToOverview}
+                  onBack={() =>
+                    setActiveView("overview")
+                  }
                 />
               </div>
-            ) : activeView === "schedules" ? (
+            ) : activeView ===
+              "knowledge" ? (
               <div className="mt-6">
-                <SectorSchedulesSettings
+                <SectorKnowledgeSettings
                   sectorId={sectorId}
-                  onBack={returnToOverview}
+                  sectorName={sector.name}
+                  onBack={() =>
+                    setActiveView("overview")
+                  }
+                  onSaved={(knowledge) =>
+                    setSector(
+                      (currentSector) =>
+                        currentSector
+                          ? {
+                              ...currentSector,
+                              knowledge,
+                            }
+                          : currentSector,
+                    )
+                  }
+                />
+              </div>
+            ) : activeView ===
+              "routing" ? (
+              <div className="mt-6">
+                <SectorKeywordsSettings
+                  sectorId={sectorId}
+                  sectorName={sector.name}
+                  onBack={() =>
+                    setActiveView("overview")
+                  }
+                />
+              </div>
+            ) : activeView ===
+              "settings" ? (
+              <div className="mt-6">
+                <SectorBasicSettings
+                  sector={sector}
+                  onBack={() =>
+                    setActiveView("overview")
+                  }
+                  onSaved={(savedSector) =>
+                    setSector(
+                      (currentSector) =>
+                        currentSector
+                          ? {
+                              ...currentSector,
+                              ...savedSector,
+                            }
+                          : currentSector,
+                    )
+                  }
                 />
               </div>
             ) : (
@@ -287,8 +468,8 @@ export default function SectorWorkspacePage() {
                   <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-2xl">
-                          🏪
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-black/10 bg-black/[0.025] text-black/55">
+                          <SectorIcon />
                         </div>
 
                         <div>
@@ -331,75 +512,47 @@ export default function SectorWorkspacePage() {
                 <div className="mt-6">
                   <div>
                     <p className="text-sm font-semibold text-orange-600">
-                      Módulos do setor
+                      Módulos
                     </p>
 
                     <h2 className="mt-1 text-2xl font-bold">
-                      Gerencie o funcionamento do setor
+                      Gerencie este setor
                     </h2>
                   </div>
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {modules.map((module) => {
-                      const cardClassName =
-                        module.enabled
-                          ? "flex min-h-56 cursor-pointer flex-col rounded-2xl border border-black/5 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
-                          : "flex min-h-56 flex-col rounded-2xl border border-black/5 bg-white p-5 shadow-sm";
+                  <div className="mt-5 grid gap-4 md:grid-cols-2">
+                    {modules.map((module) => (
+                      <button
+                        key={module.id}
+                        type="button"
+                        onClick={() =>
+                          openModule(
+                            module.id,
+                          )
+                        }
+                        className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-black/10 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-black/[0.025] text-black/55">
+                          <ModuleIcon
+                            type={module.icon}
+                          />
+                        </div>
 
-                      return (
-                        <button
-                          key={module.id}
-                          type="button"
-                          disabled={
-                            !module.enabled
-                          }
-                          onClick={() =>
-                            openModule(
-                              module.id,
-                            )
-                          }
-                          className={
-                            cardClassName
-                          }
-                        >
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-orange-50 text-xl">
-                            {module.icon}
-                          </div>
+                        <h3 className="mt-4 text-lg font-bold">
+                          {module.title}
+                        </h3>
 
-                          <h3 className="mt-4 text-lg font-bold">
-                            {module.title}
-                          </h3>
+                        <p className="mt-2 flex-1 text-sm leading-6 text-black/50">
+                          {module.description}
+                        </p>
 
-                          <p className="mt-2 flex-1 text-sm leading-6 text-black/50">
-                            {module.description}
-                          </p>
-
-                          <div className="mt-5 flex w-full items-center justify-between gap-3 border-t border-black/5 pt-4">
-                            <span
-                              className={
-                                module.enabled
-                                  ? "text-xs font-semibold text-orange-600"
-                                  : "text-xs font-semibold text-black/35"
-                              }
-                            >
-                              {module.status}
-                            </span>
-
-                            <span
-                              className={
-                                module.enabled
-                                  ? "rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white"
-                                  : "rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/25"
-                              }
-                            >
-                              {module.enabled
-                                ? "Configurar →"
-                                : "Em breve"}
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
+                        <div className="mt-5 border-t border-black/5 pt-4">
+                          <span className="text-sm font-bold text-orange-600 transition group-hover:text-orange-700">
+                            Abrir módulo →
+                          </span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </>

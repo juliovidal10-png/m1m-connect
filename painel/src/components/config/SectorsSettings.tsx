@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import { useRouter } from "next/navigation";
+
 type Sector = {
   id: string;
   companyId: string;
@@ -38,6 +40,8 @@ const emptyForm: SectorFormData = {
 export default function SectorsSettings({
   onBack,
 }: SectorsSettingsProps) {
+  const router = useRouter();
+
   const [sectors, setSectors] = useState<
     Sector[]
   >([]);
@@ -382,6 +386,14 @@ export default function SectorsSettings({
     }
   }
 
+  function openSectorWorkspace(
+    sectorId: string,
+  ) {
+    router.push(
+      `/configuracoes/setores/${sectorId}`,
+    );
+  }
+
   return (
     <div>
       <button
@@ -594,7 +606,26 @@ export default function SectorsSettings({
                 return (
                   <article
                     key={sector.id}
-                    className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:border-orange-100"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                      openSectorWorkspace(
+                        sector.id,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" ||
+                        event.key === " "
+                      ) {
+                        event.preventDefault();
+
+                        openSectorWorkspace(
+                          sector.id,
+                        );
+                      }
+                    }}
+                    className="cursor-pointer rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-orange-100"
                   >
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -625,25 +656,30 @@ export default function SectorsSettings({
                             "Nenhuma descrição cadastrada."}
                         </p>
 
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {[
-                            "Responsáveis",
-                            "Horários",
-                            "Serviços",
-                            "Perguntas frequentes",
-                            "Encaminhamento",
-                          ].map((item) => (
-                            <span
-                              key={item}
-                              className="rounded-lg border border-black/5 bg-[#f7f7f8] px-3 py-2 text-xs font-semibold text-black/35"
-                            >
-                              {item}
-                            </span>
-                          ))}
-                        </div>
                       </div>
 
-                      <div className="flex shrink-0 flex-wrap gap-2">
+                      <div
+                        className="flex shrink-0 flex-wrap gap-2"
+                        onClick={(event) =>
+                          event.stopPropagation()
+                        }
+                        onKeyDown={(event) =>
+                          event.stopPropagation()
+                        }
+                      >
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() =>
+                            openSectorWorkspace(
+                              sector.id,
+                            )
+                          }
+                          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          Configurar
+                        </button>
+
                         <button
                           type="button"
                           disabled={isProcessing}

@@ -4,6 +4,7 @@ export type SectorData = {
   companyId: string;
   name: string;
   description?: string | null;
+  knowledge?: string | null;
   active?: boolean;
   sortOrder?: number;
 };
@@ -11,6 +12,7 @@ export type SectorData = {
 export type SectorUpdateData = {
   name?: string;
   description?: string | null;
+  knowledge?: string | null;
   active?: boolean;
   sortOrder?: number;
 };
@@ -93,6 +95,10 @@ export const sectorRepository = {
           normalizeOptionalText(
             data.description,
           ),
+        knowledge:
+          normalizeOptionalText(
+            data.knowledge,
+          ),
         active:
           data.active ?? true,
         sortOrder:
@@ -121,6 +127,16 @@ export const sectorRepository = {
       updateData.description =
         normalizeOptionalText(
           data.description,
+        );
+    }
+
+    if (
+      data.knowledge !==
+      undefined
+    ) {
+      updateData.knowledge =
+        normalizeOptionalText(
+          data.knowledge,
         );
     }
 

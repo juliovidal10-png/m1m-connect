@@ -1,12 +1,14 @@
-﻿import {
-  after,
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
-const INSTANCE_NAME = "Financeiro";
+const INSTANCE_NAME =
+  process.env.INSTANCE_NAME ||
+  process.env.DEFAULT_INSTANCE ||
+  "Financeiro";
 
 type MediaType =
   | "image"
@@ -14,14 +16,31 @@ type MediaType =
   | "video"
   | "audio";
 
-const ALLOWED_MEDIA_TYPES = new Set<MediaType>([
-  "image",
-  "document",
-  "video",
-  "audio",
-]);
+const ALLOWED_MEDIA_TYPES =
+  new Set<MediaType>([
+    "image",
+    "document",
+    "video",
+    "audio",
+  ]);
 
-export async function POST(request: NextRequest) {
+function parseEvolutionResponse(
+  value: string,
+) {
+  if (!value.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+) {
   try {
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
@@ -37,16 +56,29 @@ export async function POST(request: NextRequest) {
       await request.formData();
 
     const remoteJid = String(
-      incomingFormData.get("remoteJid") ?? "",
+      incomingFormData.get(
+        "remoteJid",
+      ) ?? "",
     ).trim();
 
     const mediaType = String(
-      incomingFormData.get("mediatype") ?? "",
+      incomingFormData.get(
+        "mediatype",
+      ) ?? "",
     ).trim() as MediaType;
 
     const caption = String(
-      incomingFormData.get("caption") ?? "",
+      incomingFormData.get(
+        "caption",
+      ) ?? "",
     ).trim();
+
+    const ptt =
+      String(
+        incomingFormData.get(
+          "ptt",
+        ) ?? "",
+      ).trim() === "true";
 
     const fileValue =
       incomingFormData.get("file");
@@ -54,13 +86,18 @@ export async function POST(request: NextRequest) {
     if (!remoteJid) {
       return NextResponse.json(
         {
-          error: "Conversa não identificada.",
+          error:
+            "Conversa não identificada.",
         },
         { status: 400 },
       );
     }
 
-    if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
+    if (
+      !ALLOWED_MEDIA_TYPES.has(
+        mediaType,
+      )
+    ) {
       return NextResponse.json(
         {
           error:
@@ -73,7 +110,8 @@ export async function POST(request: NextRequest) {
     if (!(fileValue instanceof File)) {
       return NextResponse.json(
         {
-          error: "Nenhum arquivo foi selecionado.",
+          error:
+            "Nenhum arquivo foi selecionado.",
         },
         { status: 400 },
       );
@@ -82,7 +120,8 @@ export async function POST(request: NextRequest) {
     if (fileValue.size === 0) {
       return NextResponse.json(
         {
-          error: "O arquivo selecionado está vazio.",
+          error:
+            "O arquivo selecionado está vazio.",
         },
         { status: 400 },
       );
@@ -96,114 +135,147 @@ export async function POST(request: NextRequest) {
       "application/octet-stream";
 
     const fileBuffer =
-      await fileValue.arrayBuffer();
+      Buffer.from(
+        await fileValue.arrayBuffer(),
+      );
 
-    after(async () => {
-      try {
-        const evolutionFormData =
-          new FormData();
+    const base64 =
+      fileBuffer.toString("base64");
 
-        evolutionFormData.append(
-          "number",
-          remoteJid,
-        );
+    const normalizedNumber =
+      remoteJid
+        .replace("@s.whatsapp.net", "")
+        .replace("@g.us", "")
+        .trim();
 
-        evolutionFormData.append(
-          "mediatype",
+    const evolutionPayload = {
+      number: normalizedNumber,
+      mediatype: mediaType,
+      mimetype: mimeType,
+      caption,
+      media: base64,
+      fileName,
+      ...(mediaType === "audio"
+        ? { ptt }
+        : {}),
+    };
+
+    const response = await fetch(
+      `${API_URL}/message/sendMedia/${INSTANCE_NAME}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: API_KEY,
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify(
+          evolutionPayload,
+        ),
+        cache: "no-store",
+      },
+    );
+
+    const responseText =
+      await response.text();
+
+    const evolutionData =
+      parseEvolutionResponse(
+        responseText,
+      );
+
+    if (!response.ok) {
+      console.error(
+        "[ENVIO DE MÍDIA] Evolution recusou o arquivo:",
+        JSON.stringify(
+          {
+            status:
+              response.status,
+            statusText:
+              response.statusText,
+            fileName,
+            mediaType,
+            mimeType,
+            remoteJid,
+            normalizedNumber,
+            details:
+              evolutionData,
+          },
+          null,
+          2,
+        ),
+      );
+
+      const evolutionMessage =
+        typeof evolutionData ===
+        "object" &&
+        evolutionData !== null &&
+        "message" in evolutionData
+          ? String(
+              (
+                evolutionData as {
+                  message?: unknown;
+                }
+              ).message ??
+                "",
+            )
+          : "";
+
+      return NextResponse.json(
+        {
+          error:
+            evolutionMessage ||
+            `A Evolution recusou o arquivo ${fileName}.`,
+          evolutionStatus:
+            response.status,
+          details:
+            evolutionData,
+        },
+        {
+          status:
+            response.status >= 400 &&
+            response.status <= 599
+              ? response.status
+              : 502,
+        },
+      );
+    }
+
+    console.log(
+      "[ENVIO DE MÍDIA] Arquivo enviado com sucesso:",
+      JSON.stringify(
+        {
+          fileName,
           mediaType,
-        );
-
-        evolutionFormData.append(
-          "mimetype",
           mimeType,
-        );
-
-        evolutionFormData.append(
-          "fileName",
-          fileName,
-        );
-
-        if (caption) {
-          evolutionFormData.append(
-            "caption",
-            caption,
-          );
-        }
-
-        const evolutionFile = new File(
-          [fileBuffer],
-          fileName,
-          {
-            type: mimeType,
-          },
-        );
-
-        evolutionFormData.append(
-          "file",
-          evolutionFile,
-          fileName,
-        );
-
-        const response = await fetch(
-          `${API_URL}/message/sendMedia/${INSTANCE_NAME}`,
-          {
-            method: "POST",
-            headers: {
-              apikey: API_KEY,
-            },
-            body: evolutionFormData,
-            cache: "no-store",
-          },
-        );
-
-        if (!response.ok) {
-          const details =
-            await response.text();
-
-          console.error(
-            "[ENVIO DE MÍDIA] Evolution recusou o arquivo:",
-            {
-              status: response.status,
-              details,
-            },
-          );
-
-          return;
-        }
-
-        await response.body?.cancel();
-
-        console.log(
-          "[ENVIO DE MÍDIA] Arquivo encaminhado com sucesso:",
-          fileName,
-        );
-      } catch (error) {
-        console.error(
-          "[ENVIO DE MÍDIA] Falha no envio em segundo plano:",
-          error,
-        );
-      }
-    });
+          remoteJid,
+          normalizedNumber,
+        },
+      ),
+    );
 
     return NextResponse.json(
       {
         success: true,
-        status: "PROCESSING",
         message:
-          "Arquivo recebido e encaminhado para envio.",
+          "Arquivo enviado com sucesso.",
+        evolution:
+          evolutionData,
       },
-      { status: 202 },
+      { status: 200 },
     );
   } catch (error) {
     console.error(
-      "Erro ao preparar envio de mídia:",
+      "[ENVIO DE MÍDIA] Erro interno:",
       error,
     );
 
     return NextResponse.json(
       {
         error:
-          "Erro interno ao preparar o arquivo.",
+          error instanceof Error
+            ? error.message
+            : "Erro interno ao enviar o arquivo.",
       },
       { status: 500 },
     );

@@ -1,7 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
-import { customerService } from "@/services/customer.service";
+import {
+  getCurrentCompanyId,
+} from "@/lib/tenant";
+import {
+  customerService,
+} from "@/services/customer.service";
 
 function getErrorMessage(
   error: unknown,
@@ -24,25 +31,44 @@ export async function GET(
         "remoteJid",
       );
 
-    if (!remoteJid) {
+    const phone =
+      request.nextUrl.searchParams.get(
+        "phone",
+      );
+
+    if (remoteJid) {
+      const customer =
+        await customerService.findCustomer(
+          companyId,
+          remoteJid,
+          phone,
+        );
+
       return NextResponse.json(
-        {
-          error:
-            "remoteJid é obrigatório.",
-        },
-        {
-          status: 400,
-        },
+        customer,
       );
     }
 
-    const customer =
-      await customerService.findCustomer(
+    const customers =
+      await customerService.listCustomers({
         companyId,
-        remoteJid,
-      );
+        search:
+          request.nextUrl.searchParams.get(
+            "search",
+          ),
+        status:
+          request.nextUrl.searchParams.get(
+            "status",
+          ),
+        responsibleId:
+          request.nextUrl.searchParams.get(
+            "responsibleId",
+          ),
+      });
 
-    return NextResponse.json(customer);
+    return NextResponse.json(
+      customers,
+    );
   } catch (error) {
     console.error(
       "ERRO CUSTOMERS GET:",
@@ -53,7 +79,7 @@ export async function GET(
       {
         error: getErrorMessage(
           error,
-          "Erro ao carregar os dados do cliente.",
+          "Erro ao carregar os clientes.",
         ),
       },
       {
@@ -70,7 +96,8 @@ export async function POST(
     const companyId =
       getCurrentCompanyId();
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const customer =
       await customerService.saveCustomer({
@@ -78,7 +105,9 @@ export async function POST(
         companyId,
       });
 
-    return NextResponse.json(customer);
+    return NextResponse.json(
+      customer,
+    );
   } catch (error) {
     console.error(
       "ERRO CUSTOMERS POST:",

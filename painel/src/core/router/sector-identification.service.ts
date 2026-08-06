@@ -8,6 +8,9 @@ export type SectorIdentificationResult =
   | {
       status: "IDENTIFIED";
       sector: SectorCandidate;
+      identifiedBy:
+        | "NAME"
+        | "NUMBER";
     }
   | {
       status: "AMBIGUOUS";
@@ -54,6 +57,38 @@ function containsExpression(
   );
 }
 
+function identifyByNumber(
+  normalizedMessage: string,
+  sectors: SectorCandidate[],
+) {
+  const numberMatch =
+    normalizedMessage.match(
+      /^(?:opcao\s+|setor\s+)?(\d+)$/,
+    );
+
+  if (!numberMatch) {
+    return null;
+  }
+
+  const selectedPosition =
+    Number(numberMatch[1]);
+
+  if (
+    !Number.isInteger(
+      selectedPosition,
+    ) ||
+    selectedPosition < 1 ||
+    selectedPosition >
+      sectors.length
+  ) {
+    return null;
+  }
+
+  return sectors[
+    selectedPosition - 1
+  ];
+}
+
 export const sectorIdentificationService = {
   identify(
     message: string | null,
@@ -69,6 +104,22 @@ export const sectorIdentificationService = {
         status:
           "NOT_IDENTIFIED",
         sectors,
+      };
+    }
+
+    const sectorByNumber =
+      identifyByNumber(
+        normalizedMessage,
+        sectors,
+      );
+
+    if (sectorByNumber) {
+      return {
+        status: "IDENTIFIED",
+        sector:
+          sectorByNumber,
+        identifiedBy:
+          "NUMBER",
       };
     }
 
@@ -90,6 +141,8 @@ export const sectorIdentificationService = {
         status: "IDENTIFIED",
         sector:
           exactMatches[0],
+        identifiedBy:
+          "NAME",
       };
     }
 

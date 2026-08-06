@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+﻿import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
+import { attendanceService } from "@/services/attendance.service";
 import { customerService } from "@/services/customer.service";
 
 function getErrorMessage(
@@ -23,7 +27,29 @@ export async function POST(
         responsibleId: body.responsibleId,
       });
 
-    return NextResponse.json(customer);
+    const existingAttendance =
+      await attendanceService.getOpenAttendanceByCustomer(
+        customer.companyId,
+        customer.id,
+      );
+
+    const attendance =
+      existingAttendance ??
+      (await attendanceService.startAttendance(
+        customer.companyId,
+        customer.id,
+      ));
+
+    const assumedAttendance =
+      await attendanceService.assumeAttendance(
+        attendance.id,
+        body.responsibleId,
+      );
+
+    return NextResponse.json({
+      customer,
+      attendance: assumedAttendance,
+    });
   } catch (error) {
     console.error(
       "ERRO CUSTOMERS ASSIGN POST:",

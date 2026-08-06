@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import AutomaticMessagesSettings from "@/components/config/AutomaticMessagesSettings";
+import CompanySchedulesSettings from "@/components/config/CompanySchedulesSettings";
+import CompanyProfileSettings from "@/components/config/CompanyProfileSettings";
+import HumanAttendanceSettings from "@/components/config/HumanAttendanceSettings";
+import PaymentSettings from "@/components/config/PaymentSettings";
 import SectorsSettings from "@/components/config/SectorsSettings";
 import Sidebar from "@/components/layout/Sidebar";
 
@@ -53,48 +58,84 @@ const emptyForm: CompanyFormData = {
   instagram: "",
 };
 
-const sections = [
+type ActiveSection =
+  | "overview"
+  | "company"
+  | "sectors"
+  | "companySchedules"
+  | "companyProfile"
+  | "payments"
+  | "automaticMessages"
+  | "humanAttendance";
+
+type Section = {
+  id:
+    | ActiveSection
+    | "companyProfile"
+    | "payments"
+    | "humanAttendance"
+    | "users";
+  title: string;
+  description: string;
+  enabled: boolean;
+};
+
+const sections: Section[] = [
   {
+    id: "company",
     title: "Empresa",
     description:
       "Informações institucionais, apresentação, endereço, telefones e identidade da empresa.",
     enabled: true,
   },
   {
+    id: "sectors",
     title: "Setores",
     description:
       "Cadastre os departamentos e defina como cada cliente será encaminhado.",
     enabled: true,
   },
   {
-    title: "Horários",
+    id: "users",
+    title: "Usuários e Permissões",
     description:
-      "Dias, horários de funcionamento e regras fora do expediente.",
-    enabled: false,
+      "Cadastre colaboradores, defina perfis de acesso e organize as permissões operacionais.",
+    enabled: true,
   },
   {
+    id: "companySchedules",
+    title: "Horário geral da empresa",
+    description:
+      "Configure os dias e horários padrão de atendimento da empresa.",
+    enabled: true,
+  },
+  {
+    id: "automaticMessages",
     title: "Mensagens automáticas",
     description:
-      "Configure saudação, ausência e encerramento do atendimento.",
-    enabled: false,
+      "Configure a mensagem enviada quando o cliente entrar em contato fora do expediente.",
+    enabled: true,
   },
   {
-    title: "Inteligência Artificial",
+    id: "companyProfile",
+    title: "Perfil da Empresa",
     description:
-      "Defina a personalidade, o comportamento e as regras da IA.",
-    enabled: false,
+      "Cadastre informações simples sobre o negócio para orientar o atendimento inteligente.",
+    enabled: true,
   },
   {
+    id: "payments",
     title: "Pagamentos",
     description:
       "Cadastre formas de pagamento, condições e informações comerciais.",
-    enabled: false,
+    enabled: true,
   },
   {
+    id: "humanAttendance",
     title: "Atendimento Humano",
     description:
-      "Configure a finalização automática e o retorno da IA após o atendimento humano.",
-    enabled: false,
+      "Defina quando a IA deve voltar e a mensagem enviada ao encerrar o atendimento.",
+    enabled: true,
   },
 ];
 
@@ -119,7 +160,7 @@ function toFormData(
 
 export default function ConfiguracoesPage() {
   const [activeSection, setActiveSection] =
-    useState<"overview" | "company" | "sectors">(
+    useState<ActiveSection>(
       "overview",
     );
 
@@ -357,21 +398,38 @@ export default function ConfiguracoesPage() {
                         type="button"
                         disabled={!section.enabled}
                         onClick={() => {
-                          if (
-                            section.title ===
-                            "Empresa"
-                          ) {
-                            setActiveSection(
-                              "company",
-                            );
+                          if (!section.enabled) {
+                            return;
                           }
 
                           if (
-                            section.title ===
-                            "Setores"
+                            section.id ===
+                              "users"
+                          ) {
+                            window.location.href =
+                              "/configuracoes/usuarios";
+
+                            return;
+                          }
+
+                          if (
+                            section.id ===
+                              "company" ||
+                            section.id ===
+                              "sectors" ||
+                            section.id ===
+                              "companySchedules" ||
+                            section.id ===
+                              "companyProfile" ||
+                            section.id ===
+                              "payments" ||
+                            section.id ===
+                              "automaticMessages" ||
+                            section.id ===
+                              "humanAttendance"
                           ) {
                             setActiveSection(
-                              "sectors",
+                              section.id,
                             );
                           }
                         }}
@@ -391,6 +449,51 @@ export default function ConfiguracoesPage() {
               </>
             ) : activeSection === "sectors" ? (
               <SectorsSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
+            ) : activeSection ===
+              "companySchedules" ? (
+              <CompanySchedulesSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
+            ) : activeSection ===
+              "companyProfile" ? (
+              <CompanyProfileSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
+            ) : activeSection ===
+              "payments" ? (
+              <PaymentSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
+            ) : activeSection ===
+              "automaticMessages" ? (
+              <AutomaticMessagesSettings
+                onBack={() =>
+                  setActiveSection(
+                    "overview",
+                  )
+                }
+              />
+            ) : activeSection ===
+              "humanAttendance" ? (
+              <HumanAttendanceSettings
                 onBack={() =>
                   setActiveSection(
                     "overview",

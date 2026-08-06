@@ -12,6 +12,7 @@ import ImageViewer from "./ImageViewer";
 export type ChatMessage = {
   id: string;
   key: {
+    id?: string;
     fromMe: boolean;
     remoteJid: string;
     participant?: string;
@@ -60,6 +61,21 @@ export type ChatMessage = {
         high?: number;
         unsigned?: boolean;
       };
+    };
+
+    reactionMessage?: {
+      text?: string;
+      key?: {
+        id?: string;
+        remoteJid?: string;
+        fromMe?: boolean;
+        participant?: string;
+      };
+      senderTimestampMs?: {
+        low?: number;
+        high?: number;
+        unsigned?: boolean;
+      } | number | string;
     };
   };
 };
@@ -407,9 +423,30 @@ function LoadedImageMessage({
           onClick={() =>
             setIsViewerOpen(true)
           }
-          className="mt-2 text-xs font-semibold opacity-60 transition hover:opacity-100"
+          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-black/55 transition hover:text-[#e93800]"
         >
-          🔍 Ampliar imagem
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="h-4 w-4"
+          >
+            <circle
+              cx="11"
+              cy="11"
+              r="6.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            />
+            <path
+              d="m16 16 4 4"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <span>Ampliar imagem</span>
         </button>
       </div>
 
@@ -1055,11 +1092,7 @@ export default function MessageRenderer({
     message.messageType ===
     "reactionMessage"
   ) {
-    return (
-      <p className="text-sm leading-6">
-        ❤️ Reação
-      </p>
-    );
+    return null;
   }
 
   return <UnsupportedMessage />;

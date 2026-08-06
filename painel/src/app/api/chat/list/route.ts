@@ -1,10 +1,13 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
-const INSTANCE_NAME = "Financeiro";
+const INSTANCE_NAME =
+  process.env.INSTANCE_NAME?.trim() ||
+  process.env.DEFAULT_INSTANCE?.trim() ||
+  "Financeiro";
 
 const COMPANY_ID =
   process.env.M1M_COMPANY_ID ||
@@ -175,7 +178,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error:
-            "Configuracao da Evolution API nao encontrada.",
+            "Configuração da Evolution API não encontrada.",
         },
         {
           status: 500,
@@ -207,7 +210,7 @@ export async function GET() {
       return NextResponse.json(
         {
           error:
-            "Nao foi possivel buscar as conversas.",
+            "Não foi possível buscar as conversas.",
           details: evolutionData,
         },
         {

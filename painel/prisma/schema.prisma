@@ -7,6 +7,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum M1MHumanReturnMode {
+  IMMEDIATE
+  NEXT_CONVERSATION
+  MANUAL
+}
+
 enum M1MAttendanceState {
   IA
   HUMANO
@@ -45,36 +51,122 @@ enum M1MMessageType {
   UNKNOWN
 }
 
+enum M1MMessageFlagType {
+  FAVORITE
+  PINNED
+}
+
+enum M1MPaymentReceiptStatus {
+  RECEIVED
+  CLASSIFIED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  AWAITING_NEW_RECEIPT
+  CUSTOMER_NOTIFIED
+  FINISHED
+}
+
+enum M1MPaymentReceiptEventType {
+  RECEIVED
+  CLASSIFIED
+  REVIEW_STARTED
+  APPROVED
+  REJECTED
+  AWAITING_NEW_RECEIPT
+  CUSTOMER_NOTIFIED
+  FINISHED
+  NOTE_ADDED
+}
+
 model M1MCompany {
-  id                String   @id @default(cuid())
-  name              String
-  slug              String   @unique
-  segment           String?
-  presentation      String?
-  address           String?
-  city              String?
-  state             String?
-  zipCode           String?
-  phone             String?
-  whatsapp          String?
-  email             String?
-  website           String?
-  instagram         String?
-  outOfHoursMessage String?
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                  String             @id @default(cuid())
+  name                String
+  slug                String             @unique
+  segment             String?
+  presentation        String?
+  address             String?
+  city                String?
+  state               String?
+  zipCode             String?
+  phone               String?
+  whatsapp            String?
+  email               String?
+  website             String?
+  instagram           String?
+  outOfHoursMessage   String?
+  humanReturnMode     M1MHumanReturnMode @default(NEXT_CONVERSATION)
+  humanClosingMessage String?
+  active              Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   users       M1MUser[]
   customers   M1MCustomer[]
   reminders   M1MReminder[]
   attendances M1MAttendance[]
-  messages    M1MMessage[]
+  messages     M1MMessage[]
+  messageFlags M1MMessageFlag[]
 
-  schedules M1MCompanySchedule[]
-  sectors   M1MSector[]
+  schedules       M1MCompanySchedule[]
+  sectors         M1MSector[]
+  profile         M1MCompanyProfile?
+  paymentSettings M1MPaymentSettings?
+  paymentReceipts M1MPaymentReceipt[]
 
   @@map("m1m_companies")
+}
+
+model M1MCompanyProfile {
+  id                       String   @id @default(cuid())
+  companyId                String   @unique
+  presentation             String?
+  differentials            String?
+  productsServices         String?
+  targetAudience           String?
+  serviceArea              String?
+  companyPolicies          String?
+  importantInformation     String?
+  frequentlyAskedQuestions String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("m1m_company_profiles")
+}
+
+model M1MPaymentSettings {
+  id                    String   @id @default(cuid())
+  companyId             String   @unique
+  acceptsPix            Boolean  @default(false)
+  acceptsCash           Boolean  @default(false)
+  acceptsCreditCard     Boolean  @default(false)
+  acceptsDebitCard      Boolean  @default(false)
+  acceptsBankSlip       Boolean  @default(false)
+  acceptsBankTransfer   Boolean  @default(false)
+  pixKeyType            String?
+  pixKey                String?
+  pixHolderName         String?
+  pixHolderDocument     String?
+  bankName              String?
+  bankAgency            String?
+  bankAccount           String?
+  bankAccountType       String?
+  maxInstallments       Int?
+  installmentInterest   String?
+  paymentDeadline       String?
+  receiptInstructions   String?
+  billingRules          String?
+  additionalInformation String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("m1m_payment_settings")
 }
 
 model M1MSector {
@@ -82,6 +174,7 @@ model M1MSector {
   companyId                  String
   name                       String
   description                String?
+  knowledge                  String?
   useCustomSchedule          Boolean  @default(false)
   useCustomOutOfHoursMessage Boolean  @default(false)
   outOfHoursMessage          String?
@@ -94,12 +187,28 @@ model M1MSector {
   sectorUsers M1MSectorUser[]
   schedules   M1MSectorSchedule[]
   attendances M1MAttendance[]
+  keywords    M1MSectorKeyword[]
 
   @@unique([companyId, name])
   @@index([companyId])
   @@index([companyId, active])
   @@index([companyId, sortOrder])
   @@map("m1m_sectors")
+}
+
+model M1MSectorKeyword {
+  id        String   @id @default(cuid())
+  sectorId  String
+  keyword   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sector M1MSector @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([sectorId, keyword])
+  @@index([sectorId])
+  @@index([keyword])
+  @@map("m1m_sector_keywords")
 }
 
 enum M1MWeekday {
@@ -193,11 +302,13 @@ model M1MUser {
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
-  company             M1MCompany           @relation(fields: [companyId], references: [id])
-  assignedCustomers   M1MCustomer[]        @relation("AssignedCustomerUser")
-  assignedAttendances M1MAttendance[]      @relation("AttendanceResponsible")
-  attendanceEvents    M1MAttendanceEvent[] @relation("AttendanceEventActor")
-  sectorUsers         M1MSectorUser[]
+  company              M1MCompany               @relation(fields: [companyId], references: [id])
+  assignedCustomers    M1MCustomer[]            @relation("AssignedCustomerUser")
+  assignedAttendances  M1MAttendance[]          @relation("AttendanceResponsible")
+  attendanceEvents     M1MAttendanceEvent[]     @relation("AttendanceEventActor")
+  sectorUsers          M1MSectorUser[]
+  paymentReceipts      M1MPaymentReceipt[]      @relation("PaymentReceiptResponsible")
+  paymentReceiptEvents M1MPaymentReceiptEvent[] @relation("PaymentReceiptEventActor")
 
   @@index([companyId])
   @@map("m1m_users")
@@ -235,11 +346,12 @@ model M1MCustomer {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  owner        M1MCompany      @relation(fields: [companyId], references: [id])
-  assignedUser M1MUser?        @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
-  reminders    M1MReminder[]
-  attendances  M1MAttendance[]
-  messages     M1MMessage[]
+  owner           M1MCompany          @relation(fields: [companyId], references: [id])
+  assignedUser    M1MUser?            @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)
+  reminders       M1MReminder[]
+  attendances     M1MAttendance[]
+  messages        M1MMessage[]
+  paymentReceipts M1MPaymentReceipt[]
 
   @@index([companyId])
   @@index([remoteJid])
@@ -286,12 +398,13 @@ model M1MAttendance {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  company     M1MCompany           @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  customer    M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  responsible M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
-  sector      M1MSector?           @relation(fields: [sectorId], references: [id], onDelete: SetNull)
-  events      M1MAttendanceEvent[]
-  messages    M1MMessage[]
+  company         M1MCompany           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer        M1MCustomer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  responsible     M1MUser?             @relation("AttendanceResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  sector          M1MSector?           @relation(fields: [sectorId], references: [id], onDelete: SetNull)
+  events          M1MAttendanceEvent[]
+  messages        M1MMessage[]
+  paymentReceipts M1MPaymentReceipt[]
 
   @@index([companyId])
   @@index([customerId])
@@ -343,9 +456,11 @@ model M1MMessage {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
-  company    M1MCompany     @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  customer   M1MCustomer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  attendance M1MAttendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  company        M1MCompany         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer       M1MCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  attendance     M1MAttendance?     @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  paymentReceipt M1MPaymentReceipt?
+  flags          M1MMessageFlag[]
 
   @@unique([companyId, instanceName, evolutionMessageId])
   @@index([companyId])
@@ -358,4 +473,86 @@ model M1MMessage {
   @@index([processedAt])
   @@index([companyId, remoteJid, sentAt])
   @@map("m1m_messages")
+}
+
+model M1MMessageFlag {
+  id        String             @id @default(cuid())
+  companyId String
+  messageId String
+  type      M1MMessageFlagType
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  message M1MMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, messageId, type])
+  @@index([companyId])
+  @@index([messageId])
+  @@index([type])
+  @@index([companyId, type, createdAt])
+  @@map("m1m_message_flags")
+}
+
+model M1MPaymentReceipt {
+  id                 String                  @id @default(cuid())
+  companyId          String
+  customerId         String
+  attendanceId       String?
+  messageId          String?                 @unique
+  responsibleId      String?
+  status             M1MPaymentReceiptStatus @default(RECEIVED)
+  mediaUrl           String?
+  mimeType           String?
+  fileName           String?
+  amount             Decimal?                @db.Decimal(14, 2)
+  paymentMethod      String?
+  identifiedBank     String?
+  paidAt             DateTime?
+  observations       String?
+  rejectionReason    String?
+  classifiedAt       DateTime?
+  reviewStartedAt    DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  customerNotifiedAt DateTime?
+  finishedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  company     M1MCompany               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  customer    M1MCustomer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  attendance  M1MAttendance?           @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  message     M1MMessage?              @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  responsible M1MUser?                 @relation("PaymentReceiptResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+  events      M1MPaymentReceiptEvent[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([attendanceId])
+  @@index([responsibleId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([companyId, status])
+  @@index([companyId, customerId])
+  @@map("m1m_payment_receipts")
+}
+
+model M1MPaymentReceiptEvent {
+  id        String                     @id @default(cuid())
+  receiptId String
+  type      M1MPaymentReceiptEventType
+  actorType M1MAttendanceActorType
+  actorId   String?
+  metadata  Json?
+  createdAt DateTime                   @default(now())
+
+  receipt M1MPaymentReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  actor   M1MUser?          @relation("PaymentReceiptEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([receiptId])
+  @@index([type])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("m1m_payment_receipt_events")
 }

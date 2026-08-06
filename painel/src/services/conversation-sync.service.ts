@@ -7,9 +7,15 @@ import { getMessages } from "@/lib/evolution";
 import { getCurrentCompanyId } from "@/lib/tenant";
 import { customerRepository } from "@/repositories/customer.repository";
 import { attendanceService } from "@/services/attendance.service";
-import { messageService } from "@/services/message.service";
+import {
+  messageService,
+  REVOKED_MESSAGE_CONTENT,
+} from "@/services/message.service";
 
-const DEFAULT_INSTANCE = "Financeiro";
+const DEFAULT_INSTANCE =
+  process.env.INSTANCE_NAME?.trim() ||
+  process.env.DEFAULT_INSTANCE?.trim() ||
+  "Financeiro";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -25,6 +31,12 @@ type NormalizedEvolutionMessage = {
   sentAt: Date;
   rawPayload: Prisma.InputJsonValue;
   pushName: string | null;
+};
+
+type RevokeMessageInfo = {
+  targetMessageId: string;
+  targetKey: UnknownRecord;
+  rawMessage: unknown;
 };
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -91,6 +103,197 @@ function toJsonValue(
   return JSON.parse(
     JSON.stringify(value ?? {}),
   ) as Prisma.InputJsonValue;
+}
+
+function isRevokeProtocolType(
+  value: unknown,
+): boolean {
+  return (
+    value === "REVOKE" ||
+    value === 0 ||
+    value === "0"
+  );
+}
+
+function getRevokeMessageInfo(
+  rawMessage: unknown,
+): RevokeMessageInfo | null {
+  const record =
+    getRecord(rawMessage);
+
+  const message =
+    getRecord(record?.message);
+
+  const protocolMessage =
+    getRecord(
+      message?.protocolMessage,
+    );
+
+  if (
+    !protocolMessage ||
+    !isRevokeProtocolType(
+      protocolMessage.type,
+    )
+  ) {
+    return null;
+  }
+
+  const targetKey =
+    getRecord(
+      protocolMessage.key,
+    );
+
+  const targetMessageId =
+    getText(targetKey?.id);
+
+  if (
+    !targetKey ||
+    !targetMessageId
+  ) {
+    return null;
+  }
+
+  return {
+    targetMessageId,
+    targetKey,
+    rawMessage,
+  };
+}
+
+function createDeletedRawMessage(
+  sourceMessage: unknown,
+  targetKey?: UnknownRecord,
+): unknown {
+  const record =
+    getRecord(sourceMessage);
+
+  if (!record) {
+    return sourceMessage;
+  }
+
+  const originalKey =
+    getRecord(record.key);
+
+  return {
+    ...record,
+    key:
+      targetKey ||
+      originalKey ||
+      {},
+    messageType:
+      "conversation",
+    message: {
+      conversation:
+        REVOKED_MESSAGE_CONTENT,
+    },
+  };
+}
+
+function applyRevokeEvents(
+  rawMessages: unknown[],
+): unknown[] {
+  const revokeInfos =
+    rawMessages
+      .map(getRevokeMessageInfo)
+      .filter(
+        (
+          info,
+        ): info is RevokeMessageInfo =>
+          info !== null,
+      );
+
+  if (
+    revokeInfos.length === 0
+  ) {
+    return rawMessages;
+  }
+
+  const revokeByTargetId =
+    new Map(
+      revokeInfos.map(
+        (info) => [
+          info.targetMessageId,
+          info,
+        ],
+      ),
+    );
+
+  const visibleMessages: unknown[] =
+    [];
+
+  const visibleIds =
+    new Set<string>();
+
+  for (
+    const rawMessage of rawMessages
+  ) {
+    if (
+      getRevokeMessageInfo(
+        rawMessage,
+      )
+    ) {
+      continue;
+    }
+
+    const record =
+      getRecord(rawMessage);
+
+    const key =
+      getRecord(record?.key);
+
+    const messageId =
+      getText(key?.id);
+
+    if (
+      messageId &&
+      revokeByTargetId.has(
+        messageId,
+      )
+    ) {
+      visibleMessages.push(
+        createDeletedRawMessage(
+          rawMessage,
+        ),
+      );
+
+      visibleIds.add(
+        messageId,
+      );
+
+      continue;
+    }
+
+    visibleMessages.push(
+      rawMessage,
+    );
+
+    if (messageId) {
+      visibleIds.add(
+        messageId,
+      );
+    }
+  }
+
+  for (
+    const info of revokeInfos
+  ) {
+    if (
+      visibleIds.has(
+        info.targetMessageId,
+      )
+    ) {
+      continue;
+    }
+
+    visibleMessages.push(
+      createDeletedRawMessage(
+        info.rawMessage,
+        info.targetKey,
+      ),
+    );
+  }
+
+  return visibleMessages;
 }
 
 function mapMessageType(
@@ -327,8 +530,76 @@ function normalizeEvolutionMessage(
     return null;
   }
 
+  const revokeInfo =
+    getRevokeMessageInfo(
+      rawMessage,
+    );
+
+  if (revokeInfo) {
+    const revokeRemoteJid =
+      getText(
+        revokeInfo.targetKey
+          .remoteJid,
+      ) ||
+      getText(key.remoteJid);
+
+    if (!revokeRemoteJid) {
+      return null;
+    }
+
+    const revokeFromMe =
+      getBoolean(
+        revokeInfo.targetKey
+          .fromMe,
+      );
+
+    return {
+      evolutionMessageId:
+        revokeInfo.targetMessageId,
+      remoteJid:
+        revokeRemoteJid,
+      direction:
+        revokeFromMe
+          ? M1MMessageDirection.OUT
+          : M1MMessageDirection.IN,
+      type:
+        M1MMessageType.TEXT,
+      fromMe:
+        revokeFromMe,
+      content:
+        REVOKED_MESSAGE_CONTENT,
+      mediaUrl: null,
+      mimeType: null,
+      sentAt:
+        getMessageDate(
+          record.messageTimestamp,
+        ),
+      rawPayload:
+        toJsonValue(
+          rawMessage,
+        ),
+      pushName:
+        getText(
+          record.pushName,
+        ),
+    };
+  }
+
   const evolutionMessageId = getText(key.id);
-  const remoteJid = getText(key.remoteJid);
+  const primaryRemoteJid = getText(
+    key.remoteJid,
+  );
+  const alternateRemoteJid = getText(
+    key.remoteJidAlt,
+  );
+
+  const remoteJid =
+    primaryRemoteJid?.endsWith("@lid") &&
+    alternateRemoteJid?.endsWith(
+      "@s.whatsapp.net",
+    )
+      ? alternateRemoteJid
+      : primaryRemoteJid;
 
   if (!evolutionMessageId || !remoteJid) {
     return null;
@@ -408,12 +679,76 @@ export const conversationSyncService = {
 
     const companyId = getCurrentCompanyId();
 
-    const rawMessages = (
+    const primaryRawMessages = (
       await getMessages(
         normalizedRemoteJid,
         instanceName,
       )
     ) as unknown[];
+
+    const primaryNormalizedMessages =
+      primaryRawMessages
+        .map(normalizeEvolutionMessage)
+        .filter(
+          (
+            message,
+          ): message is NormalizedEvolutionMessage =>
+            message !== null,
+        );
+
+    const canonicalRemoteJid =
+      primaryNormalizedMessages.find(
+        (message) =>
+          message.remoteJid.endsWith(
+            "@s.whatsapp.net",
+          ),
+      )?.remoteJid ??
+      normalizedRemoteJid;
+
+    const alternateRawMessages =
+      canonicalRemoteJid !==
+      normalizedRemoteJid
+        ? (
+            await getMessages(
+              canonicalRemoteJid,
+              instanceName,
+            )
+          ) as unknown[]
+        : [];
+
+    const rawMessageMap =
+      new Map<string, unknown>();
+
+    for (const rawMessage of [
+      ...primaryRawMessages,
+      ...alternateRawMessages,
+    ]) {
+      const record =
+        getRecord(rawMessage);
+
+      const key =
+        getRecord(record?.key);
+
+      const messageId =
+        getText(key?.id);
+
+      if (messageId) {
+        rawMessageMap.set(
+          messageId,
+          rawMessage,
+        );
+      }
+    }
+
+    const rawMessages =
+      Array.from(
+        rawMessageMap.values(),
+      );
+
+    const visibleRawMessages =
+      applyRevokeEvents(
+        rawMessages,
+      );
 
     const normalizedMessages = rawMessages
       .map(normalizeEvolutionMessage)
@@ -422,6 +757,11 @@ export const conversationSyncService = {
           message,
         ): message is NormalizedEvolutionMessage =>
           message !== null,
+      )
+      .sort(
+        (firstMessage, secondMessage) =>
+          firstMessage.sentAt.getTime() -
+          secondMessage.sentAt.getTime(),
       );
 
     const contactName =
@@ -434,10 +774,10 @@ export const conversationSyncService = {
     const customer =
       await customerRepository.upsert({
         companyId,
-        remoteJid: normalizedRemoteJid,
+        remoteJid: canonicalRemoteJid,
         name: contactName,
         phone: extractPhone(
-          normalizedRemoteJid,
+          canonicalRemoteJid,
         ),
       });
 
@@ -475,7 +815,45 @@ export const conversationSyncService = {
       });
     }
 
-    return rawMessages;
+    const storedMessages =
+      await messageService.listMessagesByCustomer(
+        companyId,
+        customer.id,
+      );
+
+    const revokedMessageIds =
+      new Set(
+        storedMessages
+          .filter(
+            (message) =>
+              message.content ===
+              REVOKED_MESSAGE_CONTENT,
+          )
+          .map(
+            (message) =>
+              message.evolutionMessageId,
+          ),
+      );
+
+    return visibleRawMessages.filter(
+      (rawMessage) => {
+        const record =
+          getRecord(rawMessage);
+
+        const key =
+          getRecord(record?.key);
+
+        const messageId =
+          getText(key?.id);
+
+        return (
+          !messageId ||
+          !revokedMessageIds.has(
+            messageId,
+          )
+        );
+      },
+    );
   },
 
   async syncIncomingMessage(
@@ -497,7 +875,9 @@ export const conversationSyncService = {
       await customerRepository.upsert({
         companyId,
         remoteJid: message.remoteJid,
-        name: message.pushName,
+        name: message.fromMe
+          ? null
+          : message.pushName,
         phone: extractPhone(
           message.remoteJid,
         ),
@@ -528,3 +908,4 @@ export const conversationSyncService = {
     });
   },
 };
+
