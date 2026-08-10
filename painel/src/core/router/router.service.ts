@@ -137,6 +137,8 @@ export class RouterService {
       if (matchedSector) {
         const transferred =
           await attendanceService.transferAttendanceToSector({
+            companyId:
+              context.companyId,
             attendanceId:
               attendance.id,
             sectorId:
@@ -179,6 +181,8 @@ export class RouterService {
     ) {
       const transferred =
         await attendanceService.transferAttendanceToSector({
+          companyId:
+            context.companyId,
           attendanceId:
             attendance.id,
           sectorId:

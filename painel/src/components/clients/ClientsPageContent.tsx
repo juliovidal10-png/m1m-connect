@@ -20,6 +20,7 @@ type CustomerStatus =
 
 type CustomerRecord = {
   id: string;
+  customerCode: number | null;
   remoteJid: string;
   name: string | null;
   displayName: string;
@@ -102,6 +103,21 @@ const filters: Array<{
   },
 ];
 
+function normalizeCustomerFilter(
+  value: string | null,
+): FilterValue {
+  if (
+    value === "ALL" ||
+    value === "IA" ||
+    value === "HUMANO" ||
+    value === "UNASSIGNED"
+  ) {
+    return value;
+  }
+
+  return "ALL";
+}
+
 function formatDate(
   value?: string | null,
 ) {
@@ -140,6 +156,21 @@ function getResponsible(
     attendanceResponsible?.name ||
     "Sem responsável"
   );
+}
+
+function formatCustomerCode(
+  customerCode?: number | null,
+) {
+  if (
+    customerCode === null ||
+    customerCode === undefined
+  ) {
+    return null;
+  }
+
+  return String(
+    customerCode,
+  ).padStart(6, "0");
 }
 
 function getInitials(
@@ -196,164 +227,6 @@ function StatusBadge({
     >
       {isHuman ? "Humano" : "IA"}
     </span>
-  );
-}
-
-type SummaryIconName =
-  | "contacts"
-  | "ai"
-  | "human"
-  | "unassigned";
-
-function SummaryIcon({
-  name,
-}: {
-  name: SummaryIconName;
-}) {
-  const commonProps = {
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    className: "h-[18px] w-[18px]",
-    "aria-hidden": true,
-  };
-
-  if (name === "ai") {
-    return (
-      <svg {...commonProps}>
-        <rect
-          x="5"
-          y="7"
-          width="14"
-          height="11"
-          rx="3"
-        />
-        <path d="M9 11h.01M15 11h.01M9 15h6M12 4v3M9 4h6" />
-      </svg>
-    );
-  }
-
-  if (name === "human") {
-    return (
-      <svg {...commonProps}>
-        <circle
-          cx="12"
-          cy="8"
-          r="3"
-        />
-        <path d="M5 20a7 7 0 0 1 14 0M17.5 5.5l1 1 2-2" />
-      </svg>
-    );
-  }
-
-  if (name === "unassigned") {
-    return (
-      <svg {...commonProps}>
-        <circle
-          cx="10"
-          cy="8"
-          r="3"
-        />
-        <path d="M3 20a7 7 0 0 1 14 0M18 13v5M15.5 15.5h5" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...commonProps}>
-      <circle
-        cx="9"
-        cy="8"
-        r="3"
-      />
-      <circle
-        cx="16"
-        cy="9"
-        r="2.5"
-      />
-      <path d="M3 20a6 6 0 0 1 12 0M14 15a5 5 0 0 1 7 5" />
-    </svg>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: SummaryIconName;
-  label: string;
-  value: number;
-}) {
-  return (
-    <article
-      style={{
-        minHeight: "96px",
-        display: "flex",
-        alignItems: "center",
-        gap: "16px",
-        border: "1px solid rgba(0,0,0,0.10)",
-        borderRadius: "16px",
-        background: "#ffffff",
-        padding: "18px 20px",
-        boxShadow:
-          "0 1px 2px rgba(0,0,0,0.03)",
-      }}
-    >
-      <div
-        style={{
-          width: "44px",
-          height: "44px",
-          borderRadius: "999px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: "0 0 auto",
-          background: "rgba(0,0,0,0.035)",
-          color: "rgba(0,0,0,0.68)",
-        }}
-      >
-        <SummaryIcon name={icon} />
-      </div>
-
-      <div
-        style={{
-          minWidth: 0,
-        }}
-      >
-        <p
-          style={{
-            margin: 0,
-            fontSize: "11px",
-            fontWeight: 700,
-            lineHeight: 1.2,
-            letterSpacing: "0.11em",
-            textTransform: "uppercase",
-            color: "rgba(0,0,0,0.48)",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-        >
-          {label}
-        </p>
-
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: "30px",
-            fontWeight: 700,
-            lineHeight: 1,
-            color: "#111111",
-          }}
-        >
-          {value}
-        </p>
-      </div>
-    </article>
   );
 }
 
@@ -505,10 +378,27 @@ export default function ClientsPageContent() {
   const requestedRemoteJid =
     searchParams.get("remoteJid");
 
+  const requestedFilter =
+    normalizeCustomerFilter(
+      searchParams.get("filter"),
+    );
+
   const requestedTab =
     normalizeCustomerTab(
       searchParams.get("tab"),
     );
+
+  useEffect(() => {
+    if (requestedRemoteJid) {
+      return;
+    }
+
+    setActiveFilter(requestedFilter);
+    setCurrentPage(1);
+  }, [
+    requestedFilter,
+    requestedRemoteJid,
+  ]);
 
   useEffect(() => {
     if (
@@ -569,6 +459,28 @@ export default function ClientsPageContent() {
 
           if (!normalizedSearch) {
             return true;
+          }
+
+          const codeSearch =
+            normalizedSearch
+              .replace(/^cliente\s*#?/i, "")
+              .replace(/^#/, "")
+              .trim();
+
+          const isOnlyCustomerCode =
+            /^\d+$/.test(codeSearch);
+
+          if (isOnlyCustomerCode) {
+            const numericCode =
+              Number.parseInt(
+                codeSearch,
+                10,
+              );
+
+            return (
+              customer.customerCode ===
+              numericCode
+            );
           }
 
           return [
@@ -650,26 +562,6 @@ export default function ClientsPageContent() {
       selectedCustomerId,
     ]);
 
-  const totals = useMemo(
-    () => ({
-      all: customers.length,
-      ia: customers.filter(
-        (customer) =>
-          customer.status === "IA",
-      ).length,
-      human: customers.filter(
-        (customer) =>
-          customer.status ===
-          "HUMANO",
-      ).length,
-      unassigned: customers.filter(
-        (customer) =>
-          !customer.responsibleId,
-      ).length,
-    }),
-    [customers],
-  );
-
   if (isLoading) {
     return (
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8] p-6 lg:p-8">
@@ -711,40 +603,7 @@ export default function ClientsPageContent() {
       >
         <section
           style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(4, minmax(0, 1fr))",
-            gap: "16px",
-          }}
-        >
-          <SummaryCard
-            icon="contacts"
-            label="Contatos"
-            value={totals.all}
-          />
-
-          <SummaryCard
-            icon="ai"
-            label="Atendidos pela IA"
-            value={totals.ia}
-          />
-
-          <SummaryCard
-            icon="human"
-            label="Atendimento humano"
-            value={totals.human}
-          />
-
-          <SummaryCard
-            icon="unassigned"
-            label="Sem responsável"
-            value={totals.unassigned}
-          />
-        </section>
-
-        <section
-          style={{
-            marginTop: "20px",
+            marginTop: 0,
             overflow: "hidden",
             border: "1px solid rgba(0,0,0,0.10)",
             borderRadius: "18px",
@@ -1029,9 +888,41 @@ export default function ClientsPageContent() {
                           minWidth: 0,
                         }}
                       >
+                        {formatCustomerCode(
+                          customer.customerCode,
+                        ) && (
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize:
+                                "10px",
+                              fontWeight:
+                                700,
+                              lineHeight:
+                                1.2,
+                              letterSpacing:
+                                "0.06em",
+                              textTransform:
+                                "uppercase",
+                              color:
+                                "#e93800",
+                            }}
+                          >
+                            Cliente #
+                            {formatCustomerCode(
+                              customer.customerCode,
+                            )}
+                          </p>
+                        )}
+
                         <p
                           style={{
-                            margin: 0,
+                            margin:
+                              formatCustomerCode(
+                                customer.customerCode,
+                              )
+                                ? "4px 0 0"
+                                : 0,
                             overflow:
                               "hidden",
                             textOverflow:

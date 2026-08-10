@@ -1,15 +1,18 @@
-﻿const API_URL = process.env.EVOLUTION_API_URL;
+const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
-
-const DEFAULT_INSTANCE =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
 
 function validateConfig() {
   if (!API_URL || !API_KEY) {
     throw new Error(
       "Configuração da Evolution API não encontrada.",
+    );
+  }
+}
+
+function validateInstance(instanceName: string) {
+  if (!instanceName?.trim()) {
+    throw new Error(
+      "Instância do WhatsApp não informada.",
     );
   }
 }
@@ -38,17 +41,17 @@ export async function getInstances() {
 
 export async function getMessages(
   remoteJid: string,
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ) {
   validateConfig();
+  validateInstance(instanceName);
 
   const response = await fetch(
     `${API_URL}/chat/findMessages/${instanceName}`,
     {
       method: "POST",
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
         apikey: API_KEY!,
       },
       body: JSON.stringify({
@@ -79,9 +82,10 @@ export async function getMessages(
 export async function sendTextMessage(
   remoteJid: string,
   text: string,
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ) {
   validateConfig();
+  validateInstance(instanceName);
 
   const normalizedRemoteJid =
     remoteJid.trim();
@@ -106,15 +110,12 @@ export async function sendTextMessage(
     {
       method: "POST",
       headers: {
-        "Content-Type":
-          "application/json",
+        "Content-Type": "application/json",
         apikey: API_KEY!,
       },
       body: JSON.stringify({
-        number:
-          normalizedRemoteJid,
-        text:
-          normalizedText,
+        number: normalizedRemoteJid,
+        text: normalizedText,
       }),
     },
   );
@@ -127,8 +128,8 @@ export async function sendTextMessage(
   if (!response.ok) {
     throw new Error(
       data?.message ||
-        data?.error ||
-        "Não foi possível enviar a mensagem.",
+      data?.error ||
+      "Não foi possível enviar a mensagem.",
     );
   }
 

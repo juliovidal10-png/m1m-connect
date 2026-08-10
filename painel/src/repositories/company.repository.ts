@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export type CompanyProfileData = {
   name?: string;
@@ -18,6 +18,7 @@ export type CompanyProfileData = {
     | "NEXT_CONVERSATION"
     | "MANUAL";
   humanClosingMessage?: string | null;
+  aiEnabled?: boolean;
 };
 
 function normalizeOptionalText(
@@ -33,6 +34,27 @@ export const companyRepository = {
     return prisma.m1MCompany.findUnique({
       where: {
         id: companyId,
+      },
+    });
+  },
+
+  async findByWhatsappInstanceName(
+    whatsappInstanceName: string,
+  ) {
+    return prisma.m1MCompany.findUnique({
+      where: {
+        whatsappInstanceName,
+      },
+    });
+  },
+
+  async completeOnboarding(companyId: string) {
+    return prisma.m1MCompany.update({
+      where: {
+        id: companyId,
+      },
+      data: {
+        onboardingCompleted: true,
       },
     });
   },
@@ -120,6 +142,10 @@ export const companyRepository = {
         normalizeOptionalText(
           data.humanClosingMessage,
         );
+    }
+
+    if (data.aiEnabled !== undefined) {
+      updateData.aiEnabled = data.aiEnabled;
     }
 
     return prisma.m1MCompany.update({

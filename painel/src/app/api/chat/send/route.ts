@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+import {
+  companyRepository,
+} from "@/repositories/company.repository";
+
 type ReplyMessageKey = {
   id?: unknown;
   remoteJid?: unknown;
@@ -20,11 +27,6 @@ const API_URL =
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
 
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
-
 export async function POST(
   request: Request,
 ) {
@@ -37,6 +39,41 @@ export async function POST(
         },
         {
           status: 500,
+        },
+      );
+    }
+
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await companyRepository.findById(
+        companyId,
+      );
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const instanceName =
+      company.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "Instância do WhatsApp não configurada para esta empresa.",
+        },
+        {
+          status: 400,
         },
       );
     }
@@ -143,7 +180,9 @@ export async function POST(
 
     const response =
       await fetch(
-        `${API_URL}/message/sendText/${INSTANCE_NAME}`,
+        `${API_URL}/message/sendText/${encodeURIComponent(
+          instanceName,
+        )}`,
         {
           method: "POST",
           headers: {
@@ -178,8 +217,7 @@ export async function POST(
             "Não foi possível enviar a mensagem.",
           details:
             data,
-          instanceName:
-            INSTANCE_NAME,
+          instanceName,
         },
         {
           status:
@@ -190,8 +228,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      instanceName:
-        INSTANCE_NAME,
+      instanceName,
       data,
     });
   } catch (error) {

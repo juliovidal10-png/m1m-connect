@@ -73,9 +73,21 @@ export const reminderRepository = {
     id: string,
     companyId: string,
   ) {
+    const reminder =
+      await prisma.m1MReminder.findFirst({
+        where: {
+          id,
+          companyId,
+        },
+      });
+
+    if (!reminder) {
+      return null;
+    }
+
     return prisma.m1MReminder.update({
       where: {
-        id,
+        id: reminder.id,
       },
       data: {
         status: "COMPLETED",

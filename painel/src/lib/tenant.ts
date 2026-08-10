@@ -1,12 +1,41 @@
-const DEFAULT_COMPANY_ID =
-  process.env.M1M_DEFAULT_COMPANY_ID?.trim();
+import { cookies } from "next/headers";
 
-export function getCurrentCompanyId() {
-  if (!DEFAULT_COMPANY_ID) {
+import {
+  sessionService,
+} from "@/services/auth/session.service";
+
+const SESSION_COOKIE_NAME =
+  "m1m_session";
+
+/**
+ * Uso exclusivo das rotas autenticadas da plataforma.
+ *
+ * Obtém a empresa diretamente da sessão do usuário logado.
+ */
+export async function getAuthenticatedCompanyId() {
+  const cookieStore = await cookies();
+
+  const token =
+    cookieStore.get(
+      SESSION_COOKIE_NAME,
+    )?.value;
+
+  if (!token) {
     throw new Error(
-      "A variável M1M_DEFAULT_COMPANY_ID não está configurada.",
+      "Sessão não encontrada.",
     );
   }
 
-  return DEFAULT_COMPANY_ID;
+  const session =
+    await sessionService.verifyToken(
+      token,
+    );
+
+  if (!session.companyId) {
+    throw new Error(
+      "Empresa não identificada na sessão.",
+    );
+  }
+
+  return session.companyId;
 }

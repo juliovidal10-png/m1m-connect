@@ -1,10 +1,10 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   sectorKeywordService,
@@ -63,7 +63,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const {
       sectorId,
@@ -105,7 +105,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const {
       sectorId,
@@ -154,7 +154,7 @@ export async function DELETE(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

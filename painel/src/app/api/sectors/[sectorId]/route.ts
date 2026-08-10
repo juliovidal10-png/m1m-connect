@@ -1,9 +1,11 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { sectorService } from "@/services/sector.service";
 
 function getErrorMessage(
@@ -27,7 +29,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;
@@ -65,7 +67,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;
@@ -114,7 +116,7 @@ export async function DELETE(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;

@@ -1,9 +1,11 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { sectorService } from "@/services/sector.service";
 
 function getErrorMessage(
@@ -18,7 +20,7 @@ function getErrorMessage(
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const sectors =
       await sectorService.listSectors(
@@ -51,7 +53,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body = await request.json();
 

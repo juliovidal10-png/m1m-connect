@@ -3,7 +3,9 @@ import {
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { sectorAvailabilityService } from "@/services/sector-availability.service";
 
 type RouteContext = {
@@ -27,7 +29,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;

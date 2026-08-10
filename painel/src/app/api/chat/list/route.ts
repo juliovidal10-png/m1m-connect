@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import {
+  companyRepository,
+} from "@/repositories/company.repository";
 
-const API_URL = process.env.EVOLUTION_API_URL;
-const API_KEY = process.env.EVOLUTION_API_KEY;
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
+const API_URL =
+  process.env.EVOLUTION_API_URL;
 
-const COMPANY_ID =
-  process.env.M1M_COMPANY_ID ||
-  "empresa-teste";
+const API_KEY =
+  process.env.EVOLUTION_API_KEY;
 
 type EvolutionChat = {
   remoteJid?: string | null;
@@ -96,7 +97,8 @@ function getChatIdentities(
     chat.lastMessage?.key?.remoteJidAlt,
   ];
 
-  const identities = new Set<string>();
+  const identities =
+    new Set<string>();
 
   for (const value of possibleValues) {
     const jid = normalizeJid(value);
@@ -116,6 +118,7 @@ function getChatIdentities(
 
 async function getGroupSubject(
   groupJid: string,
+  instanceName: string,
 ) {
   const normalizedGroupJid =
     normalizeJid(groupJid);
@@ -124,10 +127,11 @@ async function getGroupSubject(
     return null;
   }
 
+  const cacheKey =
+    `${instanceName}:${normalizedGroupJid}`;
+
   const cachedSubject =
-    groupSubjectCache.get(
-      normalizedGroupJid,
-    );
+    groupSubjectCache.get(cacheKey);
 
   if (cachedSubject) {
     return cachedSubject;
@@ -135,7 +139,9 @@ async function getGroupSubject(
 
   try {
     const groupResponse = await fetch(
-      `${API_URL}/group/findGroupInfos/${INSTANCE_NAME}?groupJid=${encodeURIComponent(
+      `${API_URL}/group/findGroupInfos/${encodeURIComponent(
+        instanceName,
+      )}?groupJid=${encodeURIComponent(
         normalizedGroupJid,
       )}`,
       {
@@ -144,7 +150,8 @@ async function getGroupSubject(
           apikey: API_KEY || "",
         },
         cache: "no-store",
-        signal: AbortSignal.timeout(2000),
+        signal:
+          AbortSignal.timeout(2000),
       },
     );
 
@@ -161,7 +168,7 @@ async function getGroupSubject(
 
     if (subject) {
       groupSubjectCache.set(
-        normalizedGroupJid,
+        cacheKey,
         subject,
       );
     }
@@ -186,12 +193,50 @@ export async function GET() {
       );
     }
 
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await companyRepository.findById(
+        companyId,
+      );
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const instanceName =
+      company.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "Instância do WhatsApp não configurada para esta empresa.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     const evolutionResponse = await fetch(
-      `${API_URL}/chat/findChats/${INSTANCE_NAME}`,
+      `${API_URL}/chat/findChats/${encodeURIComponent(
+        instanceName,
+      )}`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
           apikey: API_KEY,
         },
         body: JSON.stringify({
@@ -214,7 +259,8 @@ export async function GET() {
           details: evolutionData,
         },
         {
-          status: evolutionResponse.status,
+          status:
+            evolutionResponse.status,
         },
       );
     }
@@ -222,21 +268,24 @@ export async function GET() {
     const chats: EvolutionChat[] =
       Array.isArray(evolutionData)
         ? evolutionData
-        : Array.isArray(evolutionData?.value)
+        : Array.isArray(
+              evolutionData?.value,
+            )
           ? evolutionData.value
           : [];
 
-    const groupJids = Array.from(
-      new Set(
-        chats
-          .map((chat) =>
-            getPrimaryRemoteJid(chat),
-          )
-          .filter((jid) =>
-            isGroupJid(jid),
-          ),
-      ),
-    );
+    const groupJids =
+      Array.from(
+        new Set(
+          chats
+            .map((chat) =>
+              getPrimaryRemoteJid(chat),
+            )
+            .filter((jid) =>
+              isGroupJid(jid),
+            ),
+        ),
+      );
 
     const groupSubjectEntries =
       await Promise.all(
@@ -245,6 +294,7 @@ export async function GET() {
             const subject =
               await getGroupSubject(
                 groupJid,
+                instanceName,
               );
 
             return [
@@ -273,24 +323,31 @@ export async function GET() {
     const customers =
       await prisma.m1MCustomer.findMany({
         where: {
-          companyId: COMPANY_ID,
+          companyId,
         },
       });
 
-    const customerMap = new Map<
-      string,
-      (typeof customers)[number]
-    >();
+    const customerMap =
+      new Map<
+        string,
+        (typeof customers)[number]
+      >();
 
     for (const customer of customers) {
       const remoteJid =
-        normalizeJid(customer.remoteJid);
+        normalizeJid(
+          customer.remoteJid,
+        );
 
       const remoteJidPhone =
-        normalizePhone(customer.remoteJid);
+        normalizePhone(
+          customer.remoteJid,
+        );
 
       const customerPhone =
-        normalizePhone(customer.phone);
+        normalizePhone(
+          customer.phone,
+        );
 
       if (remoteJid) {
         customerMap.set(
@@ -314,8 +371,8 @@ export async function GET() {
       }
     }
 
-    const mergedChats = chats.map(
-      (chat) => {
+    const mergedChats =
+      chats.map((chat) => {
         const identities =
           getChatIdentities(chat);
 
@@ -348,18 +405,24 @@ export async function GET() {
             ...chat,
             pushName:
               groupSubject ||
-              normalizeText(chat.pushName),
+              normalizeText(
+                chat.pushName,
+              ),
             groupSubject,
           };
         }
 
         const officialName =
-          normalizeText(customer.name);
+          normalizeText(
+            customer.name,
+          );
 
         const displayName =
           groupSubject ||
           officialName ||
-          normalizeText(chat.pushName);
+          normalizeText(
+            chat.pushName,
+          );
 
         return {
           ...chat,
@@ -375,13 +438,17 @@ export async function GET() {
 
           groupSubject,
 
-          crmCustomerId: customer.id,
+          crmCustomerId:
+            customer.id,
           crmName:
             groupSubject ||
             customer.name,
-          crmPhone: customer.phone,
-          crmCompany: customer.company,
-          crmCity: customer.city,
+          crmPhone:
+            customer.phone,
+          crmCompany:
+            customer.company,
+          crmCity:
+            customer.city,
           crmResponsible:
             customer.responsible,
           crmResponsibleId:
@@ -397,8 +464,7 @@ export async function GET() {
           crmUpdatedAt:
             customer.updatedAt,
         };
-      },
-    );
+      });
 
     return NextResponse.json(
       mergedChats,

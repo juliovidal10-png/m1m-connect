@@ -1,9 +1,9 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { companyService } from "@/services/company.service";
 
 function getErrorMessage(
@@ -18,7 +18,7 @@ function getErrorMessage(
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const company =
       await companyService.getCompanyProfile(
@@ -51,7 +51,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body = await request.json();
 
@@ -75,6 +75,8 @@ export async function PUT(
             body.humanReturnMode,
           humanClosingMessage:
             body.humanClosingMessage,
+          aiEnabled:
+            body.aiEnabled,
         },
       );
 

@@ -1,15 +1,21 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
+
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+
+import {
+  prisma,
+} from "@/lib/prisma";
 
 const API_URL =
   process.env.EVOLUTION_API_URL;
 
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
-
-const INSTANCE_NAME = "Financeiro";
 
 type MediaRequestBody = {
   message?: unknown;
@@ -51,29 +57,17 @@ const MAX_CACHE_ITEMS = 100;
 
 const globalMediaState =
   globalThis as typeof globalThis & {
-    __m1mMediaCache?: Map<
-      string,
-      CachedMediaResponse
-    >;
-    __m1mMediaInFlight?: Map<
-      string,
-      Promise<MediaResult>
-    >;
+    __m1mMediaCache?: Map<string, CachedMediaResponse>;
+    __m1mMediaInFlight?: Map<string, Promise<MediaResult>>;
   };
 
 const mediaCache =
   globalMediaState.__m1mMediaCache ??
-  new Map<
-    string,
-    CachedMediaResponse
-  >();
+  new Map<string, CachedMediaResponse>();
 
 const mediaInFlight =
   globalMediaState.__m1mMediaInFlight ??
-  new Map<
-    string,
-    Promise<MediaResult>
-  >();
+  new Map<string, Promise<MediaResult>>();
 
 globalMediaState.__m1mMediaCache =
   mediaCache;
@@ -93,14 +87,15 @@ function isRecord(
 
 function getMessageId(
   message: unknown,
-): string | null {
+) {
   if (!isRecord(message)) {
     return null;
   }
 
-  const key = isRecord(message.key)
-    ? message.key
-    : null;
+  const key =
+    isRecord(message.key)
+      ? message.key
+      : null;
 
   if (
     key &&
@@ -134,8 +129,7 @@ function saveInCache(
   );
 
   while (
-    mediaCache.size >
-    MAX_CACHE_ITEMS
+    mediaCache.size > MAX_CACHE_ITEMS
   ) {
     const oldestKey =
       mediaCache.keys().next().value;
@@ -150,62 +144,91 @@ function saveInCache(
   }
 }
 
+async function getInstanceName() {
+  const companyId =
+    await getAuthenticatedCompanyId();
+
+  const company =
+    await prisma.m1MCompany.findUnique({
+      where: {
+        id: companyId,
+      },
+      select: {
+        whatsappInstanceName: true,
+      },
+    });
+
+  const instanceName =
+    company?.whatsappInstanceName?.trim();
+
+  if (!instanceName) {
+    throw new Error(
+      "A empresa não possui WhatsApp configurado.",
+    );
+  }
+
+  return instanceName;
+}
+
 async function recoverMedia(
   message: unknown,
   convertToMp4: boolean,
+  instanceName: string,
 ): Promise<MediaResult> {
   try {
     const response = await fetch(
-      `${API_URL}/chat/getBase64FromMediaMessage/${INSTANCE_NAME}`,
+      `${API_URL}/chat/getBase64FromMediaMessage/${instanceName}`,
       {
         method: "POST",
         headers: {
           "Content-Type":
             "application/json",
-          apikey: API_KEY!,
+          apikey:
+            API_KEY!,
         },
-        body: JSON.stringify({
-          message,
-          convertToMp4,
-        }),
-        cache: "no-store",
-        signal:
-          AbortSignal.timeout(
-            30000,
-          ),
+        body:
+          JSON.stringify({
+            message,
+            convertToMp4,
+          }),
+        cache:
+          "no-store",
       },
     );
 
     const responseText =
       await response.text();
 
-    let data: EvolutionMediaResponse =
-      {};
+    let data: EvolutionMediaResponse = {};
 
-    if (
-      responseText.trim().length > 0
-    ) {
-      try {
-        data = JSON.parse(
+    if (responseText.trim()) {
+      data =
+        JSON.parse(
           responseText,
         ) as EvolutionMediaResponse;
-      } catch {
-        return {
-          success: false,
-          status: 502,
-          error:
-            "A Evolution API retornou uma resposta de mídia inválida.",
-        };
-      }
     }
 
-    if (!response.ok) {
+    console.log(
+  "[M1M MEDIA] Resposta Evolution:",
+  JSON.stringify(
+    {
+      status: response.status,
+      responseText,
+      instanceName,
+    },
+    null,
+    2,
+  ),
+);
+
+if (!response.ok) {
       return {
         success: false,
         status: response.status,
         error:
           "Não foi possível recuperar a mídia.",
-        details: data,
+        details:
+          data,
       };
     }
 
@@ -233,25 +256,16 @@ async function recoverMedia(
         mimetype:
           data.mimetype ??
           "application/octet-stream",
-        base64: data.base64,
+        base64:
+          data.base64,
       },
     };
-  } catch (error) {
-    const isTimeout =
-      error instanceof Error &&
-      (
-        error.name ===
-          "TimeoutError" ||
-        error.name ===
-          "AbortError"
-      );
-
+  } catch {
     return {
       success: false,
       status: 500,
-      error: isTimeout
-        ? "A Evolution API demorou demais para recuperar a mídia."
-        : "Erro interno ao recuperar a mídia.",
+      error:
+        "Erro interno ao recuperar a mídia.",
     };
   }
 }
@@ -270,36 +284,11 @@ export async function POST(
       );
     }
 
-    const requestText =
-      await request.text();
+    const instanceName =
+      await getInstanceName();
 
-    if (
-      requestText.trim().length === 0
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "O corpo da requisição de mídia está vazio.",
-        },
-        { status: 400 },
-      );
-    }
-
-    let body: MediaRequestBody;
-
-    try {
-      body = JSON.parse(
-        requestText,
-      ) as MediaRequestBody;
-    } catch {
-      return NextResponse.json(
-        {
-          error:
-            "O corpo da requisição de mídia é inválido.",
-        },
-        { status: 400 },
-      );
-    }
+    const body =
+      (await request.json()) as MediaRequestBody;
 
     if (!body.message) {
       return NextResponse.json(
@@ -312,57 +301,38 @@ export async function POST(
     }
 
     const messageId =
-      getMessageId(body.message);
+      getMessageId(
+        body.message,
+      );
 
-    const cacheKey = messageId
-      ? `${INSTANCE_NAME}:${messageId}:${
-          body.convertToMp4
-            ? "mp4"
-            : "original"
-        }`
-      : null;
+    const cacheKey =
+      messageId
+        ? `${instanceName}:${messageId}:${body.convertToMp4 ? "mp4" : "original"}`
+        : null;
 
     if (cacheKey) {
       const cached =
         mediaCache.get(cacheKey);
 
       if (cached) {
-        /*
-         * Renova a posição do item
-         * no cache para funcionar
-         * como um cache LRU simples.
-         */
-        mediaCache.delete(cacheKey);
-        mediaCache.set(
-          cacheKey,
-          cached,
-        );
-
         return NextResponse.json(
           cached,
-          {
-            headers: {
-              "X-M1M-Media-Cache":
-                "HIT",
-            },
-          },
         );
       }
     }
 
     let mediaPromise =
       cacheKey
-        ? mediaInFlight.get(
-            cacheKey,
-          )
+        ? mediaInFlight.get(cacheKey)
         : undefined;
 
     if (!mediaPromise) {
-      mediaPromise = recoverMedia(
-        body.message,
-        body.convertToMp4 ??
-          false,
-      );
+      mediaPromise =
+        recoverMedia(
+          body.message,
+          body.convertToMp4 ?? false,
+          instanceName,
+        );
 
       if (cacheKey) {
         mediaInFlight.set(
@@ -384,12 +354,14 @@ export async function POST(
     if (!result.success) {
       return NextResponse.json(
         {
-          error: result.error,
+          error:
+            result.error,
           details:
             result.details,
         },
         {
-          status: result.status,
+          status:
+            result.status,
         },
       );
     }
@@ -403,27 +375,19 @@ export async function POST(
 
     return NextResponse.json(
       result.data,
-      {
-        headers: {
-          "X-M1M-Media-Cache":
-            cacheKey
-              ? "MISS"
-              : "BYPASS",
-        },
-      },
     );
   } catch (error) {
-    console.error(
-      "Erro interno ao recuperar mídia:",
-      error,
-    );
-
     return NextResponse.json(
       {
         error:
-          "Erro interno ao recuperar a mídia.",
+          error instanceof Error
+            ? error.message
+            : "Erro interno ao recuperar mídia.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
+

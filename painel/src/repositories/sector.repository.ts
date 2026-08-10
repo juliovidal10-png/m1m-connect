@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 
 export type SectorData = {
   companyId: string;
@@ -112,6 +112,18 @@ export const sectorRepository = {
     sectorId: string,
     data: SectorUpdateData,
   ) {
+    const sector =
+      await this.findById(
+        companyId,
+        sectorId,
+      );
+
+    if (!sector) {
+      throw new Error(
+        "Setor não encontrado.",
+      );
+    }
+
     const updateData:
       SectorUpdateData = {};
 
@@ -157,7 +169,7 @@ export const sectorRepository = {
 
     return prisma.m1MSector.update({
       where: {
-        id: sectorId,
+        id: sector.id,
       },
       data: updateData,
     });

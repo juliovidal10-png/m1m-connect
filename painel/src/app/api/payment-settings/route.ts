@@ -4,7 +4,7 @@ import {
 } from "next/server";
 
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   paymentSettingsService,
@@ -22,7 +22,7 @@ function getErrorMessage(
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const settings =
       await paymentSettingsService.getPaymentSettings(
@@ -58,7 +58,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

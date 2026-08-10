@@ -1,10 +1,10 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   outOfHoursService,
@@ -22,7 +22,7 @@ function getErrorMessage(
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const result =
       await outOfHoursService.getCompanyMessage(
@@ -57,7 +57,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

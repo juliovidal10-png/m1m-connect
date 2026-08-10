@@ -21,6 +21,11 @@ import MessageRenderer, {
   type ChatMessage,
 } from "./MessageRenderer";
 import MessageContextMenu from "./MessageContextMenu";
+import ChatConversationSidebar, {
+  type ChatConversationSidebarItem,
+} from "./ChatConversationSidebar";
+import ChatConversationHeader from "./ChatConversationHeader";
+import ChatCustomerQuickPanel from "./ChatCustomerQuickPanel";
 
 type Chat = {
   id: string | null;
@@ -604,6 +609,77 @@ function formatTime(
   ).format(date);
 }
 
+function getMessageDate(
+  timestamp: string | number,
+) {
+  return typeof timestamp === "number"
+    ? new Date(timestamp * 1000)
+    : new Date(timestamp);
+}
+
+function formatConversationDay(
+  timestamp: string | number,
+) {
+  const date = getMessageDate(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const now = new Date();
+
+  const today = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
+
+  const messageDay = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  );
+
+  const differenceInDays = Math.round(
+    (today.getTime() -
+      messageDay.getTime()) /
+      86_400_000,
+  );
+
+  if (differenceInDays === 0) {
+    return "Hoje";
+  }
+
+  if (differenceInDays === 1) {
+    return "Ontem";
+  }
+
+  return new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      day: "2-digit",
+      month: "long",
+    },
+  ).format(date);
+}
+
+function isSameConversationDay(
+  first: string | number,
+  second: string | number,
+) {
+  const firstDate = getMessageDate(first);
+  const secondDate = getMessageDate(second);
+
+  return (
+    firstDate.getFullYear() ===
+      secondDate.getFullYear() &&
+    firstDate.getMonth() ===
+      secondDate.getMonth() &&
+    firstDate.getDate() ===
+      secondDate.getDate()
+  );
+}
+
 export default function ChatInbox() {
   const router = useRouter();
   const searchParams =
@@ -653,6 +729,11 @@ export default function ChatInbox() {
   const [
     isConversationSearchOpen,
     setIsConversationSearchOpen,
+  ] = useState(false);
+
+  const [
+    isCustomerQuickPanelOpen,
+    setIsCustomerQuickPanelOpen,
   ] = useState(false);
 
   const [
@@ -850,6 +931,45 @@ export default function ChatInbox() {
     contactsMap,
     searchQuery,
   ]);
+
+  const conversationSidebarItems =
+    useMemo<ChatConversationSidebarItem[]>(
+      () =>
+        filteredChats.map((chat) => ({
+          key:
+            chat.canonicalJid ||
+            chat.remoteJid,
+          name: getChatName(
+            chat,
+            contactsMap,
+          ),
+          profilePicUrl:
+            getChatProfilePicture(
+              chat,
+              contactsMap,
+            ),
+          preview:
+            getChatPreview(chat),
+          updatedAt: formatTime(
+            chat.updatedAt,
+          ),
+          unreadCount:
+            chat.unreadCount || 0,
+          isSelected:
+            (selectedChat?.canonicalJid ||
+              selectedChat?.remoteJid) ===
+            (chat.canonicalJid ||
+              chat.remoteJid),
+          onSelect: () =>
+            setSelectedChat(chat),
+        })),
+      [
+        contactsMap,
+        filteredChats,
+        selectedChat?.canonicalJid,
+        selectedChat?.remoteJid,
+      ],
+    );
 
   const forwardChats =
     useMemo(() => {
@@ -3134,127 +3254,37 @@ export default function ChatInbox() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-1 overflow-hidden">
-      <aside className="h-full w-80 shrink-0 overflow-y-auto border-r border-black/5 bg-white">
-        <div className="sticky top-0 z-10 border-b border-black/5 bg-white p-4">
-          <h2 className="text-lg font-bold">
-            Conversas
-          </h2>
+      <style jsx global>{`
+        @keyframes m1mMessageEnter {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
 
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) =>
-              setSearchQuery(
-                event.target.value,
-              )
-            }
-            placeholder="Buscar conversa..."
-            aria-label="Buscar conversa por nome, número ou mensagem"
-            className="mt-4 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-          />
-        </div>
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
 
-        {isLoadingChats && (
-          <p className="p-4 text-sm text-black/45">
-            Carregando conversas...
-          </p>
-        )}
+        .m1m-message-enter {
+          animation: m1mMessageEnter 180ms ease-out;
+        }
 
-        {!isLoadingChats &&
-          searchQuery.trim() &&
-          filteredChats.length ===
-            0 && (
-            <p className="p-4 text-sm text-black/45">
-              Nenhuma conversa
-              encontrada.
-            </p>
-          )}
-
-        {filteredChats.map(
-          (chat) => {
-            const isSelected =
-              (selectedChat?.canonicalJid ||
-                selectedChat?.remoteJid) ===
-              (chat.canonicalJid ||
-                chat.remoteJid);
-
-            const chatName =
-              getChatName(
-                chat,
-                contactsMap,
-              );
-
-            const profilePicUrl =
-              getChatProfilePicture(
-                chat,
-                contactsMap,
-              );
-
-            return (
-              <button
-                key={
-                  chat.canonicalJid ||
-                  chat.remoteJid
-                }
-                type="button"
-                onClick={() =>
-                  setSelectedChat(chat)
-                }
-                className={`flex w-full items-start gap-3 border-b border-black/5 p-4 text-left transition ${
-                  isSelected
-                    ? "bg-[#fff1ec]"
-                    : "hover:bg-black/[0.02]"
-                }`}
-              >
-                {profilePicUrl ? (
-                  <img
-                    src={profilePicUrl}
-                    alt=""
-                    className="h-11 w-11 shrink-0 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] font-bold text-[#e93800]">
-                    {chatName.charAt(
-                      0,
-                    )}
-                  </div>
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="truncate text-sm font-semibold">
-                      {chatName}
-                    </p>
-
-                    <span className="shrink-0 text-xs text-black/35">
-                      {formatTime(
-                        chat.updatedAt,
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="truncate text-sm text-black/45">
-                      {getChatPreview(
-                        chat,
-                      )}
-                    </p>
-
-                    {(chat.unreadCount ||
-                      0) > 0 && (
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3d00] px-1.5 text-[10px] font-bold text-white">
-                        {
-                          chat.unreadCount
-                        }
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          },
-        )}
-      </aside>
+        @media (prefers-reduced-motion: reduce) {
+          .m1m-message-enter {
+            animation: none;
+          }
+        }
+      `}</style>
+      <div className="w-[380px] shrink-0">
+        <ChatConversationSidebar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        isLoading={isLoadingChats}
+        items={conversationSidebarItems}
+        />
+      </div>
 
       <section
         className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f7f8]"
@@ -3265,211 +3295,88 @@ export default function ChatInbox() {
       >
         {selectedChat ? (
           <>
-            <header className="flex h-20 shrink-0 items-center justify-between gap-4 border-b border-black/5 bg-white px-6">
-              {isConversationSearchOpen ? (
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/10 bg-[#f7f7f8] px-3">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-5 w-5 shrink-0 text-black/45"
-                    >
-                      <circle
-                        cx="11"
-                        cy="11"
-                        r="6.5"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d="m16 16 4 4"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-
-                    <input
-                      ref={
-                        conversationSearchInputRef
-                      }
-                      value={
-                        conversationSearchQuery
-                      }
-                      onChange={(event) =>
-                        setConversationSearchQuery(
-                          event.target.value,
-                        )
-                      }
-                      onKeyDown={(event) => {
-                        if (
-                          event.key ===
-                          "Escape"
-                        ) {
-                          closeConversationSearch();
-                        }
-
-                        if (
-                          event.key ===
-                          "Enter"
-                        ) {
-                          if (
-                            event.shiftKey
-                          ) {
-                            goToPreviousConversationMatch();
-                          } else {
-                            goToNextConversationMatch();
-                          }
-                        }
-                      }}
-                      placeholder="Pesquisar nesta conversa"
-                      className="h-11 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-black/35"
-                    />
-                  </div>
-
-                  <span className="min-w-[64px] text-center text-xs font-medium text-black/45">
-                    {conversationSearchQuery.trim()
-                      ? conversationSearchMatches.length >
-                        0
-                        ? `${activeConversationMatchIndex + 1} de ${conversationSearchMatches.length}`
-                        : "0 de 0"
-                      : ""}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={
-                      goToPreviousConversationMatch
-                    }
-                    disabled={
-                      conversationSearchMatches.length ===
-                      0
-                    }
-                    title="Resultado anterior"
-                    aria-label="Resultado anterior"
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                    >
-                      <path
-                        d="m6 15 6-6 6 6"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={
-                      goToNextConversationMatch
-                    }
-                    disabled={
-                      conversationSearchMatches.length ===
-                      0
-                    }
-                    title="Próximo resultado"
-                    aria-label="Próximo resultado"
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                    >
-                      <path
-                        d="m6 9 6 6 6-6"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={
-                      closeConversationSearch
-                    }
-                    title="Fechar pesquisa"
-                    aria-label="Fechar pesquisa"
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05]"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                    >
-                      <path
-                        d="M6 6l12 12M18 6 6 18"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="min-w-0">
-                    <h2 className="truncate font-bold">
-                      {getChatName(
-                        selectedChat,
-                        contactsMap,
-                      )}
-                    </h2>
-
-                    <p className="mt-1 text-xs text-green-600">
-                      Atualização automática
-                      ativa
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={
-                      openConversationSearch
-                    }
-                    title="Pesquisar nesta conversa"
-                    aria-label="Pesquisar nesta conversa"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/60 transition hover:bg-black/[0.05] hover:text-[#e93800]"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden="true"
-                      className="h-5 w-5"
-                    >
-                      <circle
-                        cx="11"
-                        cy="11"
-                        r="6.5"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      />
-                      <path
-                        d="m16 16 4 4"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </button>
-                </>
+            <ChatConversationHeader
+              customerName={getChatName(
+                selectedChat,
+                contactsMap,
               )}
-            </header>
+              phone={getCustomerPhone(
+                selectedChat,
+              )}
+              company={
+                selectedChat.crmCompany ||
+                null
+              }
+              responsible={
+                selectedChat.crmResponsible ||
+                null
+              }
+              attendanceStatus={
+                selectedChat.crmStatus ||
+                null
+              }
+              lastInteraction={
+                selectedChat.updatedAt ||
+                null
+              }
+              isSearchOpen={
+                isConversationSearchOpen
+              }
+              searchQuery={
+                conversationSearchQuery
+              }
+              searchInputRef={
+                conversationSearchInputRef
+              }
+              matchCount={
+                conversationSearchMatches.length
+              }
+              activeMatchIndex={
+                activeConversationMatchIndex
+              }
+              onSearchQueryChange={
+                setConversationSearchQuery
+              }
+              onSearchKeyDown={(event) => {
+                if (
+                  event.key === "Escape"
+                ) {
+                  closeConversationSearch();
+                }
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-6">
+                if (
+                  event.key === "Enter"
+                ) {
+                  if (event.shiftKey) {
+                    goToPreviousConversationMatch();
+                  } else {
+                    goToNextConversationMatch();
+                  }
+                }
+              }}
+              onOpenSearch={
+                openConversationSearch
+              }
+              onCloseSearch={
+                closeConversationSearch
+              }
+              onPreviousMatch={
+                goToPreviousConversationMatch
+              }
+              onNextMatch={
+                goToNextConversationMatch
+              }
+              isCustomerPanelOpen={
+                isCustomerQuickPanelOpen
+              }
+              onToggleCustomerPanel={() =>
+                setIsCustomerQuickPanelOpen(
+                  (current) => !current,
+                )
+              }
+            />
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 lg:px-5">
               {isLoadingMessages ? (
                 <p className="text-sm text-black/45">
                   Carregando mensagens...
@@ -3485,7 +3392,7 @@ export default function ChatInbox() {
                 reactionData
                   .visibleMessages
                   .map(
-                  (message) => {
+                  (message, messageIndex) => {
                     const isFromMe =
                       message.key
                         .fromMe;
@@ -3502,6 +3409,92 @@ export default function ChatInbox() {
                     const isActiveConversationMatch =
                       activeConversationMatchId ===
                       messageId;
+
+                    const previousMessage =
+                      messageIndex > 0
+                        ? reactionData
+                            .visibleMessages[
+                            messageIndex - 1
+                          ]
+                        : null;
+
+                    const previousDate =
+                      previousMessage
+                        ? getMessageDate(
+                            previousMessage
+                              .messageTimestamp,
+                          )
+                        : null;
+
+                    const currentDate =
+                      getMessageDate(
+                        message.messageTimestamp,
+                      );
+
+                    const isGroupedWithPrevious =
+                      Boolean(
+                        previousMessage &&
+                          previousMessage.key
+                            .fromMe ===
+                            message.key.fromMe &&
+                          isSameConversationDay(
+                            previousMessage
+                              .messageTimestamp,
+                            message
+                              .messageTimestamp,
+                          ) &&
+                          previousDate &&
+                          !Number.isNaN(
+                            previousDate.getTime(),
+                          ) &&
+                          !Number.isNaN(
+                            currentDate.getTime(),
+                          ) &&
+                          currentDate.getTime() -
+                            previousDate.getTime() <=
+                            5 * 60 * 1000,
+                      );
+
+                    const shouldShowDaySeparator =
+                      !previousMessage ||
+                      !isSameConversationDay(
+                        previousMessage
+                          .messageTimestamp,
+                        message.messageTimestamp,
+                      );
+
+                    const messageText =
+                      getMessageText(message);
+
+                    const isPlainTextMessage =
+                      message.messageType ===
+                        "conversation" ||
+                      message.messageType ===
+                        "extendedTextMessage" ||
+                      Boolean(
+                        message.message
+                          ?.conversation,
+                      );
+
+                    const isMediaMessage =
+                      message.messageType ===
+                        "imageMessage" ||
+                      message.messageType ===
+                        "videoMessage" ||
+                      message.messageType ===
+                        "audioMessage" ||
+                      message.messageType ===
+                        "documentMessage";
+
+                    const smartWidthClass =
+                      isPlainTextMessage &&
+                      messageText.length >= 80
+                        ? "w-[70%] max-w-[760px]"
+                        : isPlainTextMessage &&
+                            messageText.length >=
+                              28
+                          ? "min-w-[280px] max-w-[70%]"
+                          : "max-w-[88%]";
 
                     const messageReactions =
                       reactionData
@@ -3535,10 +3528,29 @@ export default function ChatInbox() {
 
                     return (
                       <div
-                        key={
-                          message.id
+                        key={message.id}
+                        className={
+                          isGroupedWithPrevious
+                            ? "-mt-2"
+                            : ""
                         }
-                        ref={(element) => {
+                      >
+                        {shouldShowDaySeparator && (
+                          <div className="my-5 flex items-center gap-3">
+                            <div className="h-px flex-1 bg-black/[0.06]" />
+
+                            <span className="rounded-full border border-black/[0.07] bg-white px-3 py-1 text-[10px] font-bold text-black/40 shadow-sm">
+                              {formatConversationDay(
+                                message.messageTimestamp,
+                              )}
+                            </span>
+
+                            <div className="h-px flex-1 bg-black/[0.06]" />
+                          </div>
+                        )}
+
+                        <div
+                          ref={(element) => {
                           if (element) {
                             messageElementRefs.current.set(
                               messageId,
@@ -3550,7 +3562,7 @@ export default function ChatInbox() {
                             );
                           }
                         }}
-                        className={`group flex items-start gap-2 rounded-2xl transition ${
+                        className={`m1m-message-enter group flex items-start gap-2 rounded-2xl transition ${
                           isActiveConversationMatch
                             ? "bg-amber-200/55 ring-4 ring-amber-200/35"
                             : isConversationMatch
@@ -3563,7 +3575,7 @@ export default function ChatInbox() {
                         }`}
                       >
                         {!isFromMe && (
-                          <div className="mt-1">
+                          <div className="mt-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                             <MessageContextMenu
                               message={message}
                               text={getMessageText(
@@ -3593,18 +3605,23 @@ export default function ChatInbox() {
                         )}
 
                         <div
-                          className={`relative max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
+                          className={`relative ${smartWidthClass} rounded-[18px] border border-[rgba(15,23,42,0.05)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 ${
+                            isMediaMessage
+                              ? "p-1.5"
+                              : "px-3.5 py-2.5"
+                          } ${
                             reactionCounts.length >
                             0
                               ? "mb-4"
                               : ""
                           } ${
                             isFromMe
-                              ? "rounded-br-md bg-[#fff8f5] text-[#191919]"
+                              ? "rounded-br-md bg-[#f5f6f7] text-[#191919]"
                               : "rounded-bl-md bg-white text-[#191919]"
                           }`}
                         >
                           {!isFromMe &&
+                            !isGroupedWithPrevious &&
                             message.pushName && (
                               <p className="mb-1 text-xs font-semibold text-[#e93800]">
                                 {
@@ -3616,6 +3633,9 @@ export default function ChatInbox() {
                           <MessageRenderer
                             message={
                               message
+                            }
+                            onForward={
+                              handleForwardMessage
                             }
                           />
 
@@ -3674,7 +3694,7 @@ export default function ChatInbox() {
                         </div>
 
                         {isFromMe && (
-                          <div className="mt-1">
+                          <div className="mt-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                             <MessageContextMenu
                               message={message}
                               text={getMessageText(
@@ -3702,6 +3722,7 @@ export default function ChatInbox() {
                             />
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   },
@@ -4563,6 +4584,40 @@ export default function ChatInbox() {
           </div>
         )}
       </section>
+
+      {selectedChat &&
+        isCustomerQuickPanelOpen && (
+        <ChatCustomerQuickPanel
+          name={getChatName(
+            selectedChat,
+            contactsMap,
+          )}
+          phone={getCustomerPhone(
+            selectedChat,
+          )}
+          company={
+            selectedChat.crmCompany ||
+            null
+          }
+          city={
+            selectedChat.crmCity ||
+            null
+          }
+          responsible={
+            selectedChat.crmResponsible ||
+            null
+          }
+          attendanceStatus={
+            selectedChat.crmStatus ||
+            null
+          }
+          onClose={() =>
+            setIsCustomerQuickPanelOpen(
+              false,
+            )
+          }
+        />
+      )}
 
     </div>
   );

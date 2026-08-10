@@ -4,11 +4,6 @@ const API_URL =
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
 
-const DEFAULT_INSTANCE =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
-
 type CustomerIdentityInput = {
   name?: string | null;
   phone?: string | null;
@@ -170,7 +165,7 @@ function saveGroupSubject(
 
 async function getGroupSubject(
   groupJid: string,
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ) {
   const normalizedGroupJid =
     normalizeJid(groupJid);
@@ -243,7 +238,7 @@ async function getGroupSubject(
 
 async function resolveCustomerIdentity(
   customer: CustomerIdentityInput,
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ): Promise<ResolvedCustomerIdentity> {
   const remoteJid =
     normalizeJid(
@@ -307,7 +302,7 @@ async function enrichCustomerIdentity<
   },
 >(
   item: T,
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ) {
   if (!item.customer) {
     return item;
@@ -334,7 +329,7 @@ async function enrichCustomerIdentityList<
   },
 >(
   items: T[],
-  instanceName = DEFAULT_INSTANCE,
+  instanceName: string,
 ) {
   return Promise.all(
     items.map((item) =>

@@ -1,4 +1,4 @@
-﻿import {
+import {
   companyRepository,
   type CompanyProfileData,
 } from "@/repositories/company.repository";
@@ -46,6 +46,24 @@ function normalizeHumanReturnMode(
   return value;
 }
 
+function normalizeAiEnabled(
+  value:
+    | CompanyProfileData["aiEnabled"]
+    | undefined,
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "boolean") {
+    throw new Error(
+      "Status da IA inválido.",
+    );
+  }
+
+  return value;
+}
+
 export const companyService = {
   async getCompanyProfile(companyId: string) {
     const normalizedCompanyId = requireText(
@@ -65,6 +83,32 @@ export const companyService = {
     }
 
     return company;
+  },
+
+  async completeOnboarding(companyId: string) {
+    const normalizedCompanyId = requireText(
+      companyId,
+      "Empresa",
+    );
+
+    const company =
+      await companyRepository.findById(
+        normalizedCompanyId,
+      );
+
+    if (!company) {
+      throw new Error(
+        "Empresa não encontrada.",
+      );
+    }
+
+    if (company.onboardingCompleted) {
+      return company;
+    }
+
+    return companyRepository.completeOnboarding(
+      normalizedCompanyId,
+    );
   },
 
   async updateCompanyProfile(
@@ -90,6 +134,13 @@ export const companyService = {
       data.humanReturnMode =
         normalizeHumanReturnMode(
           data.humanReturnMode,
+        );
+    }
+
+    if (data.aiEnabled !== undefined) {
+      data.aiEnabled =
+        normalizeAiEnabled(
+          data.aiEnabled,
         );
     }
 

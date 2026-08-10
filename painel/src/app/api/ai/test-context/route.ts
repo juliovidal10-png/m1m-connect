@@ -10,7 +10,7 @@ import {
   promptBuilderService,
 } from "@/core/ai/prompt-builder.service";
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 
 export const runtime = "nodejs";
@@ -56,7 +56,7 @@ export async function POST(
       );
 
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const context =
       await contextBuilderService.buildSectorContext(

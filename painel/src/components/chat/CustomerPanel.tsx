@@ -16,12 +16,14 @@ import CustomerInformation from "@/components/customer/CustomerInformation";
 import CustomerNotes from "@/components/customer/CustomerNotes";
 import CustomerReminders from "@/components/customer/CustomerReminders";
 import CustomerFiles from "@/components/customer/CustomerFiles";
+import CustomerTimeline from "@/components/customer/CustomerTimeline";
 import CustomerActions from "@/components/customer/CustomerActions";
 import ReceiptPanel from "@/components/layout/ReceiptPanel";
 import useCustomer from "@/hooks/customer/useCustomer";
 import useCustomerReminders from "@/hooks/customer/useCustomerReminders";
 import useCustomerMedia from "@/hooks/customer/useCustomerMedia";
 import useCustomerReceipts from "@/hooks/customer/useCustomerReceipts";
+import useCustomerTimeline from "@/hooks/customer/useCustomerTimeline";
 
 import type { ChatMessage } from "./MessageRenderer";
 
@@ -40,6 +42,7 @@ type CustomerPanelProps = {
 
 type CustomerTab =
   | "dados"
+  | "timeline"
   | "notas"
   | "lembretes"
   | "arquivos";
@@ -49,7 +52,8 @@ type IconName =
   | "folder"
   | "calendar"
   | "note"
-  | "message";
+  | "message"
+  | "activity";
 
 function AppIcon({
   name,
@@ -114,6 +118,14 @@ function AppIcon({
     );
   }
 
+  if (name === "activity") {
+    return (
+      <svg {...commonProps}>
+        <path d="M3 12h4l2.5-6 5 12 2.5-6H21" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...commonProps}>
       <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
@@ -137,6 +149,11 @@ export default function CustomerPanel({
     useState<CustomerTab>("dados");
 
   const [
+    isEditingCustomer,
+    setIsEditingCustomer,
+  ] = useState(false);
+
+  const [
     selectedReceiptId,
     setSelectedReceiptId,
   ] = useState<string | null>(null);
@@ -147,6 +164,7 @@ export default function CustomerPanel({
     }
 
     setActiveTab(initialTab);
+    setIsEditingCustomer(false);
   }, [
     isOpen,
     initialTab,
@@ -154,6 +172,7 @@ export default function CustomerPanel({
 
   const {
     customerId,
+    customerCode,
     company,
     setCompany,
     city,
@@ -239,6 +258,19 @@ export default function CustomerPanel({
     customerId,
   });
 
+  const {
+    timelineItems,
+    timelineTotal,
+    isLoadingTimeline,
+    timelineError,
+    reloadTimeline,
+  } = useCustomerTimeline({
+    isOpen:
+      isOpen &&
+      activeTab === "timeline",
+    customerId,
+  });
+
   useEffect(() => {
     if (
       !isOpen ||
@@ -287,14 +319,19 @@ export default function CustomerPanel({
       icon: "user",
     },
     {
+      id: "lembretes",
+      label: "Pendências",
+      icon: "calendar",
+    },
+    {
       id: "arquivos",
       label: "Documentos",
       icon: "folder",
     },
     {
-      id: "lembretes",
-      label: "Pendências",
-      icon: "calendar",
+      id: "timeline",
+      label: "Timeline",
+      icon: "activity",
     },
     {
       id: "notas",
@@ -304,8 +341,9 @@ export default function CustomerPanel({
   ];
 
   const shouldShowCustomerFooter =
-    activeTab === "dados" ||
-    activeTab === "notas";
+    activeTab === "notas" ||
+    (activeTab === "dados" &&
+      isEditingCustomer);
 
   return (
     <>
@@ -318,15 +356,15 @@ export default function CustomerPanel({
           className="absolute inset-0 cursor-default"
         />
 
-        <aside className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-black/10 bg-white shadow-2xl">
+        <aside className="relative z-10 flex h-full w-[min(700px,calc(100vw-16px))] max-w-[700px] flex-col border-l border-black/10 bg-white shadow-2xl">
           <header className="shrink-0 border-b border-black/5 bg-white">
             <div className="flex h-20 items-center justify-between px-6">
               <div>
-                <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">
-                  Contato
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e93800]">
+                  Cliente 360°
                 </p>
 
-                <h2 className="mt-1 text-xl font-bold">
+                <h2 className="mt-1 text-xl font-bold text-[#171717]">
                   Central do Cliente
                 </h2>
               </div>
@@ -335,7 +373,7 @@ export default function CustomerPanel({
                 {conversationHref && (
                   <Link
                     href={conversationHref}
-                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#ff3d00]/20 bg-white px-3 text-xs font-bold text-[#e93800] transition hover:bg-[#fff5f1]"
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#ff3d00]/20 bg-white px-3 text-xs font-bold text-[#e93800] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/35 hover:bg-[#fff5f1] hover:shadow-sm"
                   >
                     <AppIcon
                       name="message"
@@ -349,7 +387,8 @@ export default function CustomerPanel({
                   type="button"
                   onClick={onClose}
                   aria-label="Fechar painel"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl text-black/45 transition hover:bg-black/[0.03]"
+                  title="Fechar"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl leading-none text-black/45 transition-all duration-200 hover:border-[#ff3d00]/25 hover:bg-[#fff5f1] hover:text-[#e93800]"
                 >
                   ×
                 </button>
@@ -367,12 +406,13 @@ export default function CustomerPanel({
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id);
+                      setIsEditingCustomer(false);
                       clearFeedback();
                     }}
-                    className={`relative flex min-w-fit flex-1 items-center justify-center gap-1 px-2 py-3 text-[11px] font-semibold transition ${
+                    className={`relative flex min-w-fit flex-1 items-center justify-center gap-1.5 px-2 py-3 text-[11px] font-semibold transition-colors duration-200 ${
                       isActive
                         ? "text-[#e93800]"
-                        : "text-black/40 hover:text-black/70"
+                        : "text-black/40 hover:text-[#e93800]"
                     }`}
                   >
                     <AppIcon
@@ -389,6 +429,16 @@ export default function CustomerPanel({
                         </span>
                       )}
 
+                    {tab.id === "arquivos" &&
+                      mediaMessages.length +
+                        receipts.length >
+                        0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-black/[0.07] px-1 text-[9px] font-bold text-black/55">
+                          {mediaMessages.length +
+                            receipts.length}
+                        </span>
+                      )}
+
                     {isActive && (
                       <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#ff3d00]" />
                     )}
@@ -399,10 +449,13 @@ export default function CustomerPanel({
           </header>
 
           <div className="flex-1 overflow-y-auto">
-            <div className="border-b border-black/5 bg-[#f7f7f8] p-4">
+            <div className="border-b border-black/5 bg-[#f7f7f8] p-5">
               <CustomerHeader
                 avatar={profilePicUrl}
                 name={name}
+                customerCode={
+                  customerCode
+                }
                 phone={phone}
                 company={company}
                 city={city}
@@ -440,21 +493,93 @@ export default function CustomerPanel({
 
             {activeTab === "dados" && (
               <div className="p-6">
-                <CustomerInformation
-                  company={company}
-                  city={city}
-                  responsible={responsible}
-                  phone={phone}
-                  attendanceStatus={
-                    attendanceStatus === "HUMANO"
-                      ? "HUMANO"
-                      : "IA"
+                {!isEditingCustomer ? (
+                  <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/35">
+                          Cadastro
+                        </p>
+
+                        <h3 className="mt-1 text-base font-bold text-[#171717]">
+                          Dados do cliente
+                        </h3>
+
+                        <p className="mt-1 max-w-xl text-sm leading-6 text-black/45">
+                          As informações principais já aparecem no resumo acima. Edite somente quando precisar atualizar o cadastro.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingCustomer(true);
+                          clearFeedback();
+                        }}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-xs font-bold text-black/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/30 hover:bg-[#fff5f1] hover:text-[#e93800] hover:shadow-sm"
+                      >
+                        Editar cadastro
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <div>
+                    <div className="mb-5 flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e93800]">
+                          Edição
+                        </p>
+
+                        <h3 className="mt-1 text-base font-bold text-[#171717]">
+                          Atualizar cadastro
+                        </h3>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingCustomer(false);
+                          clearFeedback();
+                        }}
+                        className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/50 transition hover:border-black/20 hover:text-black/75"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+
+                    <CustomerInformation
+                      company={company}
+                      city={city}
+                      responsible={responsible}
+                      phone={phone}
+                      attendanceStatus={
+                        attendanceStatus === "HUMANO"
+                          ? "HUMANO"
+                          : "IA"
+                      }
+                      lastInteraction={lastInteraction}
+                      isLoading={isLoadingCustomer}
+                      onCompanyChange={setCompany}
+                      onCityChange={setCity}
+                      onResponsibleChange={setResponsible}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "timeline" && (
+              <div className="p-6">
+                <CustomerTimeline
+                  items={timelineItems}
+                  total={timelineTotal}
+                  isLoading={
+                    isLoadingTimeline
                   }
-                  lastInteraction={lastInteraction}
-                  isLoading={isLoadingCustomer}
-                  onCompanyChange={setCompany}
-                  onCityChange={setCity}
-                  onResponsibleChange={setResponsible}
+                  error={timelineError}
+                  onReload={() =>
+                    void reloadTimeline()
+                  }
                 />
               </div>
             )}

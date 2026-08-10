@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useCallback,
+  useState,
+} from "react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,6 +18,9 @@ type MenuItem = {
     | "overview"
     | "conversations"
     | "contacts"
+    | "calendar"
+    | "crm"
+    | "finance"
     | "settings";
 };
 
@@ -27,7 +35,7 @@ const menuSections: MenuSection[] = [
     items: [
       {
         label: "Dashboard",
-        disabled: true,
+        href: "/dashboard",
         icon: "overview",
       },
     ],
@@ -41,9 +49,29 @@ const menuSections: MenuSection[] = [
         icon: "conversations",
       },
       {
+        label: "Agenda Operacional",
+        href: "/agenda",
+        icon: "calendar",
+      },
+      {
         label: "Contatos",
         href: "/clientes",
         icon: "contacts",
+      },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      {
+        label: "CRM",
+        href: "/crm",
+        icon: "crm",
+      },
+      {
+        label: "Financeiro",
+        href: "/financeiro",
+        icon: "finance",
       },
     ],
   },
@@ -132,6 +160,85 @@ function MenuIcon({
     );
   }
 
+  if (type === "calendar") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <rect
+          x="3.5"
+          y="5.5"
+          width="17"
+          height="15"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <path
+          d="M8 3.5v4M16 3.5v4M3.5 10h17"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === "crm") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <circle
+          cx="8"
+          cy="8"
+          r="3"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <path
+          d="M3.5 19a5.5 5.5 0 0 1 9 0M15 7h5M15 12h5M15 17h5"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (type === "finance") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <rect
+          x="3.5"
+          y="5"
+          width="17"
+          height="14"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        />
+        <path
+          d="M3.5 9h17M8 14h3M15.5 14h1"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg
       viewBox="0 0 24 24"
@@ -176,6 +283,25 @@ function isItemActive(
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  const [
+    agendaSummary,
+    setAgendaSummary,
+  ] = useState({
+    today: 0,
+    overdue: 0,
+  });
+
+  const handleAgendaSummaryChange =
+    useCallback(
+      (summary: {
+        today: number;
+        overdue: number;
+      }) => {
+        setAgendaSummary(summary);
+      },
+      [],
+    );
 
   return (
     <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-black/10 bg-white">
@@ -248,9 +374,43 @@ export default function Sidebar() {
                         type={item.icon}
                       />
 
-                      <span>
+                      <span className="min-w-0 flex-1">
                         {item.label}
                       </span>
+
+                      {item.href ===
+                        "/agenda" &&
+                        agendaSummary.today >
+                          0 && (
+                          <span
+                            title={`${agendaSummary.today} compromisso${
+                              agendaSummary.today === 1
+                                ? ""
+                                : "s"
+                            } para hoje${
+                              agendaSummary.overdue > 0
+                                ? ` · ${agendaSummary.overdue} atrasado${
+                                    agendaSummary.overdue === 1
+                                      ? ""
+                                      : "s"
+                                  }`
+                                : ""
+                            }`}
+                            className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                              agendaSummary.overdue >
+                              0
+                                ? "bg-red-600 text-white"
+                                : active
+                                  ? "bg-black text-white"
+                                  : "bg-orange-100 text-orange-700"
+                            }`}
+                          >
+                            {agendaSummary.today >
+                            99
+                              ? "99+"
+                              : agendaSummary.today}
+                          </span>
+                        )}
                     </Link>
                   );
                 })}
@@ -261,7 +421,11 @@ export default function Sidebar() {
       </nav>
 
       <div className="border-t border-black/10">
-        <CentralPendencias />
+        <CentralPendencias
+          onAgendaSummaryChange={
+            handleAgendaSummaryChange
+          }
+        />
       </div>
     </aside>
   );

@@ -9,6 +9,8 @@ import HumanAttendanceSettings from "@/components/config/HumanAttendanceSettings
 import PaymentSettings from "@/components/config/PaymentSettings";
 import SectorsSettings from "@/components/config/SectorsSettings";
 import Sidebar from "@/components/layout/Sidebar";
+import M1MCard from "@/components/m1m/M1MCard";
+import M1MPageHeader from "@/components/m1m/M1MPageHeader";
 
 type CompanyProfile = {
   id: string;
@@ -68,16 +70,30 @@ type ActiveSection =
   | "automaticMessages"
   | "humanAttendance";
 
+type SectionIconName =
+  | "company"
+  | "sectors"
+  | "users"
+  | "schedule"
+  | "messages"
+  | "ai"
+  | "payments"
+  | "human"
+  | "whatsapp";
+
 type Section = {
   id:
     | ActiveSection
     | "companyProfile"
     | "payments"
     | "humanAttendance"
-    | "users";
+    | "users"
+    | "whatsapp";
   title: string;
   description: string;
   enabled: boolean;
+  icon: SectionIconName;
+  actionLabel: string;
 };
 
 const sections: Section[] = [
@@ -85,59 +101,181 @@ const sections: Section[] = [
     id: "company",
     title: "Empresa",
     description:
-      "Informações institucionais, apresentação, endereço, telefones e identidade da empresa.",
+      "Dados institucionais, endereço e canais oficiais.",
     enabled: true,
+    icon: "company",
+    actionLabel: "Abrir →",
   },
   {
     id: "sectors",
     title: "Setores",
     description:
-      "Cadastre os departamentos e defina como cada cliente será encaminhado.",
+      "Organize departamentos, encaminhamentos e responsáveis.",
     enabled: true,
+    icon: "sectors",
+    actionLabel: "Abrir →",
   },
   {
     id: "users",
     title: "Usuários e Permissões",
     description:
-      "Cadastre colaboradores, defina perfis de acesso e organize as permissões operacionais.",
+      "Gerencie colaboradores, acessos e permissões.",
     enabled: true,
+    icon: "users",
+    actionLabel: "Gerenciar →",
   },
   {
     id: "companySchedules",
-    title: "Horário geral da empresa",
+    title: "Horário Geral",
     description:
-      "Configure os dias e horários padrão de atendimento da empresa.",
+      "Defina os dias e horários padrão de atendimento.",
     enabled: true,
+    icon: "schedule",
+    actionLabel: "Abrir →",
   },
   {
     id: "automaticMessages",
-    title: "Mensagens automáticas",
+    title: "Mensagens Automáticas",
     description:
-      "Configure a mensagem enviada quando o cliente entrar em contato fora do expediente.",
+      "Configure mensagens enviadas fora do expediente.",
     enabled: true,
+    icon: "messages",
+    actionLabel: "Abrir →",
   },
   {
     id: "companyProfile",
-    title: "Perfil da Empresa",
+    title: "Conhecimento da Empresa",
     description:
-      "Cadastre informações simples sobre o negócio para orientar o atendimento inteligente.",
+      "Ensine à IA as informações essenciais do negócio.",
     enabled: true,
+    icon: "ai",
+    actionLabel: "Configurar →",
   },
   {
     id: "payments",
     title: "Pagamentos",
     description:
-      "Cadastre formas de pagamento, condições e informações comerciais.",
+      "Formas de pagamento, condições e orientações comerciais.",
     enabled: true,
+    icon: "payments",
+    actionLabel: "Abrir →",
   },
   {
     id: "humanAttendance",
     title: "Atendimento Humano",
     description:
-      "Defina quando a IA deve voltar e a mensagem enviada ao encerrar o atendimento.",
+      "Defina a transição entre equipe e atendimento automático.",
     enabled: true,
+    icon: "human",
+    actionLabel: "Abrir →",
+  },
+  {
+    id: "whatsapp",
+    title: "WhatsApp",
+    description:
+      "Conecte, desconecte ou reconecte o WhatsApp da empresa.",
+    enabled: true,
+    icon: "whatsapp",
+    actionLabel: "Gerenciar →",
   },
 ];
+
+function SectionIcon({
+  name,
+}: {
+  name: SectionIconName;
+}) {
+  const commonProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className: "h-5 w-5",
+    "aria-hidden": true,
+  };
+
+  if (name === "company") {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 21V5.5L12 3v18M12 8h8v13M7 8h2M7 12h2M7 16h2M15 12h2M15 16h2" />
+      </svg>
+    );
+  }
+
+  if (name === "sectors") {
+    return (
+      <svg {...commonProps}>
+        <rect x="4" y="4" width="6" height="6" rx="1.5" />
+        <rect x="14" y="4" width="6" height="6" rx="1.5" />
+        <rect x="9" y="14" width="6" height="6" rx="1.5" />
+        <path d="M7 10v2h10v-2M12 12v2" />
+      </svg>
+    );
+  }
+
+  if (name === "users") {
+    return (
+      <svg {...commonProps}>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 7.5a2.5 2.5 0 1 1 0 5M16 15a5 5 0 0 1 4.5 5" />
+      </svg>
+    );
+  }
+
+  if (name === "schedule") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+        <path d="M8 3.5v4M16 3.5v4M3.5 10h17M12 13v3l2 1" />
+      </svg>
+    );
+  }
+
+  if (name === "messages") {
+    return (
+      <svg {...commonProps}>
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+        <path d="M8 9h8M8 13h5" />
+      </svg>
+    );
+  }
+
+  if (name === "ai") {
+    return (
+      <svg {...commonProps}>
+        <rect x="5" y="7" width="14" height="11" rx="3" />
+        <path d="M9 11h.01M15 11h.01M9 15h6M12 4v3M9 4h6" />
+      </svg>
+    );
+  }
+
+  if (name === "payments") {
+    return (
+      <svg {...commonProps}>
+        <rect x="3.5" y="5" width="17" height="14" rx="2" />
+        <path d="M3.5 9h17M8 14h3M15.5 14h1" />
+      </svg>
+    );
+  }
+
+  if (name === "whatsapp") {
+    return (
+      <svg {...commonProps}>
+        <path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4A8 8 0 1 1 20 11.5Z" />
+        <path d="M9 8.5c.5 2 2 3.5 4 4l1-1 2 1c.2.1.3.4.2.6-.5 1.2-1.5 1.9-2.7 1.9-3.7 0-6.5-3-6.5-6.5 0-1.1.6-2.1 1.6-2.6.3-.1.5 0 .6.3l.8 2.3-1 1Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <circle cx="12" cy="8" r="3" />
+      <path d="M5 20a7 7 0 0 1 14 0M17.5 5.5l1 1 2-2" />
+    </svg>
+  );
+}
 
 function toFormData(
   company: CompanyProfile,
@@ -348,102 +486,94 @@ export default function ConfiguracoesPage() {
       <Sidebar />
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-20 shrink-0 items-center border-b border-black/5 bg-white px-6 lg:px-10">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">
-              Configurações
-            </p>
-
-            <h1 className="mt-1 text-xl font-bold">
-              Central de Configurações
-            </h1>
-          </div>
-        </header>
-
         <div className="flex-1 overflow-y-auto p-6 lg:p-10">
           <div className="mx-auto max-w-6xl">
+            <M1MPageHeader
+              eyebrow="Configurações"
+              title="Central de Configurações"
+              description="Configure toda a operação da sua empresa em um único lugar."
+              showBackButton={false}
+            />
             {activeSection === "overview" ? (
               <>
-                <div className="rounded-2xl border border-orange-100 bg-white p-6 shadow-sm">
-                  <p className="text-sm font-semibold text-orange-600">
-                    Base de conhecimento da IA
+                <div className="mt-6 rounded-2xl border border-orange-100 bg-white p-6 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#e93800]">
+                    Tudo em um só lugar
                   </p>
 
-                  <h2 className="mt-2 text-2xl font-bold">
-                    Configure sua empresa e ensine o M1M Connect a atender seus clientes
+                  <h2 className="mt-2 text-xl font-bold text-[#171717]">
+                    Ajuste o M1M Connect sem complicação
                   </h2>
 
-                  <p className="mt-3 max-w-3xl text-sm leading-6 text-black/55">
-                    Quanto mais informações forem cadastradas,
-                    mais preciso, natural e inteligente será o
-                    atendimento realizado pela IA.
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">
+                    Escolha abaixo o que deseja configurar. Cada área foi organizada para ser simples, rápida e direta.
                   </p>
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sections.map((section) => (
-                    <div
+                    <M1MCard
                       key={section.title}
-                      className="flex min-h-52 flex-col rounded-2xl border border-black/5 bg-white p-5 shadow-sm"
-                    >
-                      <h3 className="text-base font-bold">
-                        {section.title}
-                      </h3>
-
-                      <p className="mt-2 flex-1 text-sm leading-6 text-black/50">
-                        {section.description}
-                      </p>
-
-                      <button
-                        type="button"
-                        disabled={!section.enabled}
-                        onClick={() => {
-                          if (!section.enabled) {
-                            return;
-                          }
-
-                          if (
-                            section.id ===
-                              "users"
-                          ) {
-                            window.location.href =
-                              "/configuracoes/usuarios";
-
-                            return;
-                          }
-
-                          if (
-                            section.id ===
-                              "company" ||
-                            section.id ===
-                              "sectors" ||
-                            section.id ===
-                              "companySchedules" ||
-                            section.id ===
-                              "companyProfile" ||
-                            section.id ===
-                              "payments" ||
-                            section.id ===
-                              "automaticMessages" ||
-                            section.id ===
-                              "humanAttendance"
-                          ) {
-                            setActiveSection(
-                              section.id,
-                            );
-                          }
-                        }}
-                        className={
-                          section.enabled
-                            ? "mt-5 w-fit rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
-                            : "mt-5 w-fit cursor-not-allowed rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/30"
+                      icon={
+                        <SectionIcon
+                          name={section.icon}
+                        />
+                      }
+                      title={section.title}
+                      description={
+                        section.description
+                      }
+                      actionLabel={
+                        section.actionLabel
+                      }
+                      disabled={
+                        !section.enabled
+                      }
+                      onClick={() => {
+                        if (!section.enabled) {
+                          return;
                         }
-                      >
-                        {section.enabled
-                          ? "Configurar"
-                          : "Em breve"}
-                      </button>
-                    </div>
+
+                        if (
+                          section.id === "users"
+                        ) {
+                          window.location.href =
+                            "/configuracoes/usuarios";
+
+                          return;
+                        }
+
+                        if (
+                          section.id === "whatsapp"
+                        ) {
+                          window.location.href =
+                            "/configuracoes/whatsapp";
+
+                          return;
+                        }
+
+                        if (
+                          section.id ===
+                            "company" ||
+                          section.id ===
+                            "sectors" ||
+                          section.id ===
+                            "companySchedules" ||
+                          section.id ===
+                            "companyProfile" ||
+                          section.id ===
+                            "payments" ||
+                          section.id ===
+                            "automaticMessages" ||
+                          section.id ===
+                            "humanAttendance"
+                        ) {
+                          setActiveSection(
+                            section.id,
+                          );
+                        }
+                      }}
+                    />
                   ))}
                 </div>
               </>

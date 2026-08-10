@@ -1,8 +1,11 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { attendanceService } from "@/services/attendance.service";
 import { customerService } from "@/services/customer.service";
 
@@ -19,10 +22,14 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const companyId =
+      await getAuthenticatedCompanyId();
+
     const body = await request.json();
 
     const customer =
       await customerService.assignResponsible({
+        companyId,
         customerId: body.customerId,
         responsibleId: body.responsibleId,
       });
@@ -42,6 +49,7 @@ export async function POST(
 
     const assumedAttendance =
       await attendanceService.assumeAttendance(
+        customer.companyId,
         attendance.id,
         body.responsibleId,
       );

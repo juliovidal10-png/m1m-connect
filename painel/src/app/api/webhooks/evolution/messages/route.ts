@@ -131,7 +131,7 @@ export async function POST(
       getText(body.instance) ||
       getText(body.instanceName) ||
       getText(data.instance) ||
-      "Financeiro";
+      getText(data.instance);
 
     const diagnostic = {
       event:

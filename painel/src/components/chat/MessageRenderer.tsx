@@ -24,6 +24,46 @@ export type ChatMessage = {
   message?: {
     conversation?: string;
 
+    extendedTextMessage?: {
+      text?: string;
+      matchedText?: string;
+      canonicalUrl?: string;
+      title?: string;
+      description?: string;
+      jpegThumbnail?:
+        | string
+        | number[]
+        | {
+            type?: string;
+            data?: number[];
+          };
+      contextInfo?: {
+        stanzaId?: string;
+        remoteJid?: string;
+        participant?: string;
+        quotedMessage?: {
+          conversation?: string;
+          extendedTextMessage?: {
+            text?: string;
+          };
+          imageMessage?: {
+            caption?: string;
+          };
+          audioMessage?: {
+            ptt?: boolean;
+          };
+          videoMessage?: {
+            caption?: string;
+          };
+          documentMessage?: {
+            title?: string;
+            fileName?: string;
+            caption?: string;
+          };
+        };
+      };
+    };
+
     imageMessage?: {
       caption?: string;
       url?: string;
@@ -82,6 +122,9 @@ export type ChatMessage = {
 
 type MessageRendererProps = {
   message: ChatMessage;
+  onForward?: (
+    message: ChatMessage,
+  ) => void;
 };
 
 function useNearViewport(
@@ -150,7 +193,56 @@ const LINK_PATTERN =
   /((?:https?:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+(?:com\.br|net\.br|org\.br|com|net|org|io|me|app|dev|co)(?:\/[^\s]*)?)/gi;
 
 function getTextMessage(message: ChatMessage) {
-  return message.message?.conversation?.trim() || "";
+  return (
+    message.message?.conversation?.trim() ||
+    message.message?.extendedTextMessage?.text?.trim() ||
+    ""
+  );
+}
+
+function getQuotedPreview(
+  message: ChatMessage,
+) {
+  const quoted =
+    message.message?.extendedTextMessage
+      ?.contextInfo?.quotedMessage;
+
+  if (!quoted) {
+    return null;
+  }
+
+  const text =
+    quoted.conversation?.trim() ||
+    quoted.extendedTextMessage?.text?.trim() ||
+    quoted.imageMessage?.caption?.trim() ||
+    quoted.videoMessage?.caption?.trim() ||
+    quoted.documentMessage?.caption?.trim();
+
+  if (text) {
+    return text;
+  }
+
+  if (quoted.imageMessage) {
+    return "📷 Imagem";
+  }
+
+  if (quoted.audioMessage) {
+    return "🎤 Áudio";
+  }
+
+  if (quoted.videoMessage) {
+    return "🎥 Vídeo";
+  }
+
+  if (quoted.documentMessage) {
+    return `📄 ${
+      quoted.documentMessage.fileName?.trim() ||
+      quoted.documentMessage.title?.trim() ||
+      "Documento"
+    }`;
+  }
+
+  return "Mensagem";
 }
 
 function getImageCaption(message: ChatMessage) {
@@ -168,6 +260,15 @@ function getDocumentName(message: ChatMessage) {
     document?.fileName?.trim() ||
     document?.title?.trim() ||
     "Documento"
+  );
+}
+
+function getDocumentCaption(
+  message: ChatMessage,
+) {
+  return (
+    message.message?.documentMessage?.caption?.trim() ||
+    ""
   );
 }
 
@@ -238,6 +339,363 @@ function splitTrailingPunctuation(value: string) {
   };
 }
 
+function getFirstLink(text: string) {
+  const match =
+    text.match(
+      /((?:https?:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+(?:com\.br|net\.br|org\.br|com|net|org|io|me|app|dev|co)(?:\/[^\s]*)?)/i,
+    );
+
+  if (!match?.[1]) {
+    return null;
+  }
+
+  const {
+    linkText,
+  } = splitTrailingPunctuation(
+    match[1],
+  );
+
+  const href =
+    getClickableUrl(linkText);
+
+  try {
+    const url = new URL(href);
+
+    return {
+      href,
+      hostname:
+        url.hostname.replace(
+          /^www\./i,
+          "",
+        ),
+      path:
+        url.pathname !== "/"
+          ? url.pathname
+          : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+type LinkPreviewApiResponse = {
+  ok?: boolean;
+  url?: string;
+  title?: string | null;
+  description?: string | null;
+  image?: string | null;
+  siteName?: string | null;
+};
+
+function getWhatsAppThumbnailSource(
+  value:
+    | string
+    | number[]
+    | {
+        type?: string;
+        data?: number[];
+      }
+    | undefined,
+) {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    const normalized =
+      value.trim();
+
+    if (!normalized) {
+      return null;
+    }
+
+    if (
+      normalized.startsWith("data:") ||
+      normalized.startsWith("http://") ||
+      normalized.startsWith("https://") ||
+      normalized.startsWith("blob:")
+    ) {
+      return normalized;
+    }
+
+    return `data:image/jpeg;base64,${normalized}`;
+  }
+
+  const bytes =
+    Array.isArray(value)
+      ? value
+      : Array.isArray(value.data)
+        ? value.data
+        : null;
+
+  if (!bytes?.length) {
+    return null;
+  }
+
+  try {
+    const binary =
+      bytes
+        .map((byte) =>
+          String.fromCharCode(byte),
+        )
+        .join("");
+
+    return `data:image/jpeg;base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  }
+}
+
+function LinkPreviewCard({
+  text,
+  message,
+}: {
+  text: string;
+  message: ChatMessage;
+}) {
+  const basicPreview =
+    getFirstLink(text);
+
+  const extended =
+    message.message
+      ?.extendedTextMessage;
+
+  const whatsappUrl =
+    extended?.canonicalUrl?.trim() ||
+    extended?.matchedText?.trim() ||
+    basicPreview?.href ||
+    "";
+
+  const href =
+    whatsappUrl
+      ? getClickableUrl(
+          whatsappUrl,
+        )
+      : basicPreview?.href || "";
+
+  const whatsappThumbnail =
+    getWhatsAppThumbnailSource(
+      extended?.jpegThumbnail,
+    );
+
+  const whatsappTitle =
+    extended?.title?.trim() || "";
+
+  const whatsappDescription =
+    extended?.description?.trim() ||
+    "";
+
+  const [
+    remotePreview,
+    setRemotePreview,
+  ] =
+    useState<LinkPreviewApiResponse | null>(
+      null,
+    );
+
+  const [
+    previewLoading,
+    setPreviewLoading,
+  ] =
+    useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    if (
+      !href ||
+      whatsappThumbnail ||
+      (whatsappTitle &&
+        whatsappDescription)
+    ) {
+      setRemotePreview(null);
+      setPreviewLoading(false);
+
+      return () => {
+        active = false;
+      };
+    }
+
+    const controller =
+      new AbortController();
+
+    async function loadPreview() {
+      setPreviewLoading(true);
+
+      try {
+        const response =
+          await fetch(
+            `/api/link-preview?url=${encodeURIComponent(
+              href,
+            )}`,
+            {
+              method: "GET",
+              cache: "force-cache",
+              signal:
+                controller.signal,
+            },
+          );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data =
+          (await response.json()) as LinkPreviewApiResponse;
+
+        if (
+          active &&
+          data?.ok
+        ) {
+          setRemotePreview(
+            data,
+          );
+        }
+      } catch (error) {
+        if (
+          !(
+            error instanceof
+              DOMException &&
+            error.name ===
+              "AbortError"
+          ) &&
+          process.env.NODE_ENV ===
+            "development"
+        ) {
+          console.warn(
+            "[M1M Link Preview] preview indisponível:",
+            href,
+          );
+        }
+      } finally {
+        if (active) {
+          setPreviewLoading(
+            false,
+          );
+        }
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    href,
+    whatsappThumbnail,
+    whatsappTitle,
+    whatsappDescription,
+  ]);
+
+  if (!basicPreview || !href) {
+    return null;
+  }
+
+  const image =
+    whatsappThumbnail ||
+    remotePreview?.image ||
+    null;
+
+  const title =
+    whatsappTitle ||
+    remotePreview?.title?.trim() ||
+    basicPreview.hostname;
+
+  const description =
+    whatsappDescription ||
+    remotePreview?.description?.trim() ||
+    "";
+
+  const siteName =
+    remotePreview?.siteName?.trim() ||
+    basicPreview.hostname;
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(event) =>
+        event.stopPropagation()
+      }
+      className="mt-1.5 block overflow-hidden rounded-[14px] border border-[rgba(15,23,42,0.05)] bg-[#fafafa] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(15,23,42,0.09)] hover:bg-white hover:shadow-[0_2px_6px_rgba(15,23,42,0.06)]"
+    >
+      {image ? (
+        <div className="relative aspect-[16/8.2] w-full overflow-hidden bg-[#eef0f2]">
+          <img
+            src={image}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : previewLoading ? (
+        <div className="aspect-[16/5.4] w-full animate-pulse bg-[#eef0f2]" />
+      ) : null}
+
+      <div className="flex items-start gap-3 p-3">
+        {!image && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f1f3f5] text-black/40">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              className="h-5 w-5"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="9"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              />
+              <path
+                d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21M12 3c-2.3 2.5-3.5 5.5-3.5 9s1.2 6.5 3.5 9"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm font-bold leading-5 text-[#171717]">
+            {title}
+          </p>
+
+          {description && (
+            <p className="mt-1 line-clamp-2 text-xs leading-4 text-black/50">
+              {description}
+            </p>
+          )}
+
+          <p className="mt-1.5 truncate text-[11px] font-medium text-black/35">
+            {siteName}
+          </p>
+        </div>
+
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+          className="mt-0.5 h-4 w-4 shrink-0 text-black/25"
+        >
+          <path
+            d="M8 16 16 8M10 8h6v6"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
+    </a>
+  );
+}
+
 function LinkifiedText({
   text,
   className = "",
@@ -249,7 +707,7 @@ function LinkifiedText({
 
   return (
     <p
-      className={`whitespace-pre-wrap break-words text-sm leading-6 ${className}`}
+      className={`whitespace-pre-wrap break-words text-[14px] leading-6 text-[#202020] ${className}`}
     >
       {parts.map((part, index) => {
         if (!part) {
@@ -280,7 +738,7 @@ function LinkifiedText({
               href={getClickableUrl(linkText)}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium underline decoration-current/50 underline-offset-2 transition hover:opacity-75"
+              className="font-semibold text-[#b8320a] underline decoration-black/20 underline-offset-2 transition hover:text-[#d93400]"
               onClick={(event) => {
                 event.stopPropagation();
               }}
@@ -308,16 +766,53 @@ function TextMessage({
   message,
 }: MessageRendererProps) {
   const text = getTextMessage(message);
+  const quotedPreview =
+    getQuotedPreview(message);
 
   if (!text) {
     return <UnsupportedMessage />;
   }
 
-  return <LinkifiedText text={text} />;
+  const hasLink =
+    Boolean(getFirstLink(text));
+
+  return (
+    <div className="min-w-0">
+      {quotedPreview && (
+        <div className="mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.035]">
+          <div className="flex">
+            <div className="w-1 shrink-0 bg-[#ff3d00]" />
+
+            <div className="min-w-0 flex-1 px-3 py-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#e93800]">
+                Resposta
+              </p>
+
+              <p className="mt-1 line-clamp-2 text-xs leading-5 text-black/50">
+                {quotedPreview}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasLink && (
+        <LinkPreviewCard
+          text={text}
+          message={message}
+        />
+      )}
+
+      <div className={hasLink ? "mt-2.5" : ""}>
+        <LinkifiedText text={text} />
+      </div>
+    </div>
+  );
 }
 
 function LoadedImageMessage({
   message,
+  onForward,
 }: MessageRendererProps) {
   const [isViewerOpen, setIsViewerOpen] =
     useState(false);
@@ -344,7 +839,7 @@ function LoadedImageMessage({
 
   if (loading) {
     return (
-      <div className="flex min-h-40 w-72 animate-pulse items-center justify-center rounded-xl bg-black/5 px-4 text-center text-xs text-black/45">
+      <div className="flex min-h-40 w-72 animate-pulse items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center text-xs text-black/45">
         Carregando imagem...
       </div>
     );
@@ -352,7 +847,7 @@ function LoadedImageMessage({
 
   if (error || !media?.base64) {
     return (
-      <div className="flex min-h-32 w-72 flex-col items-center justify-center rounded-xl bg-black/5 px-4 text-center">
+      <div className="flex min-h-32 w-72 flex-col items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center">
         <span className="text-2xl">
           📷
         </span>
@@ -382,8 +877,8 @@ function LoadedImageMessage({
       <div
         className={
           isVertical
-            ? "w-80 max-w-[70vw]"
-            : "max-w-sm"
+            ? "w-[22rem] max-w-[72vw]"
+            : "w-[26rem] max-w-[72vw]"
         }
       >
         <button
@@ -392,7 +887,7 @@ function LoadedImageMessage({
             setIsViewerOpen(true)
           }
           title="Clique para ampliar"
-          className="group block w-full cursor-zoom-in overflow-hidden rounded-xl text-left"
+          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-[18px] border border-black/5 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
         >
           <img
             src={imageSource}
@@ -403,10 +898,10 @@ function LoadedImageMessage({
             height={
               imageHeight || undefined
             }
-            className={`w-full bg-black/5 object-contain transition duration-200 group-hover:brightness-95 ${
+            className={`w-full bg-black/[0.035] object-contain transition duration-300 group-hover:scale-[1.01] group-hover:brightness-[0.98] ${
               isVertical
-                ? "max-h-[560px]"
-                : "max-h-[420px]"
+                ? "max-h-[590px]"
+                : "max-h-[460px]"
             }`}
           />
         </button>
@@ -418,36 +913,6 @@ function LoadedImageMessage({
           />
         )}
 
-        <button
-          type="button"
-          onClick={() =>
-            setIsViewerOpen(true)
-          }
-          className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-black/55 transition hover:text-[#e93800]"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            className="h-4 w-4"
-          >
-            <circle
-              cx="11"
-              cy="11"
-              r="6.5"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            />
-            <path
-              d="m16 16 4 4"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          <span>Ampliar imagem</span>
-        </button>
       </div>
 
       <ImageViewer
@@ -461,6 +926,12 @@ function LoadedImageMessage({
         onClose={() =>
           setIsViewerOpen(false)
         }
+        onForward={
+          onForward
+            ? () =>
+                onForward(message)
+            : undefined
+        }
       />
     </>
   );
@@ -469,6 +940,7 @@ function LoadedImageMessage({
 
 function ImageMessage({
   message,
+  onForward,
 }: MessageRendererProps) {
   const {
     elementRef,
@@ -479,7 +951,7 @@ function ImageMessage({
     return (
       <div
         ref={elementRef}
-        className="flex min-h-40 w-72 items-center justify-center rounded-xl bg-black/5 px-4 text-center text-xs text-black/45"
+        className="flex min-h-40 w-72 items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center text-xs text-black/45"
       >
         A imagem será carregada ao aparecer na tela.
       </div>
@@ -489,6 +961,7 @@ function ImageMessage({
   return (
     <LoadedImageMessage
       message={message}
+      onForward={onForward}
     />
   );
 }
@@ -508,7 +981,7 @@ function LoadedAudioMessage({
 
   if (loading) {
     return (
-      <div className="flex min-h-16 w-72 animate-pulse items-center gap-3 rounded-xl bg-black/5 px-4">
+      <div className="flex min-h-16 w-72 animate-pulse items-center gap-3 rounded-2xl border border-black/5 bg-white shadow-sm px-4">
         <div className="h-9 w-9 shrink-0 rounded-full bg-black/10" />
 
         <div className="flex-1">
@@ -524,7 +997,7 @@ function LoadedAudioMessage({
 
   if (error || !media?.base64) {
     return (
-      <div className="flex min-h-16 w-72 items-center gap-3 rounded-xl bg-black/5 px-4">
+      <div className="flex min-h-16 w-72 items-center gap-3 rounded-2xl border border-black/5 bg-white shadow-sm px-4">
         <span className="text-2xl">
           🎤
         </span>
@@ -546,7 +1019,14 @@ function LoadedAudioMessage({
     `data:${media.mimetype};base64,${media.base64}`;
 
   return (
-    <div className="w-72 max-w-full">
+    <div className="w-[21rem] max-w-full rounded-2xl border border-black/5 bg-white/80 p-3 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-black/35">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fff1ec] text-[#e93800]">
+          🎤
+        </span>
+        Áudio
+      </div>
+
       <audio
         controls
         preload="metadata"
@@ -557,7 +1037,7 @@ function LoadedAudioMessage({
       </audio>
 
       {duration && (
-        <p className="mt-1 text-right text-[10px] opacity-60">
+        <p className="mt-2 text-right text-[10px] font-medium text-black/35">
           Duração: {duration}
         </p>
       )}
@@ -580,7 +1060,7 @@ function AudioMessage({
     return (
       <div
         ref={elementRef}
-        className="flex min-h-16 w-72 items-center gap-3 rounded-xl bg-black/5 px-4"
+        className="flex min-h-16 w-72 items-center gap-3 rounded-2xl border border-black/5 bg-white shadow-sm px-4"
       >
         <span className="text-2xl">
           🎤
@@ -660,7 +1140,7 @@ function VideoPlayer({
     `data:${media.mimetype};base64,${media.base64}`;
 
   return (
-    <div className="w-72 max-w-full">
+    <div className="w-[24rem] max-w-full">
       <video
         controls
         preload="metadata"
@@ -672,7 +1152,7 @@ function VideoPlayer({
         height={
           message.message?.videoMessage?.height
         }
-        className="max-h-[460px] w-full rounded-xl bg-black object-contain"
+        className="max-h-[500px] w-full rounded-[18px] border border-black/10 bg-black object-contain shadow-sm"
       >
         Seu navegador não suporta reprodução de vídeo.
       </video>
@@ -728,13 +1208,13 @@ function VideoMessage({
       : null;
 
   return (
-    <div className="w-72 max-w-full">
+    <div className="w-[24rem] max-w-full">
       <button
         type="button"
         onClick={() =>
           setShouldLoadVideo(true)
         }
-        className="group relative flex min-h-48 w-full items-center justify-center overflow-hidden rounded-xl bg-black text-white"
+        className="group relative flex min-h-52 w-full items-center justify-center overflow-hidden rounded-[18px] border border-black/10 bg-black text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
         aria-label="Carregar vídeo"
       >
         {thumbnailSource ? (
@@ -784,6 +1264,10 @@ function DocumentPlayer({
   const documentName =
     media?.fileName ||
     getDocumentName(message);
+
+  const documentCaption =
+    media?.caption?.trim() ||
+    getDocumentCaption(message);
 
   if (loading) {
     return (
@@ -898,53 +1382,106 @@ function DocumentPlayer({
     "application/pdf";
 
   return (
-    <div className="w-80 max-w-full rounded-xl border border-black/10 bg-black/[0.03] p-4">
-      <div className="flex items-start gap-4">
-        <div className="flex h-14 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-3xl">
-          📄
+    <div className="w-[24rem] max-w-full overflow-hidden rounded-[16px] border border-[rgba(15,23,42,0.05)] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      {canOpenInBrowser && (
+        <button
+          type="button"
+          onClick={handleOpen}
+          title="Abrir PDF"
+          className="relative block h-40 w-full overflow-hidden bg-[#f1f3f5] text-left"
+        >
+          <iframe
+            src={`${documentSource}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
+            title={`Prévia de ${documentName}`}
+            className="pointer-events-none h-[240px] w-full -translate-y-0 border-0 bg-white"
+          />
+
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/[0.03]" />
+        </button>
+      )}
+
+      <div className="flex items-center gap-3 bg-[#f7f8f9] px-3 py-3">
+        <div className="flex h-10 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e31b23] text-white shadow-sm">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="h-5 w-5"
+          >
+            <path
+              d="M7 3h7l4 4v14H7V3Z"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M14 3v5h5"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
 
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={
+            canOpenInBrowser
+              ? handleOpen
+              : handleDownload
+          }
+          className="min-w-0 flex-1 text-left"
+        >
           <p
             title={documentName}
-            className="break-words text-sm font-semibold leading-5"
+            className="truncate text-sm font-semibold text-[#171717]"
           >
             {documentName}
           </p>
 
-          <p className="mt-1 text-xs opacity-55">
+          <p className="mt-0.5 text-xs text-black/45">
             {getDocumentExtension(
               documentName,
             )}
-
             {media.size
               ? ` • ${formatFileSize(
                   media.size,
                 )}`
               : ""}
           </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {canOpenInBrowser && (
-          <button
-            type="button"
-            onClick={handleOpen}
-            className="rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-black/[0.03]"
-          >
-            Visualizar PDF
-          </button>
-        )}
+        </button>
 
         <button
           type="button"
           onClick={handleDownload}
-          className="rounded-lg bg-[#ff3d00] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+          title="Baixar documento"
+          aria-label="Baixar documento"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-black/45 transition hover:bg-black/[0.05] hover:text-black/70"
         >
-          Baixar documento
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="h-4.5 w-4.5"
+          >
+            <path
+              d="M12 4v10M8 10l4 4 4-4M5 19h14"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </div>
+
+      {documentCaption && (
+        <div className="border-t border-black/[0.04] px-3 py-3">
+          <LinkifiedText
+            text={documentCaption}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -952,24 +1489,14 @@ function DocumentPlayer({
 function DocumentMessage({
   message,
 }: MessageRendererProps) {
-  const [
-    shouldLoadDocument,
-    setShouldLoadDocument,
-  ] = useState(false);
-
-  if (shouldLoadDocument) {
-    return (
-      <DocumentPlayer
-        message={message}
-      />
-    );
-  }
-
   const document =
     message.message?.documentMessage;
 
   const documentName =
     getDocumentName(message);
+
+  const documentCaption =
+    getDocumentCaption(message);
 
   const documentSize =
     formatFileSize(
@@ -981,10 +1508,28 @@ function DocumentMessage({
       documentName,
     );
 
+  const isPdf =
+    document?.mimetype ===
+      "application/pdf" ||
+    extension === "PDF";
+
+  const [
+    shouldLoadDocument,
+    setShouldLoadDocument,
+  ] = useState(isPdf);
+
+  if (shouldLoadDocument) {
+    return (
+      <DocumentPlayer
+        message={message}
+      />
+    );
+  }
+
   return (
-    <div className="w-80 max-w-full rounded-xl border border-black/10 bg-black/[0.03] p-4">
+    <div className="w-[22rem] max-w-full rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-4">
-        <div className="flex h-14 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-3xl">
+        <div className="flex h-14 w-12 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-3xl shadow-inner">
           📄
         </div>
 
@@ -1017,16 +1562,25 @@ function DocumentMessage({
             true,
           )
         }
-        className="mt-4 w-full rounded-lg border border-current/20 px-3 py-2.5 text-sm font-semibold transition hover:bg-black/5"
+        className="mt-4 w-full rounded-xl border border-black/[0.07] bg-[#f7f8f9] px-3 py-2.5 text-sm font-bold text-black/60 transition-all duration-200 hover:bg-white hover:shadow-sm"
       >
-        Carregar documento
+        Abrir documento
       </button>
+
+      {documentCaption && (
+        <div className="mt-3 border-t border-black/[0.05] pt-3">
+          <LinkifiedText
+            text={documentCaption}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 export default function MessageRenderer({
   message,
+  onForward,
 }: MessageRendererProps) {
   if (
     message.messageType ===
@@ -1036,6 +1590,7 @@ export default function MessageRenderer({
     return (
       <ImageMessage
         message={message}
+        onForward={onForward}
       />
     );
   }
@@ -1079,7 +1634,10 @@ export default function MessageRenderer({
   if (
     message.messageType ===
       "conversation" ||
-    message.message?.conversation
+    message.messageType ===
+      "extendedTextMessage" ||
+    message.message?.conversation ||
+    message.message?.extendedTextMessage
   ) {
     return (
       <TextMessage

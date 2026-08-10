@@ -3,16 +3,18 @@ import {
   NextResponse,
 } from "next/server";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+import {
+  companyRepository,
+} from "@/repositories/company.repository";
+
 const API_URL =
   process.env.EVOLUTION_API_URL;
 
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
-
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME ||
-  process.env.DEFAULT_INSTANCE ||
-  "Financeiro";
 
 type ReactionRequestBody = {
   remoteJid?: unknown;
@@ -22,17 +24,13 @@ type ReactionRequestBody = {
   emoji?: unknown;
 };
 
-function normalizeText(
-  value: unknown,
-) {
+function normalizeText(value: unknown) {
   return typeof value === "string"
     ? value.trim()
     : "";
 }
 
-function parseEvolutionResponse(
-  value: string,
-): unknown {
+function parseEvolutionResponse(value: string): unknown {
   if (!value.trim()) {
     return null;
   }
@@ -55,6 +53,37 @@ export async function POST(
             "Configuração da Evolution API não encontrada.",
         },
         { status: 500 },
+      );
+    }
+
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await companyRepository.findById(
+        companyId,
+      );
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        { status: 404 },
+      );
+    }
+
+    const instanceName =
+      company.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "Instância do WhatsApp não configurada para esta empresa.",
+        },
+        { status: 400 },
       );
     }
 
@@ -114,17 +143,15 @@ export async function POST(
       );
     }
 
-    const key = {
-      remoteJid,
-      fromMe,
-      id: messageId,
-      ...(participant
-        ? { participant }
-        : {}),
-    };
-
     const evolutionPayload = {
-      key,
+      key: {
+        remoteJid,
+        fromMe,
+        id: messageId,
+        ...(participant
+          ? { participant }
+          : {}),
+      },
       reaction: emoji,
     };
 
@@ -133,7 +160,7 @@ export async function POST(
       JSON.stringify(
         {
           instance:
-            INSTANCE_NAME,
+            instanceName,
           payload:
             evolutionPayload,
         },
@@ -142,21 +169,25 @@ export async function POST(
       ),
     );
 
-    const response = await fetch(
-      `${API_URL}/message/sendReaction/${INSTANCE_NAME}`,
-      {
-        method: "POST",
-        headers: {
-          apikey: API_KEY,
-          "Content-Type":
-            "application/json",
+    const response =
+      await fetch(
+        `${API_URL}/message/sendReaction/${instanceName}`,
+        {
+          method: "POST",
+          headers: {
+            apikey:
+              API_KEY,
+            "Content-Type":
+              "application/json",
+          },
+          body:
+            JSON.stringify(
+              evolutionPayload,
+            ),
+          cache:
+            "no-store",
         },
-        body: JSON.stringify(
-          evolutionPayload,
-        ),
-        cache: "no-store",
-      },
-    );
+      );
 
     const responseText =
       await response.text();
@@ -172,8 +203,6 @@ export async function POST(
         {
           status:
             response.status,
-          statusText:
-            response.statusText,
           ok:
             response.ok,
           data:
@@ -205,8 +234,10 @@ export async function POST(
     }
 
     return NextResponse.json({
-      success: true,
-      reaction: emoji,
+      success:
+        true,
+      reaction:
+        emoji,
       evolution:
         evolutionData,
     });

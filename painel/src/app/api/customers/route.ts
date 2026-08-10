@@ -4,7 +4,7 @@ import {
 } from "next/server";
 
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   customerService,
@@ -24,7 +24,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const remoteJid =
       request.nextUrl.searchParams.get(
@@ -94,7 +94,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

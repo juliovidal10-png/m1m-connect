@@ -8,7 +8,7 @@ import {
   M1MPaymentReceiptStatus,
 } from "@/generated/prisma/enums";
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   paymentReceiptService,
@@ -99,7 +99,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const status =
       normalizeStatus(
@@ -149,7 +149,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

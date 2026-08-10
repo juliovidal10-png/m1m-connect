@@ -4,7 +4,6 @@
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { getMessages } from "@/lib/evolution";
-import { getCurrentCompanyId } from "@/lib/tenant";
 import { customerRepository } from "@/repositories/customer.repository";
 import { attendanceService } from "@/services/attendance.service";
 import {
@@ -667,7 +666,8 @@ export const conversationSyncService = {
 
   async syncConversation(
     remoteJid: string,
-    instanceName = DEFAULT_INSTANCE,
+    instanceName: string,
+    companyId: string,
   ) {
     const normalizedRemoteJid = remoteJid.trim();
 
@@ -677,7 +677,14 @@ export const conversationSyncService = {
       );
     }
 
-    const companyId = getCurrentCompanyId();
+    const resolvedCompanyId =
+      companyId.trim();
+
+    if (!resolvedCompanyId) {
+      throw new Error(
+        "A empresa não foi identificada.",
+      );
+    }
 
     const primaryRawMessages = (
       await getMessages(
@@ -773,7 +780,7 @@ export const conversationSyncService = {
 
     const customer =
       await customerRepository.upsert({
-        companyId,
+        companyId: resolvedCompanyId,
         remoteJid: canonicalRemoteJid,
         name: contactName,
         phone: extractPhone(
@@ -783,7 +790,7 @@ export const conversationSyncService = {
 
     const activeAttendance =
       await attendanceService.getOpenAttendanceByCustomer(
-        companyId,
+        resolvedCompanyId,
         customer.id,
       );
 
@@ -794,7 +801,7 @@ export const conversationSyncService = {
           activeAttendance.startedAt;
 
       await messageService.registerMessage({
-        companyId,
+        companyId: resolvedCompanyId,
         customerId: customer.id,
         attendanceId:
           belongsToActiveAttendance
@@ -817,7 +824,7 @@ export const conversationSyncService = {
 
     const storedMessages =
       await messageService.listMessagesByCustomer(
-        companyId,
+        resolvedCompanyId,
         customer.id,
       );
 
@@ -858,7 +865,8 @@ export const conversationSyncService = {
 
   async syncIncomingMessage(
     rawMessage: unknown,
-    instanceName = DEFAULT_INSTANCE,
+    instanceName: string,
+    companyId: string,
   ) {
     const message =
       normalizeEvolutionMessage(rawMessage);
@@ -869,11 +877,18 @@ export const conversationSyncService = {
       );
     }
 
-    const companyId = getCurrentCompanyId();
+    const resolvedCompanyId =
+      companyId.trim();
+
+    if (!resolvedCompanyId) {
+      throw new Error(
+        "A empresa não foi identificada.",
+      );
+    }
 
     const customer =
       await customerRepository.upsert({
-        companyId,
+        companyId: resolvedCompanyId,
         remoteJid: message.remoteJid,
         name: message.fromMe
           ? null
@@ -885,12 +900,12 @@ export const conversationSyncService = {
 
     const attendance =
       await attendanceService.getOpenAttendanceByCustomer(
-        companyId,
+        resolvedCompanyId,
         customer.id,
       );
 
     return messageService.registerMessage({
-      companyId,
+      companyId: resolvedCompanyId,
       customerId: customer.id,
       attendanceId: attendance?.id ?? null,
       instanceName,

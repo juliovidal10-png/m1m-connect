@@ -3,12 +3,18 @@ import {
   NextResponse,
 } from "next/server";
 
-const API_URL = process.env.EVOLUTION_API_URL;
-const API_KEY = process.env.EVOLUTION_API_KEY;
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME ||
-  process.env.DEFAULT_INSTANCE ||
-  "Financeiro";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+import {
+  companyRepository,
+} from "@/repositories/company.repository";
+
+const API_URL =
+  process.env.EVOLUTION_API_URL;
+
+const API_KEY =
+  process.env.EVOLUTION_API_KEY;
 
 type MediaType =
   | "image"
@@ -17,7 +23,7 @@ type MediaType =
   | "audio";
 
 const ALLOWED_MEDIA_TYPES =
-  new Set<MediaType>([
+  new Set([
     "image",
     "document",
     "video",
@@ -49,6 +55,37 @@ export async function POST(
             "Configuração da Evolution API não encontrada.",
         },
         { status: 500 },
+      );
+    }
+
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await companyRepository.findById(
+        companyId,
+      );
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        { status: 404 },
+      );
+    }
+
+    const instanceName =
+      company.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "Instância do WhatsApp não configurada para esta empresa.",
+        },
+        { status: 400 },
       );
     }
 
@@ -161,7 +198,9 @@ export async function POST(
     };
 
     const response = await fetch(
-      `${API_URL}/message/sendMedia/${INSTANCE_NAME}`,
+      `${API_URL}/message/sendMedia/${encodeURIComponent(
+        instanceName,
+      )}`,
       {
         method: "POST",
         headers: {
@@ -198,6 +237,7 @@ export async function POST(
             mimeType,
             remoteJid,
             normalizedNumber,
+            instanceName,
             details:
               evolutionData,
           },
@@ -230,6 +270,7 @@ export async function POST(
             response.status,
           details:
             evolutionData,
+          instanceName,
         },
         {
           status:
@@ -250,6 +291,7 @@ export async function POST(
           mimeType,
           remoteJid,
           normalizedNumber,
+          instanceName,
         },
       ),
     );
@@ -259,6 +301,7 @@ export async function POST(
         success: true,
         message:
           "Arquivo enviado com sucesso.",
+        instanceName,
         evolution:
           evolutionData,
       },

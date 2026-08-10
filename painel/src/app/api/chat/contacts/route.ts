@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+import {
+  companyRepository,
+} from "@/repositories/company.repository";
+
 const API_URL =
   process.env.EVOLUTION_API_URL;
 
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
-
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
 
 type EvolutionContact = {
   id?: string;
@@ -39,18 +41,10 @@ function normalizeContactsResponse(
     typeof data === "object" &&
     "value" in data &&
     Array.isArray(
-      (
-        data as {
-          value?: EvolutionContact[];
-        }
-      ).value,
+      (data as { value?: EvolutionContact[] }).value,
     )
   ) {
-    return (
-      data as {
-        value: EvolutionContact[];
-      }
-    ).value;
+    return (data as { value: EvolutionContact[] }).value;
   }
 
   return [];
@@ -68,18 +62,10 @@ function normalizeInstancesResponse(
     typeof data === "object" &&
     "value" in data &&
     Array.isArray(
-      (
-        data as {
-          value?: EvolutionInstance[];
-        }
-      ).value,
+      (data as { value?: EvolutionInstance[] }).value,
     )
   ) {
-    return (
-      data as {
-        value: EvolutionInstance[];
-      }
-    ).value;
+    return (data as { value: EvolutionInstance[] }).value;
   }
 
   return [];
@@ -88,9 +74,7 @@ function normalizeInstancesResponse(
 function normalizeJid(
   value?: string | null,
 ) {
-  return value
-    ?.trim()
-    .toLowerCase() || "";
+  return value?.trim().toLowerCase() || "";
 }
 
 function isPhoneLikeName(
@@ -128,43 +112,12 @@ function repairText(
     return null;
   }
 
-  if (
-    !/[ÃÂðâ�]/.test(
-      normalized,
-    )
-  ) {
-    return normalized;
-  }
-
-  try {
-    const bytes =
-      Uint8Array.from(
-        Array.from(
-          normalized,
-        ).map(
-          (character) =>
-            character.charCodeAt(0) &
-            0xff,
-        ),
-      );
-
-    const repaired =
-      new TextDecoder(
-        "utf-8",
-        {
-          fatal: true,
-        },
-      )
-        .decode(bytes)
-        .trim();
-
-    return repaired || normalized;
-  } catch {
-    return normalized;
-  }
+  return normalized;
 }
 
-async function getCurrentInstance() {
+async function getCurrentInstance(
+  instanceName: string,
+) {
   if (!API_URL || !API_KEY) {
     return null;
   }
@@ -175,11 +128,9 @@ async function getCurrentInstance() {
         `${API_URL}/instance/fetchInstances`,
         {
           headers: {
-            apikey:
-              API_KEY,
+            apikey: API_KEY,
           },
-          cache:
-            "no-store",
+          cache: "no-store",
         },
       );
 
@@ -191,13 +142,11 @@ async function getCurrentInstance() {
       await response.json();
 
     return (
-      normalizeInstancesResponse(
-        data,
-      ).find(
-        (instance) =>
-          instance.name ===
-          INSTANCE_NAME,
-      ) ?? null
+      normalizeInstancesResponse(data)
+        .find(
+          (instance) =>
+            instance.name === instanceName,
+        ) ?? null
     );
   } catch {
     return null;
@@ -218,29 +167,60 @@ export async function GET() {
       );
     }
 
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await companyRepository.findById(
+        companyId,
+      );
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const instanceName =
+      company.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "Instância do WhatsApp não configurada para esta empresa.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     const [
       response,
       currentInstance,
     ] = await Promise.all([
       fetch(
-        `${API_URL}/chat/findContacts/${INSTANCE_NAME}`,
+        `${API_URL}/chat/findContacts/${instanceName}`,
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
-            apikey:
-              API_KEY,
+            "Content-Type": "application/json",
+            apikey: API_KEY,
           },
-          body:
-            JSON.stringify({
-              where: {},
-            }),
-          cache:
-            "no-store",
+          body: JSON.stringify({
+            where: {},
+          }),
+          cache: "no-store",
         },
       ),
-      getCurrentInstance(),
+      getCurrentInstance(instanceName),
     ]);
 
     const data =
@@ -253,12 +233,10 @@ export async function GET() {
             "Não foi possível buscar os contatos.",
           details:
             data,
-          instanceName:
-            INSTANCE_NAME,
+          instanceName,
         },
         {
-          status:
-            response.status,
+          status: response.status,
         },
       );
     }
@@ -274,63 +252,54 @@ export async function GET() {
       );
 
     const contacts =
-      normalizeContactsResponse(
-        data,
-      )
+      normalizeContactsResponse(data)
         .filter(
           (contact) =>
-            typeof contact.remoteJid ===
-              "string" &&
+            typeof contact.remoteJid === "string" &&
             contact.remoteJid.length > 0,
         )
-        .map((contact) => {
-          const remoteJid =
-            normalizeJid(
-              contact.remoteJid,
-            );
+        .map(
+          (contact) => {
+            const remoteJid =
+              normalizeJid(
+                contact.remoteJid,
+              );
 
-          const originalName =
-            repairText(
-              contact.pushName,
-            );
+            const originalName =
+              repairText(
+                contact.pushName,
+              );
 
-          const isOwner =
-            Boolean(
-              ownerJid &&
-              remoteJid ===
-                ownerJid,
-            );
-
-          const pushName =
-            isOwner &&
-            ownerName &&
-            isPhoneLikeName(
-              originalName,
-            )
-              ? ownerName
-              : originalName;
-
-          return {
-            id:
-              contact.id ?? null,
-            remoteJid:
-              contact.remoteJid,
-            pushName,
-            profilePicUrl:
-              contact.profilePicUrl ??
-              null,
-            isGroup:
+            const isOwner =
               Boolean(
-                contact.isGroup,
-              ),
-            isSaved:
-              Boolean(
-                contact.isSaved,
-              ),
-            type:
-              contact.type ?? null,
-          };
-        });
+                ownerJid &&
+                remoteJid === ownerJid,
+              );
+
+            const pushName =
+              isOwner &&
+              ownerName &&
+              isPhoneLikeName(originalName)
+                ? ownerName
+                : originalName;
+
+            return {
+              id:
+                contact.id ?? null,
+              remoteJid:
+                contact.remoteJid,
+              pushName,
+              profilePicUrl:
+                contact.profilePicUrl ?? null,
+              isGroup:
+                Boolean(contact.isGroup),
+              isSaved:
+                Boolean(contact.isSaved),
+              type:
+                contact.type ?? null,
+            };
+          },
+        );
 
     return NextResponse.json(
       contacts,

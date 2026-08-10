@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { reminderService } from "@/services/reminder.service";
 
 function getErrorMessage(
@@ -17,7 +19,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const customerId =
       request.nextUrl.searchParams.get(
@@ -65,7 +67,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body = await request.json();
 
@@ -106,7 +108,7 @@ export async function PATCH(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body = await request.json();
 

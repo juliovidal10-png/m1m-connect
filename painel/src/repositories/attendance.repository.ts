@@ -13,22 +13,26 @@ export type CreateAttendanceData = {
 };
 
 export type AssignAttendanceData = {
+  companyId: string;
   attendanceId: string;
   responsibleId: string;
   assignedAt?: Date;
 };
 
 export type TakeoverAttendanceData = {
+  companyId: string;
   attendanceId: string;
   assignedAt?: Date;
 };
 
 export type TransferAttendanceToSectorData = {
+  companyId: string;
   attendanceId: string;
   sectorId: string;
 };
 
 export type FinishAttendanceData = {
+  companyId: string;
   attendanceId: string;
   finishedAt?: Date;
 };
@@ -46,6 +50,31 @@ const activeAttendanceStates: M1MAttendanceState[] = [
   M1MAttendanceState.IA,
   M1MAttendanceState.HUMANO,
 ];
+
+async function requireAttendance(
+  companyId: string,
+  attendanceId: string,
+) {
+  const attendance =
+    await prisma.m1MAttendance.findFirst({
+      where: {
+        id: attendanceId,
+        companyId,
+      },
+      include: {
+        responsible: true,
+        sector: true,
+      },
+    });
+
+  if (!attendance) {
+    throw new Error(
+      "Atendimento não encontrado.",
+    );
+  }
+
+  return attendance;
+}
 
 export const attendanceRepository = {
   async createAttendance(
@@ -81,11 +110,13 @@ export const attendanceRepository = {
   },
 
   async findAttendanceById(
+    companyId: string,
     attendanceId: string,
   ) {
-    return prisma.m1MAttendance.findUnique({
+    return prisma.m1MAttendance.findFirst({
       where: {
         id: attendanceId,
+        companyId,
       },
       include: {
         responsible: true,
@@ -116,9 +147,15 @@ export const attendanceRepository = {
   async assignAttendance(
     data: AssignAttendanceData,
   ) {
+    const attendance =
+      await requireAttendance(
+        data.companyId,
+        data.attendanceId,
+      );
+
     return prisma.m1MAttendance.update({
       where: {
-        id: data.attendanceId,
+        id: attendance.id,
       },
       data: {
         state:
@@ -135,9 +172,15 @@ export const attendanceRepository = {
   async takeoverAttendance(
     data: TakeoverAttendanceData,
   ) {
+    const attendance =
+      await requireAttendance(
+        data.companyId,
+        data.attendanceId,
+      );
+
     return prisma.m1MAttendance.update({
       where: {
-        id: data.attendanceId,
+        id: attendance.id,
       },
       data: {
         state:
@@ -152,9 +195,15 @@ export const attendanceRepository = {
   async transferToSector(
     data: TransferAttendanceToSectorData,
   ) {
+    const attendance =
+      await requireAttendance(
+        data.companyId,
+        data.attendanceId,
+      );
+
     return prisma.m1MAttendance.update({
       where: {
-        id: data.attendanceId,
+        id: attendance.id,
       },
       data: {
         sectorId:
@@ -174,9 +223,15 @@ export const attendanceRepository = {
   async finishAttendance(
     data: FinishAttendanceData,
   ) {
+    const attendance =
+      await requireAttendance(
+        data.companyId,
+        data.attendanceId,
+      );
+
     return prisma.m1MAttendance.update({
       where: {
-        id: data.attendanceId,
+        id: attendance.id,
       },
       data: {
         state:

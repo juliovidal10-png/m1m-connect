@@ -7,7 +7,7 @@ import {
   M1MAttendanceActorType,
 } from "@/generated/prisma/enums";
 import {
-  getCurrentCompanyId,
+  getAuthenticatedCompanyId,
 } from "@/lib/tenant";
 import {
   paymentReceiptService,
@@ -120,7 +120,7 @@ export async function GET(
     void request;
 
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const {
       receiptId,
@@ -163,7 +163,7 @@ export async function PATCH(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const {
       receiptId,

@@ -98,6 +98,9 @@ model M1MCompany {
   humanReturnMode     M1MHumanReturnMode @default(NEXT_CONVERSATION)
   humanClosingMessage String?
   active              Boolean            @default(true)
+  onboardingCompleted Boolean            @default(false)
+  aiEnabled           Boolean            @default(false)
+  whatsappInstanceName String?            @unique
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
@@ -293,6 +296,7 @@ model M1MUser {
   name                 String
   displayName          String?
   email                String              @unique
+  passwordHash         String?
   jobTitle             String?
   phone                String?
   role                 M1MUserRole         @default(ATTENDANT)
@@ -332,6 +336,7 @@ model M1MSectorUser {
 model M1MCustomer {
   id            String    @id @default(cuid())
   companyId     String
+  customerCode  Int?
   remoteJid     String    @unique
   name          String?
   phone         String?
@@ -353,6 +358,7 @@ model M1MCustomer {
   messages        M1MMessage[]
   paymentReceipts M1MPaymentReceipt[]
 
+  @@unique([companyId, customerCode])
   @@index([companyId])
   @@index([remoteJid])
   @@index([responsibleId])

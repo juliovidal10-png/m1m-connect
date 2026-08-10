@@ -303,7 +303,7 @@ function buildDisplayData(customer: {
       : (
           trustedSavedName ||
           displayPhone ||
-          "Cliente sem identificação"
+          "Cliente sem identificaÃ§Ã£o"
         );
 
   const suggestedName =
@@ -398,6 +398,126 @@ function buildUpdateData(
   }
 
   return updateData;
+}
+
+function getPrismaErrorCode(
+  error: unknown,
+) {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("code" in error)
+  ) {
+    return null;
+  }
+
+  return typeof error.code ===
+    "string"
+    ? error.code
+    : null;
+}
+
+async function createCustomerWithCode(
+  data: CustomerData,
+) {
+  const maximumAttempts = 3;
+
+  for (
+    let attempt = 1;
+    attempt <= maximumAttempts;
+    attempt += 1
+  ) {
+    try {
+      return await prisma.$transaction(
+        async (transaction) => {
+          const lastCustomer =
+            await transaction.m1MCustomer.findFirst({
+              where: {
+                companyId:
+                  data.companyId,
+                customerCode: {
+                  not: null,
+                },
+              },
+              select: {
+                customerCode: true,
+              },
+              orderBy: {
+                customerCode: "desc",
+              },
+            });
+
+          const nextCustomerCode =
+            (lastCustomer?.customerCode ??
+              0) + 1;
+
+          return transaction.m1MCustomer.create({
+            data: {
+              companyId:
+                data.companyId,
+              customerCode:
+                nextCustomerCode,
+              remoteJid:
+                data.remoteJid.trim(),
+              name:
+                normalizeCustomerName(
+                  data.name,
+                  data.remoteJid,
+                ),
+              phone:
+                normalizeOptionalText(
+                  data.phone,
+                ),
+              company:
+                normalizeOptionalText(
+                  data.company,
+                ),
+              city:
+                normalizeOptionalText(
+                  data.city,
+                ),
+              responsible:
+                normalizeOptionalText(
+                  data.responsible,
+                ),
+              observations:
+                normalizeOptionalText(
+                  data.observations,
+                ),
+              status:
+                normalizeOptionalText(
+                  data.status,
+                ) || "IA",
+            },
+          });
+        },
+        {
+          isolationLevel:
+            "Serializable",
+        },
+      );
+    } catch (error) {
+      const errorCode =
+        getPrismaErrorCode(error);
+
+      const mayRetry =
+        errorCode === "P2002" ||
+        errorCode === "P2034";
+
+      if (
+        mayRetry &&
+        attempt < maximumAttempts
+      ) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error(
+    "NÃ£o foi possÃvel gerar o CÃ³digo M1M do cliente.",
+  );
 }
 
 export const customerRepository = {
@@ -566,6 +686,11 @@ export const customerRepository = {
           customer.company,
           customer.city,
           customer.remoteJid,
+          customer.customerCode
+            ?.toString(),
+          customer.customerCode
+            ?.toString()
+            .padStart(6, "0"),
           customer.responsible,
           customer.assignedUser
             ?.displayName,
@@ -591,43 +716,9 @@ export const customerRepository = {
   async create(
     data: CustomerData,
   ) {
-    return prisma.m1MCustomer.create({
-      data: {
-        companyId:
-          data.companyId,
-        remoteJid:
-          data.remoteJid.trim(),
-        name:
-          normalizeCustomerName(
-            data.name,
-            data.remoteJid,
-          ),
-        phone:
-          normalizeOptionalText(
-            data.phone,
-          ),
-        company:
-          normalizeOptionalText(
-            data.company,
-          ),
-        city:
-          normalizeOptionalText(
-            data.city,
-          ),
-        responsible:
-          normalizeOptionalText(
-            data.responsible,
-          ),
-        observations:
-          normalizeOptionalText(
-            data.observations,
-          ),
-        status:
-          normalizeOptionalText(
-            data.status,
-          ) || "IA",
-      },
-    });
+    return createCustomerWithCode(
+      data,
+    );
   },
 
   async update(
@@ -646,11 +737,26 @@ export const customerRepository = {
   },
 
   async markAsHuman(
+    companyId: string,
     customerId: string,
   ) {
+    const customer =
+      await prisma.m1MCustomer.findFirst({
+        where: {
+          id: customerId,
+          companyId,
+        },
+      });
+
+    if (!customer) {
+      throw new Error(
+        "Cliente não encontrado.",
+      );
+    }
+
     return prisma.m1MCustomer.update({
       where: {
-        id: customerId,
+        id: customer.id,
       },
       data: {
         status: "HUMANO",
@@ -661,19 +767,21 @@ export const customerRepository = {
   },
 
   async assignResponsible(
+    companyId: string,
     customerId: string,
     responsibleId: string,
   ) {
     const customer =
-      await prisma.m1MCustomer.findUnique({
+      await prisma.m1MCustomer.findFirst({
         where: {
           id: customerId,
+          companyId,
         },
       });
 
     if (!customer) {
       throw new Error(
-        "Cliente não encontrado.",
+        "Cliente nÃ£o encontrado.",
       );
     }
 
@@ -681,15 +789,14 @@ export const customerRepository = {
       await prisma.m1MUser.findFirst({
         where: {
           id: responsibleId,
-          companyId:
-            customer.companyId,
+          companyId,
           active: true,
         },
       });
 
     if (!user) {
       throw new Error(
-        "Responsável não encontrado ou inativo.",
+        "ResponsÃ¡vel nÃ£o encontrado ou inativo.",
       );
     }
 
@@ -704,7 +811,7 @@ export const customerRepository = {
 
     return prisma.m1MCustomer.update({
       where: {
-        id: customerId,
+        id: customer.id,
       },
       data: {
         responsible:

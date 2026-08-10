@@ -1,9 +1,11 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { userService } from "@/services/user.service";
 
 function getErrorMessage(
@@ -15,17 +17,54 @@ function getErrorMessage(
     : fallbackMessage;
 }
 
+function toSafeUser<
+  T extends {
+    id: string;
+    companyId: string;
+    name: string;
+    displayName: string | null;
+    email: string;
+    jobTitle: string | null;
+    phone: string | null;
+    role: unknown;
+    useCustomPermissions: boolean;
+    permissions: unknown;
+    active: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+>(user: T) {
+  return {
+    id: user.id,
+    companyId: user.companyId,
+    name: user.name,
+    displayName: user.displayName,
+    email: user.email,
+    jobTitle: user.jobTitle,
+    phone: user.phone,
+    role: user.role,
+    useCustomPermissions:
+      user.useCustomPermissions,
+    permissions: user.permissions,
+    active: user.active,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const users =
       await userService.listUsers(
         companyId,
       );
 
-    return NextResponse.json(users);
+    return NextResponse.json(
+      users.map(toSafeUser),
+    );
   } catch (error) {
     console.error(
       "ERRO USERS GET:",
@@ -51,7 +90,7 @@ export async function POST(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body = await request.json();
 
@@ -79,7 +118,7 @@ export async function POST(
       );
 
     return NextResponse.json(
-      user,
+      toSafeUser(user),
       {
         status: 201,
       },
@@ -103,5 +142,3 @@ export async function POST(
     );
   }
 }
-
-

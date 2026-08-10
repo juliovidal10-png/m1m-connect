@@ -9,6 +9,7 @@ import {
 } from "@/repositories/attendance.repository";
 
 type TransferAttendanceToSectorInput = {
+  companyId: string;
   attendanceId: string;
   sectorId: string;
   actorType: M1MAttendanceActorType;
@@ -59,6 +60,7 @@ export const attendanceService = {
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
+        input.companyId,
         input.attendanceId,
       );
 
@@ -79,7 +81,7 @@ export const attendanceService = {
 
     const sector =
       await attendanceRepository.findSector(
-        attendance.companyId,
+        input.companyId,
         input.sectorId,
       );
 
@@ -104,6 +106,8 @@ export const attendanceService = {
 
     const updatedAttendance =
       await attendanceRepository.transferToSector({
+        companyId:
+          input.companyId,
         attendanceId:
           attendance.id,
         sectorId:
@@ -132,11 +136,13 @@ export const attendanceService = {
   },
 
   async assumeAttendance(
+    companyId: string,
     attendanceId: string,
     responsibleId: string,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
+        companyId,
         attendanceId,
       );
 
@@ -166,6 +172,7 @@ export const attendanceService = {
 
     const updatedAttendance =
       await attendanceRepository.assignAttendance({
+        companyId,
         attendanceId,
         responsibleId,
       });
@@ -208,6 +215,8 @@ export const attendanceService = {
 
     const updatedAttendance =
       await attendanceRepository.takeoverAttendance({
+        companyId:
+          input.companyId,
         attendanceId:
           attendance.id,
       });
@@ -235,10 +244,12 @@ export const attendanceService = {
   },
 
   async finishAttendance(
+    companyId: string,
     attendanceId: string,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
+        companyId,
         attendanceId,
       );
 
@@ -263,6 +274,7 @@ export const attendanceService = {
 
     const updatedAttendance =
       await attendanceRepository.finishAttendance({
+        companyId,
         attendanceId,
       });
 
@@ -280,10 +292,12 @@ export const attendanceService = {
   },
 
   async finishAttendanceByAI(
+    companyId: string,
     attendanceId: string,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
+        companyId,
         attendanceId,
       );
 
@@ -311,6 +325,7 @@ export const attendanceService = {
 
     const updatedAttendance =
       await attendanceRepository.finishAttendance({
+        companyId,
         attendanceId,
       });
 

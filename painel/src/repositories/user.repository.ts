@@ -10,6 +10,7 @@ export type UserData = {
   name: string;
   displayName?: string | null;
   email: string;
+  passwordHash?: string | null;
   jobTitle?: string | null;
   phone?: string | null;
   role?: M1MUserRole;
@@ -22,6 +23,7 @@ export type UserUpdateData = {
   name?: string;
   displayName?: string | null;
   email?: string;
+  passwordHash?: string | null;
   jobTitle?: string | null;
   phone?: string | null;
   role?: M1MUserRole;
@@ -86,6 +88,8 @@ export const userRepository = {
           ),
         email:
           data.email.trim().toLowerCase(),
+        passwordHash:
+          data.passwordHash ?? null,
         jobTitle:
           normalizeOptionalText(
             data.jobTitle,
@@ -144,6 +148,11 @@ export const userRepository = {
         data.email
           .trim()
           .toLowerCase();
+    }
+
+    if (data.passwordHash !== undefined) {
+      updateData.passwordHash =
+        data.passwordHash;
     }
 
     if (data.jobTitle !== undefined) {

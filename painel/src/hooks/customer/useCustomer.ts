@@ -9,6 +9,7 @@ import {
 type CustomerRecord = {
   id: string;
   companyId: string;
+  customerCode: number | null;
   remoteJid: string;
   name: string | null;
   phone: string | null;
@@ -35,16 +36,29 @@ export default function useCustomer({
   const [customerId, setCustomerId] =
     useState<string | null>(null);
 
-  const [company, setCompany] = useState("");
-  const [city, setCity] = useState("");
+  const [
+    customerCode,
+    setCustomerCode,
+  ] = useState<number | null>(null);
 
-  const [responsible, setResponsible] =
-    useState("Julinho");
+  const [company, setCompany] =
+    useState("");
 
-  const [attendanceStatus, setAttendanceStatus] =
-    useState("IA");
+  const [city, setCity] =
+    useState("");
 
-  const [notes, setNotes] = useState("");
+  const [
+    responsible,
+    setResponsible,
+  ] = useState("Julinho");
+
+  const [
+    attendanceStatus,
+    setAttendanceStatus,
+  ] = useState("IA");
+
+  const [notes, setNotes] =
+    useState("");
 
   const [
     isLoadingCustomer,
@@ -54,8 +68,10 @@ export default function useCustomer({
   const [isSaving, setIsSaving] =
     useState(false);
 
-  const [isAssigning, setIsAssigning] =
-    useState(false);
+  const [
+    isAssigning,
+    setIsAssigning,
+  ] = useState(false);
 
   const [
     feedbackMessage,
@@ -65,12 +81,15 @@ export default function useCustomer({
   const [
     feedbackType,
     setFeedbackType,
-  ] = useState<"success" | "error" | "">("");
+  ] = useState<
+    "success" | "error" | ""
+  >("");
 
-  const clearFeedback = useCallback(() => {
-    setFeedbackMessage("");
-    setFeedbackType("");
-  }, []);
+  const clearFeedback =
+    useCallback(() => {
+      setFeedbackMessage("");
+      setFeedbackType("");
+    }, []);
 
   const showSuccess = useCallback(
     (message: string) => {
@@ -94,40 +113,51 @@ export default function useCustomer({
     }
 
     setCustomerId(null);
+    setCustomerCode(null);
     setCompany("");
     setCity("");
     setResponsible("Julinho");
     setAttendanceStatus("IA");
     setNotes("");
     clearFeedback();
-  }, [isOpen, clearFeedback]);
+  }, [
+    isOpen,
+    clearFeedback,
+  ]);
 
   useEffect(() => {
-    if (!isOpen || !remoteJid) {
+    if (
+      !isOpen ||
+      !remoteJid
+    ) {
       return;
     }
 
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
     async function loadCustomer() {
       setIsLoadingCustomer(true);
       clearFeedback();
 
       try {
-        const params = new URLSearchParams({
-          remoteJid,
-          phone,
-        });
+        const params =
+          new URLSearchParams({
+            remoteJid,
+            phone,
+          });
 
         const response = await fetch(
           `/api/customers?${params.toString()}`,
           {
             cache: "no-store",
-            signal: controller.signal,
+            signal:
+              controller.signal,
           },
         );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -137,29 +167,50 @@ export default function useCustomer({
         }
 
         const customer =
-          data as CustomerRecord | null;
+          data as
+            | CustomerRecord
+            | null;
 
         if (!customer) {
           return;
         }
 
-        setCustomerId(customer.id);
-        setCompany(customer.company || "");
-        setCity(customer.city || "");
+        setCustomerId(
+          customer.id,
+        );
+
+        setCustomerCode(
+          customer.customerCode ??
+            null,
+        );
+
+        setCompany(
+          customer.company || "",
+        );
+
+        setCity(
+          customer.city || "",
+        );
 
         setResponsible(
-          customer.responsible ?? "",
+          customer.responsible ??
+            "",
         );
 
         setAttendanceStatus(
           customer.status || "IA",
         );
 
-        setNotes(customer.observations || "");
+        setNotes(
+          customer.observations ||
+            "",
+        );
       } catch (error) {
         if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
+          error instanceof
+            DOMException &&
+          error.name ===
+            "AbortError"
         ) {
           return;
         }
@@ -170,13 +221,18 @@ export default function useCustomer({
             : "Erro ao carregar os dados do cliente.",
         );
       } finally {
-        if (!controller.signal.aborted) {
-          setIsLoadingCustomer(false);
+        if (
+          !controller.signal
+            .aborted
+        ) {
+          setIsLoadingCustomer(
+            false,
+          );
         }
       }
     }
 
-    loadCustomer();
+    void loadCustomer();
 
     return () => {
       controller.abort();
@@ -196,7 +252,8 @@ export default function useCustomer({
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             remoteJid,
@@ -205,13 +262,16 @@ export default function useCustomer({
             company,
             city,
             responsible,
-            observations: notes,
-            status: attendanceStatus,
+            observations:
+              notes,
+            status:
+              attendanceStatus,
           }),
         },
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -220,18 +280,39 @@ export default function useCustomer({
         );
       }
 
-      const customer = data as CustomerRecord;
+      const customer =
+        data as CustomerRecord;
 
-      setCustomerId(customer.id);
-      setCompany(customer.company || "");
-      setCity(customer.city || "");
-      setResponsible(
-        customer.responsible || "Julinho",
+      setCustomerId(
+        customer.id,
       );
+
+      setCustomerCode(
+        customer.customerCode ??
+          null,
+      );
+
+      setCompany(
+        customer.company || "",
+      );
+
+      setCity(
+        customer.city || "",
+      );
+
+      setResponsible(
+        customer.responsible ||
+          "Julinho",
+      );
+
       setAttendanceStatus(
         customer.status || "IA",
       );
-      setNotes(customer.observations || "");
+
+      setNotes(
+        customer.observations ||
+          "",
+      );
 
       return customer;
     }, [
@@ -247,7 +328,10 @@ export default function useCustomer({
 
   const handleSaveCustomer =
     useCallback(async () => {
-      if (isSaving || !remoteJid) {
+      if (
+        isSaving ||
+        !remoteJid
+      ) {
         return;
       }
 
@@ -295,21 +379,25 @@ export default function useCustomer({
       clearFeedback();
 
       try {
-        const response = await fetch(
-          "/api/customers/assign",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+        const response =
+          await fetch(
+            "/api/customers/assign",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                customerId,
+                responsibleId:
+                  "julio",
+              }),
             },
-            body: JSON.stringify({
-              customerId,
-              responsibleId: "julio",
-            }),
-          },
-        );
+          );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -318,8 +406,13 @@ export default function useCustomer({
           );
         }
 
-        setResponsible("Julinho");
-        setAttendanceStatus("HUMANO");
+        setResponsible(
+          "Julinho",
+        );
+
+        setAttendanceStatus(
+          "HUMANO",
+        );
 
         showSuccess(
           "Atendimento assumido com sucesso.",
@@ -343,6 +436,7 @@ export default function useCustomer({
 
   return {
     customerId,
+    customerCode,
     company,
     setCompany,
     city,

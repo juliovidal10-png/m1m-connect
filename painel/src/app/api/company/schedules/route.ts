@@ -3,7 +3,9 @@ import {
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { companyScheduleService } from "@/services/company-schedule.service";
 
 function getErrorMessage(
@@ -18,7 +20,7 @@ function getErrorMessage(
 export async function GET() {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const result =
       await companyScheduleService.getSchedules(
@@ -53,7 +55,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const body =
       await request.json();

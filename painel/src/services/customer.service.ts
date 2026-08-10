@@ -16,6 +16,7 @@ export type SaveCustomerInput = {
 };
 
 export type AssignResponsibleInput = {
+  companyId: string;
   customerId: string;
   responsibleId: string;
 };
@@ -200,6 +201,12 @@ export const customerService = {
   async assignResponsible(
     input: AssignResponsibleInput,
   ) {
+    const companyId =
+      requireText(
+        input.companyId,
+        "Empresa",
+      );
+
     const customerId =
       requireText(
         input.customerId,
@@ -213,6 +220,7 @@ export const customerService = {
       );
 
     return customerRepository.assignResponsible(
+      companyId,
       customerId,
       responsibleId,
     );

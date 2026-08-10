@@ -3,19 +3,21 @@ import {
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
-import { messageService } from "@/services/message.service";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+import {
+  prisma,
+} from "@/lib/prisma";
+import {
+  messageService,
+} from "@/services/message.service";
 
 const API_URL =
   process.env.EVOLUTION_API_URL;
 
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
-
-const INSTANCE_NAME =
-  process.env.INSTANCE_NAME ||
-  process.env.DEFAULT_INSTANCE ||
-  "Financeiro";
 
 type DeleteMessageRequest = {
   id?: unknown;
@@ -60,9 +62,35 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada.",
+            "Configuração da Evolution API não encontrada.",
         },
         { status: 500 },
+      );
+    }
+
+    const companyId =
+      await getAuthenticatedCompanyId();
+
+    const company =
+      await prisma.m1MCompany.findUnique({
+        where: {
+          id: companyId,
+        },
+        select: {
+          whatsappInstanceName: true,
+        },
+      });
+
+    const instanceName =
+      company?.whatsappInstanceName?.trim();
+
+    if (!instanceName) {
+      return NextResponse.json(
+        {
+          error:
+            "A empresa não possui WhatsApp configurado.",
+        },
+        { status: 400 },
       );
     }
 
@@ -75,7 +103,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "Os dados da mensagem sÃ£o invÃ¡lidos.",
+            "Os dados da mensagem são inválidos.",
         },
         { status: 400 },
       );
@@ -100,29 +128,11 @@ export async function DELETE(
         body.participant,
       );
 
-    console.log(
-      "[APAGAR MENSAGEM] Dados recebidos:",
-      JSON.stringify(
-        {
-          id,
-          evolutionMessageId,
-          remoteJid,
-          fromMe:
-            body.fromMe,
-          participant,
-          instance:
-            INSTANCE_NAME,
-        },
-        null,
-        2,
-      ),
-    );
-
     if (!evolutionMessageId) {
       return NextResponse.json(
         {
           error:
-            "O identificador real da mensagem no WhatsApp Ã© obrigatÃ³rio.",
+            "O identificador real da mensagem no WhatsApp é obrigatório.",
         },
         { status: 400 },
       );
@@ -132,7 +142,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "A conversa da mensagem nÃ£o foi identificada.",
+            "A conversa da mensagem não foi identificada.",
         },
         { status: 400 },
       );
@@ -148,48 +158,31 @@ export async function DELETE(
       );
     }
 
-    const evolutionBody: {
-      id: string;
-      remoteJid: string;
-      fromMe: true;
-      participant?: string;
-    } = {
+    const evolutionBody = {
       id: evolutionMessageId,
       remoteJid,
       fromMe: true,
+      ...(participant
+        ? { participant }
+        : {}),
     };
 
-    if (participant) {
-      evolutionBody.participant =
-        participant;
-    }
-
-    console.log(
-      "[APAGAR MENSAGEM] Payload enviado Ã  Evolution:",
-      JSON.stringify(
-        evolutionBody,
-        null,
-        2,
-      ),
-    );
-
     const response = await fetch(
-      `${API_URL}/chat/deleteMessageForEveryone/${INSTANCE_NAME}`,
+      `${API_URL}/chat/deleteMessageForEveryone/${instanceName}`,
       {
         method: "DELETE",
         headers: {
           "Content-Type":
             "application/json",
-          apikey: API_KEY,
+          apikey:
+            API_KEY,
         },
-        body: JSON.stringify(
-          evolutionBody,
-        ),
-        cache: "no-store",
-        signal:
-          AbortSignal.timeout(
-            15000,
+        body:
+          JSON.stringify(
+            evolutionBody,
           ),
+        cache:
+          "no-store",
       },
     );
 
@@ -201,82 +194,46 @@ export async function DELETE(
         responseText,
       );
 
-    console.log(
-      "[APAGAR MENSAGEM] Resposta da Evolution:",
-      JSON.stringify(
-        {
-          status:
-            response.status,
-          statusText:
-            response.statusText,
-          ok:
-            response.ok,
-          data,
-        },
-        null,
-        2,
-      ),
-    );
-
     if (!response.ok) {
       return NextResponse.json(
         {
           error:
-            "NÃ£o foi possÃ­vel apagar a mensagem para o cliente.",
+            "Não foi possível apagar a mensagem para o cliente.",
           evolutionStatus:
             response.status,
-          details: data,
+          details:
+            data,
         },
         {
           status:
-            response.status >= 400 &&
-            response.status <= 599
-              ? response.status
-              : 502,
+            response.status,
         },
       );
     }
 
-    if (evolutionMessageId) {
-      const companyId =
-        getCurrentCompanyId();
-
-      await messageService.markMessageAsRevoked(
-        companyId,
-        INSTANCE_NAME,
-        evolutionMessageId,
-      );
-    }
+    await messageService.markMessageAsRevoked(
+      companyId,
+      instanceName,
+      evolutionMessageId,
+    );
 
     return NextResponse.json({
       success: true,
-      revokedContent:
-        "ğŸš« Esta mensagem foi apagada.",
       evolutionMessageId,
       data,
     });
   } catch (error) {
     console.error(
-      "[APAGAR MENSAGEM] Erro interno:",
+      "[APAGAR MENSAGEM]",
       error,
     );
 
-    const isTimeout =
-      error instanceof Error &&
-      (
-        error.name ===
-          "TimeoutError" ||
-        error.name ===
-          "AbortError"
-      );
-
     return NextResponse.json(
       {
-        error: isTimeout
-          ? "A Evolution API demorou demais para confirmar a exclusÃ£o."
-          : error instanceof Error
+        error:
+          error instanceof Error
             ? error.message
-            : "Erro interno ao apagar a mensagem.",
+            : "Erro interno ao apagar mensagem.",
       },
       { status: 500 },
     );

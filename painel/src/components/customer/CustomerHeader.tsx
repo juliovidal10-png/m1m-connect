@@ -3,6 +3,7 @@
 type CustomerHeaderProps = {
   avatar?: string | null;
   name: string;
+  customerCode?: number | null;
   phone?: string | null;
   company?: string | null;
   city?: string | null;
@@ -21,7 +22,8 @@ type HeaderIconName =
   | "user"
   | "clock"
   | "folder"
-  | "calendar";
+  | "calendar"
+  | "hash";
 
 function HeaderIcon({
   name,
@@ -102,6 +104,14 @@ function HeaderIcon({
     );
   }
 
+  if (name === "hash") {
+    return (
+      <svg {...commonProps}>
+        <path d="M5 9h14M4 15h14M10 3 8 21M16 3l-2 18" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...commonProps}>
       <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -147,6 +157,7 @@ function StatusBadge({
 export default function CustomerHeader({
   avatar,
   name,
+  customerCode,
   phone,
   company,
   city,
@@ -181,12 +192,27 @@ export default function CustomerHeader({
                 {name}
               </h2>
 
-              {phone && (
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-black/45">
-                  <HeaderIcon name="phone" />
-                  {phone}
-                </p>
-              )}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {customerCode !== null &&
+                  customerCode !== undefined && (
+                    <span className="inline-flex h-7 items-center rounded-lg bg-[#fff3ee] px-2.5 text-[11px] font-bold text-[#e93800] ring-1 ring-[#ff3d00]/10">
+                      Cliente #
+                      {String(
+                        customerCode,
+                      ).padStart(6, "0")}
+                    </span>
+                  )}
+
+                {phone && (
+                  <p className="inline-flex h-7 items-center gap-1.5 text-xs text-black/45">
+                    <HeaderIcon
+                      name="phone"
+                      className="h-3.5 w-3.5"
+                    />
+                    {phone}
+                  </p>
+                )}
+              </div>
             </div>
 
             <StatusBadge status={status} />

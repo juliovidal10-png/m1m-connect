@@ -30,6 +30,7 @@ export const humanTakeoverService = {
 
     const customer =
       await customerRepository.markAsHuman(
+        input.companyId,
         input.customerId,
       );
 

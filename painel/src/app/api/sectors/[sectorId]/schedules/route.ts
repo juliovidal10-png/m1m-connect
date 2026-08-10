@@ -3,7 +3,9 @@ import {
   NextResponse,
 } from "next/server";
 
-import { getCurrentCompanyId } from "@/lib/tenant";
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
 import { sectorScheduleService } from "@/services/sector-schedule.service";
 
 type RouteContext = {
@@ -27,7 +29,7 @@ export async function GET(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;
@@ -67,7 +69,7 @@ export async function PUT(
 ) {
   try {
     const companyId =
-      getCurrentCompanyId();
+      await getAuthenticatedCompanyId();
 
     const { sectorId } =
       await context.params;

@@ -95,6 +95,35 @@ async function requireCompany(
   return normalizedCompanyId;
 }
 
+async function requireCompanyInstanceName(
+  companyId: string,
+) {
+  const normalizedCompanyId =
+    await requireCompany(
+      companyId,
+    );
+
+  const company =
+    await companyRepository.findById(
+      normalizedCompanyId,
+    );
+
+  const instanceName =
+    company?.whatsappInstanceName?.trim();
+
+  if (!instanceName) {
+    throw new Error(
+      "Instância do WhatsApp não configurada para esta empresa.",
+    );
+  }
+
+  return {
+    companyId:
+      normalizedCompanyId,
+    instanceName,
+  };
+}
+
 async function requireReceipt(
   companyId: string,
   receiptId: string,
@@ -277,8 +306,12 @@ export const paymentReceiptService = {
     status?: M1MPaymentReceiptStatus,
     customerId?: string,
   ) {
-    const normalizedCompanyId =
-      await requireCompany(
+    const {
+      companyId:
+        normalizedCompanyId,
+      instanceName,
+    } =
+      await requireCompanyInstanceName(
         companyId,
       );
 
@@ -292,6 +325,7 @@ export const paymentReceiptService = {
     return identityResolverService
       .enrichCustomerIdentityList(
         receipts,
+        instanceName,
       );
   },
 
@@ -307,9 +341,17 @@ export const paymentReceiptService = {
         receiptId,
       );
 
+    const {
+      instanceName,
+    } =
+      await requireCompanyInstanceName(
+        companyId,
+      );
+
     return identityResolverService
       .enrichCustomerIdentity(
         receipt,
+        instanceName,
       );
   },
 

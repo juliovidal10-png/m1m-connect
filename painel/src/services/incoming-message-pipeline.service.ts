@@ -18,8 +18,8 @@ import {
 } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import {
-  getCurrentCompanyId,
-} from "@/lib/tenant";
+  companyRepository,
+} from "@/repositories/company.repository";
 import {
   automaticMessageService,
 } from "@/services/automatic-message.service";
@@ -42,11 +42,6 @@ import {
   sectorAvailabilityService,
 } from "@/services/sector-availability.service";
 
-const DEFAULT_INSTANCE =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
-
 type PipelineOptions = {
   dryRun?: boolean;
 };
@@ -67,7 +62,7 @@ function isUnsupportedConversation(
 export const incomingMessagePipelineService = {
   async process(
     rawMessage: unknown,
-    instanceName = DEFAULT_INSTANCE,
+    instanceName: string,
     options?: PipelineOptions,
   ) {
     const normalizedMessage =
@@ -97,13 +92,38 @@ export const incomingMessagePipelineService = {
       };
     }
 
+    const normalizedInstanceName =
+      instanceName.trim();
+
+    if (!normalizedInstanceName) {
+      throw new Error(
+        "A instância do WhatsApp não foi identificada.",
+      );
+    }
+
+    const company =
+      await companyRepository.findByWhatsappInstanceName(
+        normalizedInstanceName,
+      );
+
+    if (!company) {
+      return {
+        processed: false,
+        action:
+          "WHATSAPP_INSTANCE_NOT_LINKED" as const,
+        instanceName:
+          normalizedInstanceName,
+      };
+    }
+
     const companyId =
-      getCurrentCompanyId();
+      company.id;
 
     const storedMessage =
       await conversationSyncService.syncIncomingMessage(
         rawMessage,
-        instanceName,
+        normalizedInstanceName,
+        companyId,
       );
 
     const processingClaimed =
@@ -125,7 +145,7 @@ export const incomingMessagePipelineService = {
       if (normalizedMessage.fromMe) {
         const isAutomatic =
           automaticOutgoingRegistryService.isAutomatic(
-            instanceName,
+            normalizedInstanceName,
             normalizedMessage.remoteJid,
             normalizedMessage.content ?? "",
             normalizedMessage.evolutionMessageId,
@@ -169,7 +189,7 @@ export const incomingMessagePipelineService = {
             storedMessage.customerId,
           remoteJid:
             normalizedMessage.remoteJid,
-          instanceName,
+      instanceName: normalizedInstanceName,
           messageContent:
             normalizedMessage.content,
           payload:
@@ -214,7 +234,7 @@ export const incomingMessagePipelineService = {
             storedMessage.customerId,
           attendanceId:
             router.attendanceId,
-          instanceName,
+      instanceName: normalizedInstanceName,
           remoteJid:
             normalizedMessage.remoteJid,
           text:
@@ -277,7 +297,7 @@ export const incomingMessagePipelineService = {
             storedMessage.customerId,
           attendanceId:
             router.attendanceId,
-          instanceName,
+      instanceName: normalizedInstanceName,
           remoteJid:
             normalizedMessage.remoteJid,
           text:
@@ -375,7 +395,7 @@ export const incomingMessagePipelineService = {
           storedMessage.customerId,
         attendanceId:
           router.attendanceId,
-        instanceName,
+    instanceName: normalizedInstanceName,
         remoteJid:
           normalizedMessage.remoteJid,
         text:
@@ -412,3 +432,4 @@ export const incomingMessagePipelineService = {
     }
   },
 };
+
