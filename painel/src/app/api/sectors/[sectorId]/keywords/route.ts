@@ -3,6 +3,9 @@ import {
   NextResponse,
 } from "next/server";
 
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+
 import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
@@ -104,6 +107,9 @@ export async function POST(
   context: RouteContext,
 ) {
   try {
+    await authorizationService.requirePermission(
+      M1MUserPermission.MANAGE_SECTORS,
+    );
     const companyId =
       await getAuthenticatedCompanyId();
 
@@ -190,3 +196,5 @@ export async function DELETE(
     );
   }
 }
+
+

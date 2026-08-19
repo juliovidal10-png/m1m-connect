@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
 
 import {
   getAuthenticatedCompanyId,
@@ -55,6 +58,9 @@ export async function GET() {
 
 export async function POST() {
   try {
+    await authorizationService.requirePermission(
+      M1MUserPermission.ACCESS_SETTINGS,
+    );
     const companyId =
       await getAuthenticatedCompanyId();
 
@@ -91,3 +97,5 @@ export async function POST() {
     );
   }
 }
+
+

@@ -44,7 +44,7 @@ export default function CustomerNotes({
         }
         rows={10}
         placeholder="Digite observações importantes sobre este cliente..."
-        className="w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-4 text-sm leading-6 outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+        className="w-full resize-none rounded-xl border border-black/10 bg-white px-4 py-4 text-sm leading-6 outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
       />
 
       <div className="mt-5 flex justify-end">
@@ -53,7 +53,7 @@ export default function CustomerNotes({
           type="button"
           onClick={onSave}
           disabled={isSaving}
-          className="rounded-xl bg-[#ff3d00] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl bg-[#0A9090] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSaving
             ? "Salvando..."

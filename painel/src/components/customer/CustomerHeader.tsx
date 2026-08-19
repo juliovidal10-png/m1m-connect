@@ -171,7 +171,7 @@ export default function CustomerHeader({
   return (
     <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-start gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-orange-50">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-teal-50">
           {avatar ? (
             <img
               src={avatar}
@@ -179,7 +179,7 @@ export default function CustomerHeader({
               className="h-full w-full object-cover"
             />
           ) : (
-            <span className="text-lg font-bold text-orange-600">
+            <span className="text-lg font-bold text-teal-600">
               {name.charAt(0).toUpperCase()}
             </span>
           )}
@@ -195,7 +195,7 @@ export default function CustomerHeader({
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {customerCode !== null &&
                   customerCode !== undefined && (
-                    <span className="inline-flex h-7 items-center rounded-lg bg-[#fff3ee] px-2.5 text-[11px] font-bold text-[#e93800] ring-1 ring-[#ff3d00]/10">
+                    <span className="inline-flex h-7 items-center rounded-lg bg-[#F0F9F9] px-2.5 text-[11px] font-bold text-[#087B7B] ring-1 ring-[#0A9090]/10">
                       Cliente #
                       {String(
                         customerCode,
@@ -333,7 +333,7 @@ function Summary({
       <button
         type="button"
         onClick={onClick}
-        className="flex items-center justify-between rounded-xl border border-black/5 bg-white px-3 py-2.5 text-left transition hover:border-[#ff3d00]/30 hover:bg-[#fff5f1]"
+        className="flex items-center justify-between rounded-xl border border-black/5 bg-white px-3 py-2.5 text-left transition hover:border-[#0A9090]/30 hover:bg-[#F2FAFA]"
       >
         {content}
       </button>

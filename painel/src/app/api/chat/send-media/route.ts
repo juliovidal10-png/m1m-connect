@@ -3,6 +3,11 @@ import {
   NextResponse,
 } from "next/server";
 
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+import { prisma } from "@/lib/prisma";
+import { manualOutgoingAuthorRegistryService } from "@/services/manual-outgoing-author-registry.service";
+
 import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
@@ -16,6 +21,34 @@ const API_URL =
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
 
+type EvolutionResponseRecord =
+  Record<string, unknown>;
+
+function getEvolutionMessageId(
+  value: unknown,
+): string {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return "";
+  }
+
+  const record =
+    value as EvolutionResponseRecord;
+
+  const key =
+    typeof record.key === "object" &&
+    record.key !== null &&
+    !Array.isArray(record.key)
+      ? (record.key as EvolutionResponseRecord)
+      : null;
+
+  return typeof key?.id === "string"
+    ? key.id.trim()
+    : "";
+}
 type MediaType =
   | "image"
   | "document"
@@ -48,6 +81,10 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const authenticatedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.ASSUME_ATTENDANCE,
+      );
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
         {
@@ -60,6 +97,24 @@ export async function POST(
 
     const companyId =
       await getAuthenticatedCompanyId();
+
+    const messageAuthor =
+      await prisma.m1MUser.findFirst({
+        where: {
+          id: authenticatedUser.userId,
+          companyId:
+            authenticatedUser.companyId,
+        },
+        select: {
+          name: true,
+          displayName: true,
+        },
+      });
+
+    const messageAuthorName =
+      messageAuthor?.displayName?.trim() ||
+      messageAuthor?.name?.trim() ||
+      "Atendente";
 
     const company =
       await companyRepository.findById(
@@ -116,6 +171,115 @@ export async function POST(
           "ptt",
         ) ?? "",
       ).trim() === "true";
+
+    const quotedKeyRaw =
+      String(
+        incomingFormData.get(
+          "quotedKey",
+        ) ?? "",
+      ).trim();
+
+    const quotedMessageRaw =
+      String(
+        incomingFormData.get(
+          "quotedMessage",
+        ) ?? "",
+      ).trim();
+
+    let quoted:
+      | {
+          key: {
+            id: string;
+            remoteJid: string;
+            remoteJidAlt?: string;
+            fromMe: boolean;
+            participant?: string;
+          };
+          message:
+            Record<string, unknown>;
+        }
+      | undefined;
+
+    if (
+      quotedKeyRaw &&
+      quotedMessageRaw
+    ) {
+      try {
+        const parsedKey =
+          JSON.parse(
+            quotedKeyRaw,
+          ) as {
+            id?: unknown;
+            remoteJid?: unknown;
+            remoteJidAlt?: unknown;
+            fromMe?: unknown;
+            participant?: unknown;
+          };
+
+        const parsedMessage =
+          JSON.parse(
+            quotedMessageRaw,
+          ) as Record<string, unknown>;
+
+        const quotedId =
+          String(
+            parsedKey.id ?? "",
+          ).trim();
+
+        const quotedRemoteJid =
+          String(
+            parsedKey.remoteJid ?? "",
+          ).trim();
+        const quotedRemoteJidAlt =
+          String(
+            parsedKey.remoteJidAlt ?? "",
+          ).trim();
+
+
+        const quotedParticipant =
+          String(
+            parsedKey.participant ?? "",
+          ).trim();
+
+        if (
+          quotedId &&
+          quotedRemoteJid
+        ) {
+          quoted = {
+            key: {
+              id: quotedId,
+              remoteJid:
+                quotedRemoteJid.endsWith("@lid") &&
+                quotedRemoteJidAlt.endsWith(
+                  "@s.whatsapp.net",
+                )
+                  ? quotedRemoteJidAlt
+                  : quotedRemoteJid,
+              ...(quotedRemoteJidAlt
+                ? {
+                    remoteJidAlt:
+                      quotedRemoteJidAlt,
+                  }
+                : {}),
+              fromMe:
+                parsedKey.fromMe ===
+                true,
+              ...(quotedParticipant
+                ? {
+                    participant:
+                      quotedParticipant,
+                  }
+                : {}),
+            },
+            message:
+              parsedMessage,
+          };
+        }
+      } catch {
+        quoted =
+          undefined;
+      }
+    }
 
     const fileValue =
       incomingFormData.get("file");
@@ -195,6 +359,10 @@ export async function POST(
       ...(mediaType === "audio"
         ? { ptt }
         : {}),
+      ...(quoted
+        ? { quoted }
+        : {}),
+
     };
 
     const response = await fetch(
@@ -282,6 +450,39 @@ export async function POST(
       );
     }
 
+    const evolutionMessageId =
+      getEvolutionMessageId(
+        evolutionData,
+      );
+
+    if (!evolutionMessageId) {
+      console.error(
+        "[ENVIO DE MÍDIA] Evolution respondeu sem ID de mensagem:",
+        evolutionData,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "A Evolution não confirmou o envio do arquivo.",
+          details:
+            evolutionData,
+          instanceName,
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
+    if (evolutionMessageId) {
+      manualOutgoingAuthorRegistryService.register(
+        instanceName,
+        evolutionMessageId,
+        authenticatedUser.userId,
+        messageAuthorName,
+      );
+    }
     console.log(
       "[ENVIO DE MÍDIA] Arquivo enviado com sucesso:",
       JSON.stringify(
@@ -324,3 +525,6 @@ export async function POST(
     );
   }
 }
+
+
+

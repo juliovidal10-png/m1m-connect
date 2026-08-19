@@ -356,14 +356,14 @@ export default function SectorSchedulesSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para o setor
       </button>
 
-      <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Horário geral
           </p>
 
@@ -463,7 +463,7 @@ export default function SectorSchedulesSettings({
                                   event.target.checked,
                                 )
                               }
-                              className="h-4 w-4 accent-orange-600"
+                              className="h-4 w-4 accent-teal-600"
                             />
 
                             <span className="text-sm font-semibold text-black/65">
@@ -489,7 +489,7 @@ export default function SectorSchedulesSettings({
                                   event.target.checked,
                                 )
                               }
-                              className="h-4 w-4 accent-orange-600 disabled:opacity-40"
+                              className="h-4 w-4 accent-teal-600 disabled:opacity-40"
                             />
 
                             <span className="text-sm font-semibold text-black/65">
@@ -516,7 +516,7 @@ export default function SectorSchedulesSettings({
                                   event.target.checked,
                                 )
                               }
-                              className="h-4 w-4 accent-orange-600 disabled:opacity-40"
+                              className="h-4 w-4 accent-teal-600 disabled:opacity-40"
                             />
 
                             <span className="text-sm font-semibold text-black/65">
@@ -561,7 +561,7 @@ export default function SectorSchedulesSettings({
                                           event.target.value,
                                         )
                                       }
-                                      className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                      className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400"
                                     />
                                   </label>
 
@@ -586,15 +586,15 @@ export default function SectorSchedulesSettings({
                                           event.target.value,
                                         )
                                       }
-                                      className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                      className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400"
                                     />
                                   </label>
                                 </div>
                               </div>
 
                               {schedule.closesForLunch && (
-                                <div className="rounded-xl bg-orange-50/60 p-4">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-orange-700/60">
+                                <div className="rounded-xl bg-teal-50/60 p-4">
+                                  <p className="text-xs font-bold uppercase tracking-wide text-teal-700/60">
                                     Após o almoço
                                   </p>
 
@@ -618,7 +618,7 @@ export default function SectorSchedulesSettings({
                                             event.target.value,
                                           )
                                         }
-                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400"
                                       />
                                     </label>
 
@@ -641,7 +641,7 @@ export default function SectorSchedulesSettings({
                                             event.target.value,
                                           )
                                         }
-                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-orange-400"
+                                        className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-teal-400"
                                       />
                                     </label>
                                   </div>
@@ -667,7 +667,7 @@ export default function SectorSchedulesSettings({
                 isLoading ||
                 isSaving
               }
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Salvando..."

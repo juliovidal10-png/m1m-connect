@@ -19,8 +19,8 @@ export default function ConnectWhatsAppButton({
         onClick={() => setIsOpen(true)}
         className={
           compact
-            ? "rounded-xl bg-[#ff3d00] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-            : "rounded-xl bg-[#ff3d00] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+            ? "rounded-xl bg-[#0A9090] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+            : "rounded-xl bg-[#0A9090] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
         }
       >
         {compact ? "+ Conectar WhatsApp" : "Conectar WhatsApp"}

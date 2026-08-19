@@ -207,10 +207,10 @@ function SectionIcon({
   if (name === "sectors") {
     return (
       <svg {...commonProps}>
-        <rect x="4" y="4" width="6" height="6" rx="1.5" />
-        <rect x="14" y="4" width="6" height="6" rx="1.5" />
-        <rect x="9" y="14" width="6" height="6" rx="1.5" />
-        <path d="M7 10v2h10v-2M12 12v2" />
+        <circle cx="12" cy="5" r="2.25" />
+        <circle cx="6" cy="18" r="2.25" />
+        <circle cx="18" cy="18" r="2.25" />
+        <path d="M12 7.25v4.25M7.6 16.2 12 11.5l4.4 4.7" />
       </svg>
     );
   }
@@ -245,8 +245,10 @@ function SectionIcon({
   if (name === "ai") {
     return (
       <svg {...commonProps}>
-        <rect x="5" y="7" width="14" height="11" rx="3" />
-        <path d="M9 11h.01M15 11h.01M9 15h6M12 4v3M9 4h6" />
+        <path d="M9 18h6" />
+        <path d="M10 22h4" />
+        <path d="M8.2 14.8A6 6 0 1 1 15.8 14.8C14.7 15.7 14 16.7 14 18h-4c0-1.3-.7-2.3-1.8-3.2Z" />
+        <path d="M12 2V1M4.9 4.9 4.2 4.2M19.1 4.9l.7-.7M2 12H1M23 12h-1" />
       </svg>
     );
   }
@@ -263,8 +265,9 @@ function SectionIcon({
   if (name === "whatsapp") {
     return (
       <svg {...commonProps}>
-        <path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4A8 8 0 1 1 20 11.5Z" />
-        <path d="M9 8.5c.5 2 2 3.5 4 4l1-1 2 1c.2.1.3.4.2.6-.5 1.2-1.5 1.9-2.7 1.9-3.7 0-6.5-3-6.5-6.5 0-1.1.6-2.1 1.6-2.6.3-.1.5 0 .6.3l.8 2.3-1 1Z" />
+        <path d="M20.5 11.7a8.5 8.5 0 0 1-12.7 7.4L3 20.5l1.5-4.6a8.5 8.5 0 1 1 16-4.2Z" />
+        <path d="M8.5 7.8c.4 3.8 3.9 7.3 7.7 7.7" />
+        <path d="m8.5 7.8 1.8-.7 1.1 2.6-1.2 1.1M16.2 15.5l.7-1.8-2.6-1.1-1.1 1.2" />
       </svg>
     );
   }
@@ -475,7 +478,7 @@ export default function ConfiguracoesPage() {
               event.target.value,
             )
           }
-          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
         />
       </label>
     );
@@ -496,8 +499,8 @@ export default function ConfiguracoesPage() {
             />
             {activeSection === "overview" ? (
               <>
-                <div className="mt-6 rounded-2xl border border-orange-100 bg-white p-6 shadow-sm">
-                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#e93800]">
+                <div className="mt-6 rounded-2xl border border-teal-100 bg-white p-6 shadow-sm">
+                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#087B7B]">
                     Tudo em um só lugar
                   </p>
 
@@ -639,14 +642,14 @@ export default function ConfiguracoesPage() {
                       "overview",
                     )
                   }
-                  className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+                  className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
                 >
                   ← Voltar para configurações
                 </button>
 
                 <div className="rounded-2xl border border-black/5 bg-white shadow-sm">
                   <div className="border-b border-black/5 p-6 lg:p-8">
-                    <p className="text-sm font-semibold text-orange-600">
+                    <p className="text-sm font-semibold text-teal-600">
                       Empresa
                     </p>
 
@@ -712,7 +715,7 @@ export default function ConfiguracoesPage() {
                           }
                           rows={5}
                           placeholder="Explique de forma simples quem é a empresa, o que ela faz e como atende seus clientes."
-                          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                         />
                       </label>
 
@@ -837,7 +840,7 @@ export default function ConfiguracoesPage() {
                         <button
                           type="submit"
                           disabled={isSaving}
-                          className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {isSaving
                             ? "Salvando..."

@@ -5,10 +5,18 @@ import {
 
 import {
   M1MAttendanceActorType,
+  M1MUserPermission,
 } from "@/generated/prisma/enums";
 import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
+import {
+  AuthorizationError,
+  authorizationService,
+} from "@/services/auth/authorization.service";
+import {
+  paymentReceiptDeletionService,
+} from "@/services/payment-receipt-deletion.service";
 import {
   paymentReceiptService,
 } from "@/services/payment-receipt.service";
@@ -28,6 +36,14 @@ type ReceiptAction =
   | "AWAIT_NEW_RECEIPT"
   | "MARK_CUSTOMER_NOTIFIED"
   | "FINISH";
+
+function getErrorStatus(
+  error: unknown,
+) {
+  return error instanceof AuthorizationError
+    ? error.statusCode
+    : 500;
+}
 
 function getErrorMessage(
   error: unknown,
@@ -119,8 +135,13 @@ export async function GET(
   try {
     void request;
 
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.VIEW_RECEIPTS,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
 
     const {
       receiptId,
@@ -151,7 +172,7 @@ export async function GET(
           ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }
@@ -162,8 +183,13 @@ export async function PATCH(
   context: RouteContext,
 ) {
   try {
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.VIEW_RECEIPTS,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
 
     const {
       receiptId,
@@ -344,7 +370,57 @@ export async function PATCH(
           ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
+      },
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  try {
+    void request;
+
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.VIEW_RECEIPTS,
+      );
+
+    const companyId =
+      authorizedUser.companyId;
+
+    const {
+      receiptId,
+    } =
+      await context.params;
+
+    const result =
+      await paymentReceiptDeletionService.deleteReceipt(
+        companyId,
+        receiptId,
+      );
+
+    return NextResponse.json(
+      result,
+    );
+  } catch (error) {
+    console.error(
+      "ERRO PAYMENT RECEIPT DELETE:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          getErrorMessage(
+            error,
+            "Erro ao excluir o comprovante.",
+          ),
+      },
+      {
+        status: getErrorStatus(error),
       },
     );
   }

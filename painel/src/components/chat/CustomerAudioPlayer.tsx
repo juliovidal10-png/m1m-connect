@@ -42,7 +42,7 @@ export default function CustomerAudioPlayer({
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 p-6">
         <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-black/10 border-t-[#ff3d00]" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-black/10 border-t-[#0A9090]" />
 
           <p className="mt-4 text-sm font-semibold text-black/70">
             Carregando áudio...
@@ -78,7 +78,7 @@ export default function CustomerAudioPlayer({
           <button
             type="button"
             onClick={onClose}
-            className="mt-5 h-11 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90"
+            className="mt-5 h-11 w-full rounded-xl bg-[#0A9090] text-sm font-semibold text-white transition hover:opacity-90"
           >
             Fechar
           </button>
@@ -165,7 +165,7 @@ export default function CustomerAudioPlayer({
           <button
             type="button"
             onClick={onClose}
-            className="h-11 flex-1 rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90"
+            className="h-11 flex-1 rounded-xl bg-[#0A9090] text-sm font-semibold text-white transition hover:opacity-90"
           >
             Fechar
           </button>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -190,15 +190,15 @@ export default function SectorUsersSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para o setor
       </button>
 
-      <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="flex flex-col gap-5 border-b border-black/5 p-6 md:flex-row md:items-center md:justify-between lg:p-8">
           <div>
-            <p className="text-sm font-semibold text-orange-600">
+            <p className="text-sm font-semibold text-teal-600">
               Responsáveis
             </p>
 
@@ -212,7 +212,7 @@ export default function SectorUsersSettings({
             </p>
           </div>
 
-          <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-bold text-orange-700">
+          <div className="rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700">
             {assignedCount}{" "}
             {assignedCount === 1
               ? "responsável"
@@ -270,8 +270,8 @@ export default function SectorUsersSettings({
                     key={user.id}
                     className={
                       isSelected
-                        ? "flex cursor-pointer items-center gap-4 rounded-2xl border border-orange-200 bg-orange-50/50 p-5 transition"
-                        : "flex cursor-pointer items-center gap-4 rounded-2xl border border-black/5 bg-white p-5 transition hover:border-orange-100"
+                        ? "flex cursor-pointer items-center gap-4 rounded-2xl border border-teal-200 bg-teal-50/50 p-5 transition"
+                        : "flex cursor-pointer items-center gap-4 rounded-2xl border border-black/5 bg-white p-5 transition hover:border-teal-100"
                     }
                   >
                     <input
@@ -281,10 +281,10 @@ export default function SectorUsersSettings({
                       onChange={() =>
                         toggleUser(user.id)
                       }
-                      className="h-5 w-5 shrink-0 accent-orange-600"
+                      className="h-5 w-5 shrink-0 accent-teal-600"
                     />
 
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-lg font-bold text-orange-700">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-lg font-bold text-teal-700">
                       {visibleName
                         .trim()
                         .charAt(0)
@@ -324,7 +324,7 @@ export default function SectorUsersSettings({
                     <span
                       className={
                         isSelected
-                          ? "text-sm font-bold text-orange-700"
+                          ? "text-sm font-bold text-teal-700"
                           : "text-sm font-semibold text-black/30"
                       }
                     >
@@ -348,7 +348,7 @@ export default function SectorUsersSettings({
                 isLoading ||
                 isSaving
               }
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Salvando..."

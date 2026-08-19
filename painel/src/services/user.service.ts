@@ -271,9 +271,7 @@ export const userService = {
         );
     }
 
-    if (
-      normalizedUserId === "julio"
-    ) {
+    if (existingUser.isPrimary) {
       if (
         data.role !== undefined &&
         data.role !==

@@ -4,10 +4,22 @@ import {
 } from "next/server";
 
 import {
-  getAuthenticatedCompanyId,
-} from "@/lib/tenant";
+  M1MUserPermission,
+} from "@/generated/prisma/enums";
+import {
+  AuthorizationError,
+  authorizationService,
+} from "@/services/auth/authorization.service";
 import { attendanceService } from "@/services/attendance.service";
 import { customerService } from "@/services/customer.service";
+
+function getErrorStatus(
+  error: unknown,
+) {
+  return error instanceof AuthorizationError
+    ? error.statusCode
+    : 500;
+}
 
 function getErrorMessage(
   error: unknown,
@@ -22,8 +34,16 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.ASSUME_ATTENDANCE,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
+
+    const responsibleId =
+      authorizedUser.userId;
 
     const body = await request.json();
 
@@ -31,7 +51,7 @@ export async function POST(
       await customerService.assignResponsible({
         companyId,
         customerId: body.customerId,
-        responsibleId: body.responsibleId,
+        responsibleId,
       });
 
     const existingAttendance =
@@ -51,7 +71,7 @@ export async function POST(
       await attendanceService.assumeAttendance(
         customer.companyId,
         attendance.id,
-        body.responsibleId,
+        responsibleId,
       );
 
     return NextResponse.json({
@@ -72,7 +92,7 @@ export async function POST(
         ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }

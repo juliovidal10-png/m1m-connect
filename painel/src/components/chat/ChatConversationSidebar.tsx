@@ -41,7 +41,7 @@ export default function ChatConversationSidebar({
           }
           placeholder="Buscar conversa..."
           aria-label="Buscar conversa por nome, número ou mensagem"
-          className="mt-4 h-11 w-full rounded-2xl border border-black/10 bg-[#f7f7f8] px-4 text-sm outline-none transition focus:border-[#ff3d00]/40 focus:bg-white focus:ring-4 focus:ring-[#ff3d00]/10"
+          className="mt-4 h-11 w-full rounded-2xl border border-black/10 bg-[#f7f7f8] px-4 text-sm outline-none transition focus:border-[#0A9090]/40 focus:bg-white focus:ring-4 focus:ring-[#0A9090]/10"
         />
       </div>
 
@@ -66,7 +66,7 @@ export default function ChatConversationSidebar({
           onClick={item.onSelect}
           className={`flex w-full items-start gap-3.5 border-b border-black/5 px-4 py-3.5 text-left transition-all duration-150 ${
             item.isSelected
-              ? "bg-[#fff1ec] shadow-[inset_3px_0_0_#ff3d00]"
+              ? "bg-[#ECF8F8] shadow-[inset_3px_0_0_#0A9090]"
               : "hover:bg-black/[0.025]"
           }`}
         >
@@ -77,7 +77,7 @@ export default function ChatConversationSidebar({
               className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-black/5"
             />
           ) : (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] font-bold text-[#e93800] ring-1 ring-[#ff3d00]/10">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] font-bold text-[#087B7B] ring-1 ring-[#0A9090]/10">
               {item.name.charAt(0)}
             </div>
           )}
@@ -99,7 +99,7 @@ export default function ChatConversationSidebar({
               </p>
 
               {item.unreadCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3d00] px-1.5 text-[10px] font-bold text-white shadow-sm">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white shadow-sm">
                   {item.unreadCount}
                 </span>
               )}

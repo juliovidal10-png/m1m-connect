@@ -1,20 +1,27 @@
-﻿import {
+import {
+  M1MMessageAuthorType,
   M1MMessageDirection,
   M1MMessageType,
 } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { getMessages } from "@/lib/evolution";
+import { prisma } from "@/lib/prisma";
 import { customerRepository } from "@/repositories/customer.repository";
 import { attendanceService } from "@/services/attendance.service";
 import {
   messageService,
   REVOKED_MESSAGE_CONTENT,
 } from "@/services/message.service";
+import {
+  automaticOutgoingRegistryService,
+} from "@/services/automatic-outgoing-registry.service";
+import {
+  humanTakeoverService,
+} from "@/services/human-takeover.service";
+import {
+  manualOutgoingAuthorRegistryService,
+} from "@/services/manual-outgoing-author-registry.service";
 
-const DEFAULT_INSTANCE =
-  process.env.INSTANCE_NAME?.trim() ||
-  process.env.DEFAULT_INSTANCE?.trim() ||
-  "Financeiro";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -659,6 +666,95 @@ function extractPhone(
   return phone || null;
 }
 
+async function findStoredLidRemoteJid(
+  companyId: string,
+  remoteJid: string,
+): Promise<string | null> {
+  if (!remoteJid.endsWith("@s.whatsapp.net")) {
+    return null;
+  }
+
+  const storedMessages =
+    await prisma.m1MMessage.findMany({
+      where: {
+        companyId,
+        remoteJid,
+      },
+      orderBy: {
+        sentAt: "desc",
+      },
+      take: 300,
+      select: {
+        rawPayload: true,
+      },
+    });
+
+  for (const storedMessage of storedMessages) {
+    const payload =
+      getRecord(storedMessage.rawPayload);
+
+    const key =
+      getRecord(payload?.key);
+
+    const primaryRemoteJid =
+      getText(key?.remoteJid);
+
+    const alternateRemoteJid =
+      getText(key?.remoteJidAlt);
+
+    if (
+      primaryRemoteJid?.endsWith("@lid") &&
+      alternateRemoteJid === remoteJid
+    ) {
+      return primaryRemoteJid;
+    }
+  }
+
+  return null;
+}
+async function findEvolutionLidRemoteJid(
+  remoteJid: string,
+  instanceName: string,
+): Promise<string | null> {
+  if (!remoteJid.endsWith("@s.whatsapp.net")) {
+    return null;
+  }
+
+  const rawMessages = (
+    await getMessages(
+        remoteJid,
+        instanceName,
+        3,
+      )
+  ) as unknown[];
+
+  for (const rawMessage of rawMessages) {
+    const payload = getRecord(rawMessage);
+    const key = getRecord(payload?.key);
+
+    const primaryRemoteJid =
+      getText(key?.remoteJid);
+
+    const alternateRemoteJid =
+      getText(key?.remoteJidAlt);
+
+    if (
+      primaryRemoteJid?.endsWith("@lid") &&
+      alternateRemoteJid === remoteJid
+    ) {
+      return primaryRemoteJid;
+    }
+
+    if (
+      alternateRemoteJid?.endsWith("@lid") &&
+      primaryRemoteJid === remoteJid
+    ) {
+      return alternateRemoteJid;
+    }
+  }
+
+  return null;
+}
 export const conversationSyncService = {
   normalizeMessage(rawMessage: unknown) {
     return normalizeEvolutionMessage(rawMessage);
@@ -686,10 +782,32 @@ export const conversationSyncService = {
       );
     }
 
+    const storedLidRemoteJid =
+      await findStoredLidRemoteJid(
+        resolvedCompanyId,
+        normalizedRemoteJid,
+      );
+
+    const evolutionLidRemoteJid =
+      storedLidRemoteJid ??
+      (normalizedRemoteJid.endsWith(
+        "@s.whatsapp.net",
+      )
+        ? await findEvolutionLidRemoteJid(
+            normalizedRemoteJid,
+            instanceName,
+          )
+        : null);
+
+    const primaryLookupRemoteJid =
+      evolutionLidRemoteJid ??
+      normalizedRemoteJid;
+
     const primaryRawMessages = (
       await getMessages(
-        normalizedRemoteJid,
+        primaryLookupRemoteJid,
         instanceName,
+        3,
       )
     ) as unknown[];
 
@@ -710,15 +828,20 @@ export const conversationSyncService = {
             "@s.whatsapp.net",
           ),
       )?.remoteJid ??
-      normalizedRemoteJid;
+      (normalizedRemoteJid.endsWith(
+        "@s.whatsapp.net",
+      )
+        ? normalizedRemoteJid
+        : primaryLookupRemoteJid);
 
     const alternateRawMessages =
       canonicalRemoteJid !==
-      normalizedRemoteJid
+      primaryLookupRemoteJid
         ? (
             await getMessages(
               canonicalRemoteJid,
               instanceName,
+              3,
             )
           ) as unknown[]
         : [];
@@ -788,10 +911,37 @@ export const conversationSyncService = {
         ),
       });
 
-    const activeAttendance =
+    let activeAttendance =
       await attendanceService.getOpenAttendanceByCustomer(
         resolvedCompanyId,
         customer.id,
+      );
+
+    /*
+     * FIX 2 DE PERFORMANCE:
+     * carregamos uma unica vez as mensagens que ja existem no banco
+     * e criamos um indice em memoria por evolutionMessageId.
+     *
+     * Antes, cada item do historico fazia uma consulta individual
+     * getMessageByEvolutionId antes de registerMessage, e o proprio
+     * registerMessage consultava novamente o mesmo ID.
+     *
+     * Agora a verificacao previa e O(1) em memoria.
+     */
+    const existingMessagesBeforeSync =
+      await messageService.listMessagesByCustomer(
+        resolvedCompanyId,
+        customer.id,
+      );
+
+    const existingMessageByEvolutionId =
+      new Map(
+        existingMessagesBeforeSync.map(
+          (storedMessage) => [
+            storedMessage.evolutionMessageId,
+            storedMessage,
+          ],
+        ),
       );
 
     for (const message of normalizedMessages) {
@@ -800,26 +950,124 @@ export const conversationSyncService = {
         message.sentAt >=
           activeAttendance.startedAt;
 
-      await messageService.registerMessage({
-        companyId: resolvedCompanyId,
-        customerId: customer.id,
-        attendanceId:
-          belongsToActiveAttendance
-            ? activeAttendance.id
-            : null,
-        instanceName,
-        evolutionMessageId:
+      const existingMessage =
+        existingMessageByEvolutionId.get(
           message.evolutionMessageId,
-        remoteJid: message.remoteJid,
-        direction: message.direction,
-        type: message.type,
-        fromMe: message.fromMe,
-        content: message.content,
-        mediaUrl: message.mediaUrl,
-        mimeType: message.mimeType,
-        rawPayload: message.rawPayload,
-        sentAt: message.sentAt,
-      });
+        ) ?? null;
+
+      const currentAttendanceId =
+        belongsToActiveAttendance
+          ? activeAttendance?.id ?? null
+          : null;
+
+      const storedMessage =
+        await messageService.registerMessage({
+          companyId: resolvedCompanyId,
+          customerId: customer.id,
+          attendanceId:
+            currentAttendanceId,
+          instanceName,
+          evolutionMessageId:
+            message.evolutionMessageId,
+          remoteJid: message.remoteJid,
+          direction: message.direction,
+          type: message.type,
+          fromMe: message.fromMe,
+          authorType:
+            !message.fromMe
+              ? M1MMessageAuthorType.CUSTOMER
+              : manualOutgoingAuthorRegistryService.get(
+                    instanceName,
+                    message.evolutionMessageId,
+                  )
+                ? M1MMessageAuthorType.HUMAN
+                : null,
+          authorId:
+            message.fromMe
+              ? manualOutgoingAuthorRegistryService.get(
+                  instanceName,
+                  message.evolutionMessageId,
+                )?.userId ?? null
+              : null,
+          authorName:
+            !message.fromMe
+              ? message.pushName
+              : manualOutgoingAuthorRegistryService.get(
+                  instanceName,
+                  message.evolutionMessageId,
+                )?.displayName ?? null,
+          content: message.content,
+          mediaUrl: message.mediaUrl,
+          mimeType: message.mimeType,
+          rawPayload: message.rawPayload,
+          sentAt: message.sentAt,
+        });
+
+      /*
+       * Mensagem OUT nova que apareceu apenas pela sincronizacao
+       * pode nao ter passado pelo webhook/pipeline.
+       * Se for manual, assume o atendimento.
+       * Mensagens automaticas do M1M continuam ignoradas.
+       */
+      if (
+        !existingMessage &&
+        message.fromMe
+      ) {
+        const isAutomatic =
+          automaticOutgoingRegistryService.isAutomatic(
+            instanceName,
+            message.remoteJid,
+            message.content ?? "",
+            message.evolutionMessageId,
+          );
+
+        if (!isAutomatic) {
+          const manualAuthor =
+            manualOutgoingAuthorRegistryService.get(
+              instanceName,
+              message.evolutionMessageId,
+            );
+
+          if (!manualAuthor) {
+            await prisma.m1MMessage.update({
+              where: {
+                id: storedMessage.id,
+              },
+              data: {
+                authorType:
+                  M1MMessageAuthorType.HUMAN,
+                authorId: null,
+                authorName: "WhatsApp",
+              },
+            });
+          }
+
+          const takeover =
+            await humanTakeoverService.process({
+              companyId:
+                resolvedCompanyId,
+              customerId:
+                customer.id,
+              remoteJid:
+                message.remoteJid,
+              evolutionMessageId:
+                message.evolutionMessageId,
+              responsibleId:
+                manualAuthor?.userId ?? null,
+            });
+
+          await messageService.attachMessageToAttendance(
+            storedMessage.id,
+            takeover.attendanceId,
+          );
+
+          activeAttendance =
+            await attendanceService.getOpenAttendanceByCustomer(
+              resolvedCompanyId,
+              customer.id,
+            );
+        }
+      }
     }
 
     const storedMessages =
@@ -842,25 +1090,78 @@ export const conversationSyncService = {
           ),
       );
 
-    return visibleRawMessages.filter(
-      (rawMessage) => {
-        const record =
-          getRecord(rawMessage);
+    const storedMessageByEvolutionId =
+      new Map(
+        storedMessages.map(
+          (storedMessage) => [
+            storedMessage.evolutionMessageId,
+            storedMessage,
+          ],
+        ),
+      );
 
-        const key =
-          getRecord(record?.key);
+    return visibleRawMessages
+      .filter(
+        (rawMessage) => {
+          const record =
+            getRecord(rawMessage);
 
-        const messageId =
-          getText(key?.id);
+          const key =
+            getRecord(record?.key);
 
-        return (
-          !messageId ||
-          !revokedMessageIds.has(
-            messageId,
-          )
-        );
-      },
-    );
+          const messageId =
+            getText(key?.id);
+
+          return (
+            !messageId ||
+            !revokedMessageIds.has(
+              messageId,
+            )
+          );
+        },
+      )
+      .map(
+        (rawMessage) => {
+          const record =
+            getRecord(rawMessage);
+
+          const key =
+            getRecord(record?.key);
+
+          const messageId =
+            getText(key?.id);
+
+          if (
+            !record ||
+            !messageId
+          ) {
+            return rawMessage;
+          }
+
+          const storedMessage =
+            storedMessageByEvolutionId.get(
+              messageId,
+            );
+
+          if (
+            !storedMessage?.authorType
+          ) {
+            return rawMessage;
+          }
+
+          return {
+            ...record,
+            m1mAuthor: {
+              type:
+                storedMessage.authorType,
+              id:
+                storedMessage.authorId,
+              name:
+                storedMessage.authorName,
+            },
+          };
+        },
+      );
   },
 
   async syncIncomingMessage(
@@ -915,6 +1216,29 @@ export const conversationSyncService = {
       direction: message.direction,
       type: message.type,
       fromMe: message.fromMe,
+      authorType:
+        !message.fromMe
+          ? M1MMessageAuthorType.CUSTOMER
+          : manualOutgoingAuthorRegistryService.get(
+                instanceName,
+                message.evolutionMessageId,
+              )
+            ? M1MMessageAuthorType.HUMAN
+            : null,
+      authorId:
+        message.fromMe
+          ? manualOutgoingAuthorRegistryService.get(
+              instanceName,
+              message.evolutionMessageId,
+            )?.userId ?? null
+          : null,
+      authorName:
+        !message.fromMe
+          ? message.pushName
+          : manualOutgoingAuthorRegistryService.get(
+              instanceName,
+              message.evolutionMessageId,
+            )?.displayName ?? null,
       content: message.content,
       mediaUrl: message.mediaUrl,
       mimeType: message.mimeType,
@@ -923,4 +1247,5 @@ export const conversationSyncService = {
     });
   },
 };
+
 

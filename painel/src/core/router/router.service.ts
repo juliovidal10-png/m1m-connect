@@ -90,28 +90,6 @@ export class RouterService {
           false,
       };
     }
-
-    if (attendance.sectorId) {
-      return {
-        processed: true,
-        action:
-          "ROUTED_TO_SECTOR",
-        attendanceId:
-          attendance.id,
-        attendanceNumber:
-          attendance.number,
-        sectorId:
-          attendance.sectorId,
-        sectorName: null,
-        responsibleId:
-          attendance.responsibleId,
-        state:
-          attendance.state,
-        requiresSectorIdentification:
-          false,
-      };
-    }
-
     const sectors =
       await sectorService.listActiveSectors(
         context.companyId,
@@ -122,6 +100,39 @@ export class RouterService {
         context.companyId,
         context.messageContent,
       );
+
+    const hasDifferentMatchedSector =
+      intent.matched &&
+      !!intent.sectorId &&
+      intent.sectorId !== attendance.sectorId;
+
+    if (
+      attendance.sectorId &&
+      !hasDifferentMatchedSector
+    ) {
+      return {
+        processed: true,
+        action:
+          "ROUTED_TO_SECTOR",
+        attendanceId:
+          attendance.id,
+        attendanceNumber:
+          attendance.number,
+        sectorId:
+          attendance.sectorId,
+        sectorName:
+          sectors.find(
+            (sector) =>
+              sector.id === attendance.sectorId,
+          )?.name ?? null,
+        responsibleId:
+          attendance.responsibleId,
+        state:
+          attendance.state,
+        requiresSectorIdentification:
+          false,
+      };
+    }
 
     if (
       intent.matched &&

@@ -14,6 +14,18 @@ const PUBLIC_PATHS = new Set([
   "/login",
 ]);
 
+function isM1MAdminPath(
+  pathname: string,
+) {
+  return (
+    pathname ===
+      "/m1m-admin" ||
+    pathname.startsWith(
+      "/m1m-admin/",
+    )
+  );
+}
+
 export async function proxy(
   request: NextRequest,
 ) {
@@ -21,7 +33,14 @@ export async function proxy(
     pathname,
   } = request.nextUrl;
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  if (
+    PUBLIC_PATHS.has(
+      pathname,
+    ) ||
+    isM1MAdminPath(
+      pathname,
+    )
+  ) {
     return NextResponse.next();
   }
 
@@ -34,8 +53,11 @@ export async function proxy(
     const loginUrl =
       request.nextUrl.clone();
 
-    loginUrl.pathname = "/login";
-    loginUrl.search = "";
+    loginUrl.pathname =
+      "/login";
+
+    loginUrl.search =
+      "";
 
     return NextResponse.redirect(
       loginUrl,
@@ -52,8 +74,11 @@ export async function proxy(
     const loginUrl =
       request.nextUrl.clone();
 
-    loginUrl.pathname = "/login";
-    loginUrl.search = "";
+    loginUrl.pathname =
+      "/login";
+
+    loginUrl.search =
+      "";
 
     const response =
       NextResponse.redirect(

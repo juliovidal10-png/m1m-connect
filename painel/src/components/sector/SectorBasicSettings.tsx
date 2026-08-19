@@ -153,14 +153,14 @@ export default function SectorBasicSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para o setor
       </button>
 
-      <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Configurações do Setor
           </p>
 
@@ -206,7 +206,7 @@ export default function SectorBasicSettings({
                   setError(null);
                   setSuccess(null);
                 }}
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:opacity-60"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 disabled:opacity-60"
               />
             </label>
 
@@ -228,7 +228,7 @@ export default function SectorBasicSettings({
                   setError(null);
                   setSuccess(null);
                 }}
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:opacity-60"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 disabled:opacity-60"
               />
             </label>
           </div>
@@ -250,7 +250,7 @@ export default function SectorBasicSettings({
                 setError(null);
                 setSuccess(null);
               }}
-              className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:opacity-60"
+              className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 disabled:opacity-60"
             />
           </label>
 
@@ -266,7 +266,7 @@ export default function SectorBasicSettings({
                 setError(null);
                 setSuccess(null);
               }}
-              className="h-4 w-4 accent-orange-600"
+              className="h-4 w-4 accent-teal-600"
             />
 
             <span className="text-sm font-semibold text-black/65">
@@ -278,7 +278,7 @@ export default function SectorBasicSettings({
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Salvando..."

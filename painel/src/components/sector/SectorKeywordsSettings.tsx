@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   FormEvent,
@@ -261,15 +261,15 @@ export default function SectorKeywordsSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para o setor
       </button>
 
-      <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="flex flex-col gap-5 border-b border-black/5 p-6 md:flex-row md:items-center md:justify-between lg:p-8">
           <div>
-            <p className="text-sm font-semibold text-orange-600">
+            <p className="text-sm font-semibold text-teal-600">
               Roteamento inteligente
             </p>
 
@@ -288,7 +288,7 @@ export default function SectorKeywordsSettings({
             </p>
           </div>
 
-          <div className="rounded-full bg-orange-50 px-4 py-2 text-sm font-bold text-orange-700">
+          <div className="rounded-full bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700">
             {keywords.length}{" "}
             {keywords.length === 1
               ? "palavra-chave"
@@ -333,7 +333,7 @@ export default function SectorKeywordsSettings({
                     setError(null);
                     setSuccess(null);
                   }}
-                  className="min-w-0 flex-1 rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-w-0 flex-1 rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
 
                 <button
@@ -342,7 +342,7 @@ export default function SectorKeywordsSettings({
                     isSaving ||
                     !newKeyword.trim()
                   }
-                  className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving
                     ? "Adicionando..."
@@ -393,7 +393,7 @@ export default function SectorKeywordsSettings({
                     return (
                       <article
                         key={keyword.id}
-                        className="flex flex-col gap-4 rounded-2xl border border-black/5 bg-white p-4 transition hover:border-orange-100 md:flex-row md:items-center md:justify-between"
+                        className="flex flex-col gap-4 rounded-2xl border border-black/5 bg-white p-4 transition hover:border-teal-100 md:flex-row md:items-center md:justify-between"
                       >
                         <div className="min-w-0">
                           <p className="break-words text-sm font-bold text-black/75">

@@ -50,32 +50,6 @@ type CustomerLookupRecord = {
   remoteJid: string;
 };
 
-const filterOptions: Array<{
-  value: AgendaFilter;
-  label: string;
-}> = [
-  {
-    value: "TODAY",
-    label: "Hoje",
-  },
-  {
-    value: "TOMORROW",
-    label: "Amanhã",
-  },
-  {
-    value: "OVERDUE",
-    label: "Atrasadas",
-  },
-  {
-    value: "DATE",
-    label: "Por data",
-  },
-  {
-    value: "ALL",
-    label: "Todas",
-  },
-];
-
 function normalizeAgendaFilter(
   value: string | null,
 ): AgendaFilter {
@@ -407,8 +381,8 @@ export default function AgendaOperacional() {
               "ALL" ||
             (activeFilter ===
               "TODAY" &&
-              remindAt >
-                now &&
+              remindAt >=
+                new Date() &&
               remindAt <=
                 todayEnd) ||
             (activeFilter ===
@@ -419,8 +393,8 @@ export default function AgendaOperacional() {
               )) ||
             (activeFilter ===
               "OVERDUE" &&
-              remindAt <=
-                now) ||
+              remindAt <
+                new Date()) ||
             (activeFilter ===
               "DATE" &&
               selectedDate &&
@@ -505,7 +479,7 @@ export default function AgendaOperacional() {
                 );
 
               return (
-                date >
+                date >=
                   now &&
                 date <=
                   todayEnd
@@ -524,20 +498,11 @@ export default function AgendaOperacional() {
           ).length,
         overdue:
           reminders.filter(
-            (reminder) => {
-              const date =
-                new Date(
-                  reminder.remindAt,
-                );
-
-              return (
-                !Number.isNaN(
-                  date.getTime(),
-                ) &&
-                date <=
-                  now
-              );
-            },
+            (reminder) =>
+              new Date(
+                reminder.remindAt,
+              ) <
+              now,
           ).length,
         all:
           reminders.length,
@@ -980,7 +945,7 @@ export default function AgendaOperacional() {
           <div>
             <Link
               href="/dashboard"
-              className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-black/45 transition hover:text-[#e93800]"
+              className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-black/45 transition hover:text-[#087B7B]"
             >
               <span aria-hidden="true">←</span>
               Voltar ao Painel
@@ -1004,38 +969,61 @@ export default function AgendaOperacional() {
             onClick={() =>
               window.print()
             }
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-black/70 transition hover:border-[#ff3d00]/30 hover:text-[#e93800] print:hidden"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-sm font-semibold text-black/70 transition hover:border-[#0A9090]/30 hover:text-[#087B7B] print:hidden"
           >
             Imprimir agenda
           </button>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4 print:hidden">
+        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5 print:hidden">
           <SummaryCard
             label="Hoje"
             value={totals.today}
+            active={activeFilter === "TODAY"}
+            onClick={() => {
+              setActiveFilter("TODAY");
+              setSelectedDate("");
+            }}
           />
 
           <SummaryCard
             label="Amanhã"
-            value={
-              totals.tomorrow
-            }
+            value={totals.tomorrow}
+            active={activeFilter === "TOMORROW"}
+            onClick={() => {
+              setActiveFilter("TOMORROW");
+              setSelectedDate("");
+            }}
           />
 
           <SummaryCard
             label="Atrasadas"
-            value={
-              totals.overdue
-            }
-            danger={
-              totals.overdue > 0
-            }
+            value={totals.overdue}
+            danger={totals.overdue > 0}
+            active={activeFilter === "OVERDUE"}
+            onClick={() => {
+              setActiveFilter("OVERDUE");
+              setSelectedDate("");
+            }}
+          />
+
+          <SummaryCard
+            label="Por data"
+            value={activeFilter === "DATE" ? filteredReminders.length : 0}
+            active={activeFilter === "DATE"}
+            onClick={() => {
+              setActiveFilter("DATE");
+            }}
           />
 
           <SummaryCard
             label="Todas"
             value={totals.all}
+            active={activeFilter === "ALL"}
+            onClick={() => {
+              setActiveFilter("ALL");
+              setSelectedDate("");
+            }}
           />
         </section>
 
@@ -1069,7 +1057,7 @@ export default function AgendaOperacional() {
                 }
                 placeholder="14, 22, 35&#10;ou Cliente #000014"
                 rows={4}
-                className="w-full resize-y rounded-xl border border-black/10 bg-[#fafafa] px-3 py-2.5 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                className="w-full resize-y rounded-xl border border-black/10 bg-[#fafafa] px-3 py-2.5 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
               />
             </label>
 
@@ -1087,7 +1075,7 @@ export default function AgendaOperacional() {
                     )
                   }
                   placeholder="Ex.: Ligar para confirmar pedido"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                 />
               </label>
 
@@ -1106,7 +1094,7 @@ export default function AgendaOperacional() {
                     )
                   }
                   placeholder="Opcional"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                 />
               </label>
             </div>
@@ -1125,7 +1113,7 @@ export default function AgendaOperacional() {
                       event.target.value,
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                 />
               </label>
 
@@ -1144,7 +1132,7 @@ export default function AgendaOperacional() {
                     )
                   }
                   placeholder="Opcional"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                 />
               </label>
             </div>
@@ -1163,7 +1151,7 @@ export default function AgendaOperacional() {
                       event.target.value,
                     )
                   }
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                 />
               </label>
 
@@ -1175,7 +1163,7 @@ export default function AgendaOperacional() {
                 onClick={() =>
                   void createBulkReminders()
                 }
-                className="h-11 rounded-xl bg-[#ff3d00] px-4 text-sm font-bold text-white transition hover:bg-[#e93800] disabled:cursor-not-allowed disabled:opacity-55"
+                className="h-11 rounded-xl bg-[#0A9090] px-4 text-sm font-bold text-white transition hover:bg-[#087B7B] disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {isCreatingBulk
                   ? "Adicionando..."
@@ -1193,77 +1181,7 @@ export default function AgendaOperacional() {
 
         <section className="mt-5 rounded-2xl border border-black/10 bg-white shadow-sm">
           <div className="border-b border-black/5 p-4 print:hidden">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-wrap gap-2">
-                {filterOptions.map(
-                  (filter) => {
-                    const active =
-                      activeFilter ===
-                      filter.value;
-
-                    const count =
-                      filter.value ===
-                      "TODAY"
-                        ? totals.today
-                        : filter.value ===
-                            "TOMORROW"
-                          ? totals.tomorrow
-                          : filter.value ===
-                              "OVERDUE"
-                            ? totals.overdue
-                            : filter.value ===
-                                "DATE"
-                              ? filteredReminders.length
-                              : totals.all;
-
-                    return (
-                      <button
-                        key={
-                          filter.value
-                        }
-                        type="button"
-                        onClick={() =>
-                          setActiveFilter(
-                            filter.value,
-                          )
-                        }
-                        className={`inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-bold transition ${
-                          active
-                            ? "border-black bg-black text-white"
-                            : "border-black/10 bg-white text-black/55 hover:border-black/20"
-                        }`}
-                      >
-                        {filter.label}
-
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[9px] ${
-                            active
-                              ? "bg-white/15 text-white"
-                              : "bg-black/[0.045] text-black/45"
-                          }`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  },
-                )}
-              </div>
-
-              <div className="flex w-full flex-col gap-2 sm:flex-row xl:max-w-2xl">
-                {activeFilter === "DATE" && (
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(event) =>
-                      setSelectedDate(
-                        event.target.value,
-                      )
-                    }
-                    className="h-10 rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-                  />
-                )}
-
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 type="search"
                 value={search}
@@ -1273,9 +1191,21 @@ export default function AgendaOperacional() {
                   )
                 }
                 placeholder="Buscar por cliente, código ou tarefa"
-                className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 sm:max-w-xl"
               />
-              </div>
+
+              {activeFilter === "DATE" && (
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) =>
+                    setSelectedDate(
+                      event.target.value,
+                    )
+                  }
+                  className="h-10 rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                />
+              )}
             </div>
           </div>
 
@@ -1327,11 +1257,8 @@ export default function AgendaOperacional() {
                       );
 
                     const overdue =
-                      !Number.isNaN(
-                        remindAt.getTime(),
-                      ) &&
-                      remindAt <=
-                        new Date();
+                      remindAt <
+                      new Date();
 
                     return (
                       <article
@@ -1360,7 +1287,7 @@ export default function AgendaOperacional() {
 
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-lg bg-[#fff3ee] px-2 py-1 text-[10px] font-bold text-[#e93800]">
+                            <span className="rounded-lg bg-[#F0F9F9] px-2 py-1 text-[10px] font-bold text-[#087B7B]">
                               {formatCustomerCode(
                                 reminder
                                   .customer
@@ -1409,7 +1336,7 @@ export default function AgendaOperacional() {
                                 .customer
                                 .remoteJid,
                             )}&tab=lembretes`}
-                            className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                            className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                           >
                             Abrir cliente
                           </Link>
@@ -1420,7 +1347,7 @@ export default function AgendaOperacional() {
                                 .customer
                                 .remoteJid,
                             )}`}
-                            className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                            className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                           >
                             Conversa
                           </Link>
@@ -1461,32 +1388,42 @@ function SummaryCard({
   label,
   value,
   danger = false,
+  active = false,
+  onClick,
 }: {
   label: string;
   value: number;
   danger?: boolean;
+  active?: boolean;
+  onClick: () => void;
 }) {
   return (
-    <article
-      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-2xl border p-4 text-left shadow-sm transition ${
         danger
-          ? "border-red-200"
-          : "border-black/5"
+          ? "border-red-200 bg-white hover:border-red-300"
+          : active
+            ? "border-[#0A9090] bg-[#0A9090]"
+            : "border-[#0A9090]/20 bg-white hover:border-[#0A9090]/45"
       }`}
     >
-      <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-black/35">
+      <p
+        className={`text-[10px] font-bold uppercase tracking-[0.13em] ${
+          danger ? "text-red-600" : active ? "text-white/70" : "text-[#087B7B]"
+        }`}
+      >
         {label}
       </p>
 
       <p
         className={`mt-2 text-2xl font-bold ${
-          danger
-            ? "text-red-600"
-            : "text-[#171717]"
+          danger ? "text-red-600" : active ? "text-white" : "text-[#087B7B]"
         }`}
       >
         {value}
       </p>
-    </article>
+    </button>
   );
 }

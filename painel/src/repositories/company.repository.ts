@@ -47,6 +47,19 @@ export const companyRepository = {
       },
     });
   },
+  async updateWhatsappInstanceName(
+    companyId: string,
+    whatsappInstanceName: string,
+  ) {
+    return prisma.m1MCompany.update({
+      where: {
+        id: companyId,
+      },
+      data: {
+        whatsappInstanceName,
+      },
+    });
+  },
 
   async completeOnboarding(companyId: string) {
     return prisma.m1MCompany.update({

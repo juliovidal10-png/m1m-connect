@@ -8,6 +8,35 @@ import {
 
 import useMediaLoader from "@/hooks/useMediaLoader";
 import ImageViewer from "./ImageViewer";
+import ConversationMediaViewer from "./ConversationMediaViewer";
+
+type ChatMessageQuotedMessage = {
+  conversation?: string;
+  extendedTextMessage?: {
+    text?: string;
+  };
+  imageMessage?: {
+    caption?: string;
+  };
+  audioMessage?: {
+    ptt?: boolean;
+  };
+  videoMessage?: {
+    caption?: string;
+  };
+  documentMessage?: {
+    title?: string;
+    fileName?: string;
+    caption?: string;
+  };
+};
+
+type ChatMessageContextInfo = {
+  stanzaId?: string;
+  remoteJid?: string;
+  participant?: string;
+  quotedMessage?: ChatMessageQuotedMessage;
+};
 
 export type ChatMessage = {
   id: string;
@@ -19,8 +48,18 @@ export type ChatMessage = {
     remoteJidAlt?: string;
   };
   pushName?: string | null;
+  m1mAuthor?: {
+    type?:
+      | "CUSTOMER"
+      | "HUMAN"
+      | "AI"
+      | null;
+    id?: string | null;
+    name?: string | null;
+  } | null;
   messageType?: string;
   messageTimestamp: number;
+  contextInfo?: ChatMessageContextInfo;
   message?: {
     conversation?: string;
 
@@ -37,31 +76,7 @@ export type ChatMessage = {
             type?: string;
             data?: number[];
           };
-      contextInfo?: {
-        stanzaId?: string;
-        remoteJid?: string;
-        participant?: string;
-        quotedMessage?: {
-          conversation?: string;
-          extendedTextMessage?: {
-            text?: string;
-          };
-          imageMessage?: {
-            caption?: string;
-          };
-          audioMessage?: {
-            ptt?: boolean;
-          };
-          videoMessage?: {
-            caption?: string;
-          };
-          documentMessage?: {
-            title?: string;
-            fileName?: string;
-            caption?: string;
-          };
-        };
-      };
+      contextInfo?: ChatMessageContextInfo;
     };
 
     imageMessage?: {
@@ -122,8 +137,12 @@ export type ChatMessage = {
 
 type MessageRendererProps = {
   message: ChatMessage;
+  galleryMessages?: ChatMessage[];
   onForward?: (
     message: ChatMessage,
+  ) => void;
+  onQuotedMessageClick?: (
+    messageId: string,
   ) => void;
 };
 
@@ -204,6 +223,7 @@ function getQuotedPreview(
   message: ChatMessage,
 ) {
   const quoted =
+    message.contextInfo?.quotedMessage ??
     message.message?.extendedTextMessage
       ?.contextInfo?.quotedMessage;
 
@@ -446,6 +466,43 @@ function getWhatsAppThumbnailSource(
   }
 }
 
+function decodeHtmlEntities(value?: string | null) {
+  const text = value?.trim() || "";
+
+  if (!text || !text.includes("&")) {
+    return text;
+  }
+
+  if (typeof document !== "undefined") {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
+  return text.replace(
+    /&#(?:x([0-9a-f]+)|([0-9]+));/gi,
+    (match, hex, decimal) => {
+      const codePoint = Number.parseInt(
+        hex || decimal,
+        hex ? 16 : 10,
+      );
+
+      if (
+        !Number.isFinite(codePoint) ||
+        codePoint < 0 ||
+        codePoint > 0x10ffff
+      ) {
+        return match;
+      }
+
+      try {
+        return String.fromCodePoint(codePoint);
+      } catch {
+        return match;
+      }
+    },
+  );
+}
 function LinkPreviewCard({
   text,
   message,
@@ -479,11 +536,12 @@ function LinkPreviewCard({
     );
 
   const whatsappTitle =
-    extended?.title?.trim() || "";
+    decodeHtmlEntities(extended?.title);
 
   const whatsappDescription =
-    extended?.description?.trim() ||
-    "";
+    decodeHtmlEntities(
+      extended?.description,
+    );
 
   const [
     remotePreview,
@@ -600,16 +658,16 @@ function LinkPreviewCard({
 
   const title =
     whatsappTitle ||
-    remotePreview?.title?.trim() ||
+    decodeHtmlEntities(remotePreview?.title) ||
     basicPreview.hostname;
 
   const description =
     whatsappDescription ||
-    remotePreview?.description?.trim() ||
+    decodeHtmlEntities(remotePreview?.description) ||
     "";
 
   const siteName =
-    remotePreview?.siteName?.trim() ||
+    decodeHtmlEntities(remotePreview?.siteName) ||
     basicPreview.hostname;
 
   return (
@@ -738,7 +796,7 @@ function LinkifiedText({
               href={getClickableUrl(linkText)}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-[#b8320a] underline decoration-black/20 underline-offset-2 transition hover:text-[#d93400]"
+              className="font-semibold text-[#087B7B] underline decoration-black/20 underline-offset-2 transition hover:text-[#0A9090]"
               onClick={(event) => {
                 event.stopPropagation();
               }}
@@ -764,10 +822,15 @@ function UnsupportedMessage() {
 
 function TextMessage({
   message,
+  onQuotedMessageClick,
 }: MessageRendererProps) {
   const text = getTextMessage(message);
   const quotedPreview =
     getQuotedPreview(message);
+  const quotedMessageId =
+    message.contextInfo?.stanzaId ??
+    message.message?.extendedTextMessage
+      ?.contextInfo?.stanzaId;
 
   if (!text) {
     return <UnsupportedMessage />;
@@ -779,12 +842,51 @@ function TextMessage({
   return (
     <div className="min-w-0">
       {quotedPreview && (
-        <div className="mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.035]">
+        <div
+          className={`mb-2 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.035] ${
+            quotedMessageId && onQuotedMessageClick
+              ? "cursor-pointer transition hover:bg-black/[0.055]"
+              : ""
+          }`}
+          role={
+            quotedMessageId && onQuotedMessageClick
+              ? "button"
+              : undefined
+          }
+          tabIndex={
+            quotedMessageId && onQuotedMessageClick
+              ? 0
+              : undefined
+          }
+          onClick={() => {
+            if (
+              quotedMessageId &&
+              onQuotedMessageClick
+            ) {
+              onQuotedMessageClick(
+                quotedMessageId,
+              );
+            }
+          }}
+          onKeyDown={(event) => {
+            if (
+              quotedMessageId &&
+              onQuotedMessageClick &&
+              (event.key === "Enter" ||
+                event.key === " ")
+            ) {
+              event.preventDefault();
+              onQuotedMessageClick(
+                quotedMessageId,
+              );
+            }
+          }}
+        >
           <div className="flex">
-            <div className="w-1 shrink-0 bg-[#ff3d00]" />
+            <div className="w-1 shrink-0 bg-[#0A9090]" />
 
             <div className="min-w-0 flex-1 px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#e93800]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#087B7B]">
                 Resposta
               </p>
 
@@ -812,6 +914,7 @@ function TextMessage({
 
 function LoadedImageMessage({
   message,
+  galleryMessages = [],
   onForward,
 }: MessageRendererProps) {
   const [isViewerOpen, setIsViewerOpen] =
@@ -915,23 +1018,16 @@ function LoadedImageMessage({
 
       </div>
 
-      <ImageViewer
+      <ConversationMediaViewer
         isOpen={isViewerOpen}
-        imageSource={imageSource}
-        altText={altText}
-        fileName={
-          media.fileName ||
-          `imagem-${message.id}.jpg`
+        currentMessage={message}
+        galleryMessages={
+          galleryMessages
         }
         onClose={() =>
           setIsViewerOpen(false)
         }
-        onForward={
-          onForward
-            ? () =>
-                onForward(message)
-            : undefined
-        }
+        onForward={onForward}
       />
     </>
   );
@@ -940,6 +1036,7 @@ function LoadedImageMessage({
 
 function ImageMessage({
   message,
+  galleryMessages = [],
   onForward,
 }: MessageRendererProps) {
   const {
@@ -961,6 +1058,9 @@ function ImageMessage({
   return (
     <LoadedImageMessage
       message={message}
+      galleryMessages={
+        galleryMessages
+      }
       onForward={onForward}
     />
   );
@@ -1021,7 +1121,7 @@ function LoadedAudioMessage({
   return (
     <div className="w-[21rem] max-w-full rounded-2xl border border-black/5 bg-white/80 p-3 shadow-sm">
       <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.08em] text-black/35">
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#fff1ec] text-[#e93800]">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ECF8F8] text-[#087B7B]">
           🎤
         </span>
         Áudio
@@ -1139,8 +1239,23 @@ function VideoPlayer({
   const videoSource =
     `data:${media.mimetype};base64,${media.base64}`;
 
+  const videoWidth =
+    message.message?.videoMessage?.width || 0;
+  const videoHeight =
+    message.message?.videoMessage?.height || 0;
+  const isPortraitVideo =
+    videoWidth > 0 &&
+    videoHeight > 0 &&
+    videoHeight > videoWidth;
+
   return (
-    <div className="w-[24rem] max-w-full">
+    <div
+      className={
+        isPortraitVideo
+          ? "w-[16rem] max-w-full"
+          : "w-[24rem] max-w-full"
+      }
+    >
       <video
         controls
         preload="metadata"
@@ -1152,7 +1267,7 @@ function VideoPlayer({
         height={
           message.message?.videoMessage?.height
         }
-        className="max-h-[500px] w-full rounded-[18px] border border-black/10 bg-black object-contain shadow-sm"
+        className="block max-h-[500px] h-auto w-auto max-w-full rounded-[18px] border border-black/5 bg-black object-contain shadow-sm"
       >
         Seu navegador não suporta reprodução de vídeo.
       </video>
@@ -1214,7 +1329,7 @@ function VideoMessage({
         onClick={() =>
           setShouldLoadVideo(true)
         }
-        className="group relative flex min-h-52 w-full items-center justify-center overflow-hidden rounded-[18px] border border-black/10 bg-black text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+        className="group relative flex min-h-52 w-full items-center justify-center overflow-hidden rounded-[18px] border border-black/5 bg-black text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
         aria-label="Carregar vídeo"
       >
         {thumbnailSource ? (
@@ -1580,7 +1695,9 @@ function DocumentMessage({
 
 export default function MessageRenderer({
   message,
+  galleryMessages = [],
   onForward,
+  onQuotedMessageClick,
 }: MessageRendererProps) {
   if (
     message.messageType ===
@@ -1590,6 +1707,9 @@ export default function MessageRenderer({
     return (
       <ImageMessage
         message={message}
+        galleryMessages={
+          galleryMessages
+        }
         onForward={onForward}
       />
     );
@@ -1642,6 +1762,9 @@ export default function MessageRenderer({
     return (
       <TextMessage
         message={message}
+        onQuotedMessageClick={
+          onQuotedMessageClick
+        }
       />
     );
   }

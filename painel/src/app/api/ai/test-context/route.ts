@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+
 import {
   contextBuilderService,
 } from "@/core/context/context-builder.service";
@@ -39,7 +42,25 @@ function requireText(
 export async function POST(
   request: Request,
 ) {
+  if (
+    process.env.NODE_ENV ===
+    "production"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Rota técnica indisponível em produção.",
+      },
+      {
+        status: 404,
+      },
+    );
+  }
+
   try {
+    await authorizationService.requirePermission(
+      M1MUserPermission.MANAGE_KNOWLEDGE,
+    );
     const body =
       await request.json() as TestContextRequest;
 
@@ -131,3 +152,5 @@ export async function POST(
     );
   }
 }
+
+

@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
+
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
 
 import {
   getAuthenticatedCompanyId,
@@ -12,6 +15,35 @@ const API_URL =
 
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
+
+const PUBLIC_URL =
+  process.env.M1M_PUBLIC_URL?.trim() ||
+  "";
+
+const WEBHOOK_SECRET =
+  process.env.M1M_WEBHOOK_SECRET?.trim() ||
+  "";
+
+function normalizePublicUrl(value: string) {
+  return value.replace(/\/+$/, "");
+}
+
+function buildWebhook() {
+  if (!PUBLIC_URL || !WEBHOOK_SECRET) {
+    return undefined;
+  }
+
+  return {
+    enabled: true,
+    url: `${normalizePublicUrl(PUBLIC_URL)}/api/webhooks/evolution/messages`,
+    byEvents: false,
+    base64: false,
+    events: ["MESSAGES_UPSERT"],
+    headers: {
+      "x-m1m-webhook-secret": WEBHOOK_SECRET,
+    },
+  };
+}
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -115,7 +147,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "Configuração da Evolution API não encontrada.",
+          "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada.",
       },
       {
         status: 500,
@@ -124,6 +156,22 @@ export async function POST() {
   }
 
   try {
+    if (
+      process.env.NODE_ENV === "production" &&
+      (!PUBLIC_URL || !WEBHOOK_SECRET)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Webhook seguro de producao nao configurado. Defina M1M_PUBLIC_URL e M1M_WEBHOOK_SECRET.",
+        },
+        { status: 500 },
+      );
+    }
+
+    await authorizationService.requirePermission(
+      M1MUserPermission.ACCESS_SETTINGS,
+    );
     const companyId =
       await getAuthenticatedCompanyId();
 
@@ -136,7 +184,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Empresa não encontrada.",
+            "Empresa nÃ£o encontrada.",
         },
         {
           status: 404,
@@ -151,7 +199,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Instância do WhatsApp não configurada para esta empresa.",
+            "InstÃ¢ncia do WhatsApp nÃ£o configurada para esta empresa.",
         },
         {
           status: 400,
@@ -166,7 +214,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Não foi possível consultar as instâncias do WhatsApp.",
+            "NÃ£o foi possÃ­vel consultar as instÃ¢ncias do WhatsApp.",
           details:
             instances.data,
         },
@@ -199,6 +247,11 @@ export async function POST() {
                   "WHATSAPP-BAILEYS",
                 qrcode:
                   true,
+                ...(buildWebhook()
+                  ? {
+                      webhook: buildWebhook(),
+                    }
+                  : {}),
               }),
             cache:
               "no-store",
@@ -212,7 +265,7 @@ export async function POST() {
         return NextResponse.json(
           {
             error:
-              "Não foi possível criar a conexão do WhatsApp.",
+              "NÃ£o foi possÃ­vel criar a conexÃ£o do WhatsApp.",
             details:
               createData,
           },
@@ -255,7 +308,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Não foi possível gerar o QR Code do WhatsApp.",
+            "NÃ£o foi possÃ­vel gerar o QR Code do WhatsApp.",
           details:
             connectData,
         },
@@ -292,3 +345,6 @@ export async function POST() {
     );
   }
 }
+
+
+

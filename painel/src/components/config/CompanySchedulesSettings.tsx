@@ -313,14 +313,14 @@ export default function CompanySchedulesSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para configurações
       </button>
 
-      <section className="rounded-2xl border border-orange-100 bg-white shadow-sm">
+      <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Horário geral da empresa
           </p>
 
@@ -385,7 +385,7 @@ export default function CompanySchedulesSettings({
                               event.target.checked,
                             )
                           }
-                          className="h-4 w-4 accent-orange-600"
+                          className="h-4 w-4 accent-teal-600"
                         />
 
                         Empresa aberta neste dia
@@ -406,7 +406,7 @@ export default function CompanySchedulesSettings({
                               event.target.checked,
                             )
                           }
-                          className="h-4 w-4 accent-orange-600"
+                          className="h-4 w-4 accent-teal-600"
                         />
 
                         Atendimento 24 horas
@@ -430,7 +430,7 @@ export default function CompanySchedulesSettings({
                                 event.target.checked,
                               )
                             }
-                            className="h-4 w-4 accent-orange-600"
+                            className="h-4 w-4 accent-teal-600"
                           />
 
                           Fecha para almoço
@@ -487,7 +487,7 @@ export default function CompanySchedulesSettings({
                                       event.target.value,
                                     )
                                   }
-                                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                                 />
                               </label>
                             );
@@ -510,7 +510,7 @@ export default function CompanySchedulesSettings({
                 isLoading ||
                 isSaving
               }
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Salvando..."

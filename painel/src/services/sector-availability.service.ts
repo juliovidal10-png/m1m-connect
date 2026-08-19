@@ -110,7 +110,7 @@ function getCurrentParts(
     !weekdayMap[weekday]
   ) {
     throw new Error(
-      "NÃ£o foi possÃ­vel identificar o horÃ¡rio atual.",
+      "Não foi possível identificar o horário atual.",
     );
   }
 

@@ -28,6 +28,7 @@ type User = {
   useCustomPermissions: boolean;
   permissions: UserPermission[];
   active: boolean;
+  isPrimary: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -322,7 +323,7 @@ export default function UsersSettings() {
   async function toggleUser(user: User) {
     if (
       processingUserId ||
-      user.id === "julio"
+      user.isPrimary
     ) {
       return;
     }
@@ -379,9 +380,9 @@ export default function UsersSettings() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-5 rounded-2xl border border-orange-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex flex-col gap-5 rounded-2xl border border-teal-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Gestão de usuários
           </p>
 
@@ -398,7 +399,7 @@ export default function UsersSettings() {
         <button
           type="button"
           onClick={openCreateForm}
-          className="shrink-0 rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700"
+          className="shrink-0 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
         >
           + Novo usuário
         </button>
@@ -419,11 +420,11 @@ export default function UsersSettings() {
       {isFormOpen && (
         <form
           onSubmit={handleSubmit}
-          className="mb-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-5 lg:p-6"
+          className="mb-6 rounded-2xl border border-teal-100 bg-teal-50/40 p-5 lg:p-6"
         >
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-orange-600">
+              <p className="text-sm font-semibold text-teal-600">
                 {editingUserId
                   ? "Editar usuário"
                   : "Novo usuário"}
@@ -461,7 +462,7 @@ export default function UsersSettings() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
 
@@ -480,7 +481,7 @@ export default function UsersSettings() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
 
@@ -499,7 +500,7 @@ export default function UsersSettings() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
 
@@ -518,7 +519,7 @@ export default function UsersSettings() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
 
@@ -537,7 +538,7 @@ export default function UsersSettings() {
                     event.target.value,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
 
@@ -549,7 +550,7 @@ export default function UsersSettings() {
               <select
                 value={form.role}
                 disabled={
-                  editingUserId === "julio"
+                  users.find((user) => user.id === editingUserId)?.isPrimary === true
                 }
                 onChange={(event) =>
                   updateField(
@@ -557,7 +558,7 @@ export default function UsersSettings() {
                     event.target.value as UserRole,
                   )
                 }
-                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/45"
+                className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-black/5 disabled:text-black/45"
               >
                 <option value="ADMIN">
                   Administrador
@@ -591,7 +592,7 @@ export default function UsersSettings() {
                   event.target.checked,
                 )
               }
-              className="h-4 w-4 accent-orange-600"
+              className="h-4 w-4 accent-teal-600"
             />
 
             <span className="text-sm font-semibold text-black/65">
@@ -599,7 +600,7 @@ export default function UsersSettings() {
             </span>
           </label>
 
-          {editingUserId === "julio" && (
+          {users.find((user) => user.id === editingUserId)?.isPrimary === true && (
             <p className="mt-2 text-xs text-black/40">
               O usuário principal deve permanecer
               ativo e com perfil Administrador.
@@ -637,7 +638,7 @@ export default function UsersSettings() {
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSaving
                 ? "Salvando..."
@@ -686,11 +687,11 @@ export default function UsersSettings() {
             return (
               <article
                 key={user.id}
-                className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:border-orange-100"
+                className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:border-teal-100"
               >
                 <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-lg font-bold text-orange-700">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-lg font-bold text-teal-700">
                       {visibleName
                         .trim()
                         .charAt(0)
@@ -725,8 +726,8 @@ export default function UsersSettings() {
                           </span>
                         )}
 
-                        {user.id === "julio" && (
-                          <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+                        {user.isPrimary && (
+                          <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
                             Usuário principal
                           </span>
                         )}
@@ -768,7 +769,7 @@ export default function UsersSettings() {
                       onClick={() =>
                         openEditForm(user)
                       }
-                      className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+                      className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
                     >
                       Editar
                     </button>
@@ -777,16 +778,16 @@ export default function UsersSettings() {
                       type="button"
                       disabled={
                         isProcessing ||
-                        user.id === "julio"
+                        user.isPrimary
                       }
                       onClick={() =>
                         void toggleUser(user)
                       }
-                      className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {isProcessing
                         ? "Aguarde..."
-                        : user.id === "julio"
+                        : user.isPrimary
                           ? "Principal"
                           : user.active
                             ? "Inativar"

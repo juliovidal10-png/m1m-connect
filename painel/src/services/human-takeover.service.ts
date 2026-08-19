@@ -10,6 +10,7 @@ type HumanTakeoverInput = {
   customerId: string;
   remoteJid: string;
   evolutionMessageId: string;
+  responsibleId?: string | null;
 };
 
 export const humanTakeoverService = {
@@ -17,16 +18,27 @@ export const humanTakeoverService = {
     input: HumanTakeoverInput,
   ) {
     const attendance =
-      await attendanceService.takeoverFromWhatsApp({
-        companyId:
-          input.companyId,
-        customerId:
-          input.customerId,
-        remoteJid:
-          input.remoteJid,
-        messageId:
-          input.evolutionMessageId,
-      });
+      input.responsibleId
+        ? await attendanceService.assumeAttendance(
+            input.companyId,
+            (
+              await attendanceService.startAttendance(
+                input.companyId,
+                input.customerId,
+              )
+            ).id,
+            input.responsibleId,
+          )
+        : await attendanceService.takeoverFromWhatsApp({
+            companyId:
+              input.companyId,
+            customerId:
+              input.customerId,
+            remoteJid:
+              input.remoteJid,
+            messageId:
+              input.evolutionMessageId,
+          });
 
     const customer =
       await customerRepository.markAsHuman(

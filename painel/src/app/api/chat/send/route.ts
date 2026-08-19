@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { M1MMessageAuthorType, M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+import { prisma } from "@/lib/prisma";
+import { manualOutgoingAuthorRegistryService } from "@/services/manual-outgoing-author-registry.service";
+import { conversationSyncService } from "@/services/conversation-sync.service";
+
 import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
@@ -7,9 +13,38 @@ import {
   companyRepository,
 } from "@/repositories/company.repository";
 
+type EvolutionResponseRecord =
+  Record<string, unknown>;
+
+function getEvolutionMessageId(
+  value: unknown,
+): string {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return "";
+  }
+
+  const record =
+    value as EvolutionResponseRecord;
+
+  const key =
+    typeof record.key === "object" &&
+    record.key !== null &&
+    !Array.isArray(record.key)
+      ? (record.key as EvolutionResponseRecord)
+      : null;
+
+  return typeof key?.id === "string"
+    ? key.id.trim()
+    : "";
+}
 type ReplyMessageKey = {
   id?: unknown;
   remoteJid?: unknown;
+  remoteJidAlt?: unknown;
   fromMe?: unknown;
   participant?: unknown;
 };
@@ -31,6 +66,10 @@ export async function POST(
   request: Request,
 ) {
   try {
+    const authenticatedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.ASSUME_ATTENDANCE,
+      );
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
         {
@@ -45,6 +84,24 @@ export async function POST(
 
     const companyId =
       await getAuthenticatedCompanyId();
+
+    const messageAuthor =
+      await prisma.m1MUser.findFirst({
+        where: {
+          id: authenticatedUser.userId,
+          companyId:
+            authenticatedUser.companyId,
+        },
+        select: {
+          name: true,
+          displayName: true,
+        },
+      });
+
+    const messageAuthorName =
+      messageAuthor?.displayName?.trim() ||
+      messageAuthor?.name?.trim() ||
+      "Atendente";
 
     const company =
       await companyRepository.findById(
@@ -143,6 +200,14 @@ export async function POST(
               "",
           ).trim()
         : "";
+    const quotedRemoteJidAlt =
+      quotedKey
+        ? String(
+            quotedKey.remoteJidAlt ??
+              "",
+          ).trim()
+        : "";
+
 
     const quotedFromMe =
       quotedKey?.fromMe === true;
@@ -163,7 +228,12 @@ export async function POST(
             key: {
               id: quotedId,
               remoteJid:
-                quotedRemoteJid,
+                quotedRemoteJid.endsWith("@lid") &&
+                quotedRemoteJidAlt.endsWith(
+                  "@s.whatsapp.net",
+                )
+                  ? quotedRemoteJidAlt
+                  : quotedRemoteJid,
               fromMe:
                 quotedFromMe,
               ...(quotedParticipant
@@ -226,6 +296,72 @@ export async function POST(
       );
     }
 
+    const evolutionMessageId =
+      getEvolutionMessageId(data);
+
+    if (!evolutionMessageId) {
+      console.error(
+        "[ENVIO TEXTO] Evolution respondeu sem ID de mensagem:",
+        data,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "A Evolution não confirmou o envio da mensagem.",
+          details:
+            data,
+          instanceName,
+        },
+        {
+          status: 502,
+        },
+      );
+    }
+
+    if (evolutionMessageId) {
+      /*
+       * Registra a autoria ANTES de sincronizar. Assim, quando o sync
+       * encontrar a mensagem enviada, ele consegue identifica-la como
+       * envio humano feito pela plataforma.
+       */
+      manualOutgoingAuthorRegistryService.register(
+        instanceName,
+        evolutionMessageId,
+        authenticatedUser.userId,
+        messageAuthorName,
+      );
+
+      /*
+       * A rota de envio nao pode depender de a tela disparar um sync depois.
+       * Sincronizamos a conversa imediatamente para persistir a mensagem OUT
+       * no banco usando o fluxo oficial ja existente do M1M Connect.
+       */
+      await conversationSyncService.syncConversation(
+        remoteJid,
+        instanceName,
+        companyId,
+      );
+
+      /*
+       * Camada final de seguranca: se o sync persistiu a mensagem antes de
+       * consumir a autoria do registry, completamos a autoria pelo ID exato
+       * devolvido pela Evolution.
+       */
+      await prisma.m1MMessage.updateMany({
+        where: {
+          companyId,
+          instanceName,
+          evolutionMessageId,
+          fromMe: true,
+        },
+        data: {
+          authorType: M1MMessageAuthorType.HUMAN,
+          authorId: authenticatedUser.userId,
+          authorName: messageAuthorName,
+        },
+      });
+    }
     return NextResponse.json({
       success: true,
       instanceName,
@@ -250,3 +386,8 @@ export async function POST(
     );
   }
 }
+
+
+
+
+

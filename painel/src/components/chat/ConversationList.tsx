@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
@@ -96,7 +96,7 @@ export default function ConversationList() {
         <input
           type="text"
           placeholder="Buscar conversa..."
-          className="mt-4 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+          className="mt-4 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
         />
       </div>
 
@@ -125,7 +125,7 @@ export default function ConversationList() {
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] font-bold text-[#e93800]">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] font-bold text-[#087B7B]">
                 {(chat.pushName || "?").charAt(0)}
               </div>
             )}
@@ -147,7 +147,7 @@ export default function ConversationList() {
                 </p>
 
                 {(chat.unreadCount || 0) > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3d00] px-1.5 text-[10px] font-bold text-white">
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white">
                     {chat.unreadCount}
                   </span>
                 )}

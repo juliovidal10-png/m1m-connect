@@ -1,4 +1,4 @@
-﻿const messages = [
+const messages = [
   {
     id: 1,
     text: "Olá, gostaria de um orçamento.",
@@ -42,7 +42,7 @@ export default function ChatWindow() {
               <div
                 className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
                   isAgent
-                    ? "rounded-br-md bg-[#ff3d00] text-white"
+                    ? "rounded-br-md bg-[#0A9090] text-white"
                     : "rounded-bl-md bg-white text-[#191919]"
                 }`}
               >
@@ -66,12 +66,12 @@ export default function ChatWindow() {
           <textarea
             rows={1}
             placeholder="Digite sua mensagem..."
-            className="min-h-12 flex-1 resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+            className="min-h-12 flex-1 resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
           />
 
           <button
             type="button"
-            className="h-12 rounded-xl bg-[#ff3d00] px-5 text-sm font-semibold text-white transition hover:opacity-90"
+            className="h-12 rounded-xl bg-[#0A9090] px-5 text-sm font-semibold text-white transition hover:opacity-90"
           >
             Enviar
           </button>

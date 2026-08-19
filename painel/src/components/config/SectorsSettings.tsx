@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -399,7 +399,7 @@ export default function SectorsSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para configurações
       </button>
@@ -407,7 +407,7 @@ export default function SectorsSettings({
       <div className="rounded-2xl border border-black/5 bg-white shadow-sm">
         <div className="flex flex-col gap-5 border-b border-black/5 p-6 md:flex-row md:items-center md:justify-between lg:p-8">
           <div>
-            <p className="text-sm font-semibold text-orange-600">
+            <p className="text-sm font-semibold text-teal-600">
               Setores
             </p>
 
@@ -426,7 +426,7 @@ export default function SectorsSettings({
           <button
             type="button"
             onClick={openCreateForm}
-            className="shrink-0 rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700"
+            className="shrink-0 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
           >
             + Adicionar setor
           </button>
@@ -448,11 +448,11 @@ export default function SectorsSettings({
           {isFormOpen && (
             <form
               onSubmit={handleSubmit}
-              className="mb-7 rounded-2xl border border-orange-100 bg-orange-50/40 p-5 lg:p-6"
+              className="mb-7 rounded-2xl border border-teal-100 bg-teal-50/40 p-5 lg:p-6"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-orange-600">
+                  <p className="text-sm font-semibold text-teal-600">
                     {editingSectorId
                       ? "Editar setor"
                       : "Novo setor"}
@@ -490,7 +490,7 @@ export default function SectorsSettings({
                         event.target.value,
                       )
                     }
-                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   />
                 </label>
 
@@ -510,7 +510,7 @@ export default function SectorsSettings({
                         event.target.value,
                       )
                     }
-                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                   />
                 </label>
               </div>
@@ -530,7 +530,7 @@ export default function SectorsSettings({
                       event.target.value,
                     )
                   }
-                  className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                  className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
 
@@ -544,7 +544,7 @@ export default function SectorsSettings({
                       event.target.checked,
                     )
                   }
-                  className="h-4 w-4 accent-orange-600"
+                  className="h-4 w-4 accent-teal-600"
                 />
 
                 <span className="text-sm font-semibold text-black/65">
@@ -556,7 +556,7 @@ export default function SectorsSettings({
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving
                     ? "Salvando..."
@@ -591,7 +591,7 @@ export default function SectorsSettings({
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="mt-5 rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700"
+                className="mt-5 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
               >
                 + Adicionar setor
               </button>
@@ -625,7 +625,7 @@ export default function SectorsSettings({
                         );
                       }
                     }}
-                    className="cursor-pointer rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-orange-100"
+                    className="cursor-pointer rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-teal-100"
                   >
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -646,7 +646,7 @@ export default function SectorsSettings({
                               : "Inativo"}
                           </span>
 
-                          <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold text-orange-700">
+                          <span className="rounded-full bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
                             Ordem {sector.sortOrder}
                           </span>
                         </div>
@@ -675,7 +675,7 @@ export default function SectorsSettings({
                               sector.id,
                             )
                           }
-                          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-50"
+                          className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:opacity-50"
                         >
                           Configurar
                         </button>
@@ -686,7 +686,7 @@ export default function SectorsSettings({
                           onClick={() =>
                             openEditForm(sector)
                           }
-                          className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700 disabled:opacity-50"
+                          className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700 disabled:opacity-50"
                         >
                           Editar
                         </button>
@@ -699,7 +699,7 @@ export default function SectorsSettings({
                               sector,
                             )
                           }
-                          className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700 disabled:opacity-50"
+                          className="rounded-lg border border-black/10 px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700 disabled:opacity-50"
                         >
                           {isProcessing
                             ? "Aguarde..."

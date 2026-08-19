@@ -1,3 +1,9 @@
+import {
+  authorizationService,
+} from "@/services/auth/authorization.service";
+import {
+  M1MUserPermission,
+} from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
 
 import {
@@ -102,14 +108,29 @@ function getChatIdentities(
 
   for (const value of possibleValues) {
     const jid = normalizeJid(value);
-    const phone = normalizePhone(value);
 
-    if (jid) {
-      identities.add(jid);
+    if (!jid) {
+      continue;
     }
 
-    if (phone) {
-      identities.add(phone);
+    identities.add(jid);
+
+    /*
+     * Numero puro so pode participar do merge
+     * para JIDs individuais do WhatsApp.
+     * IDs de grupo (@g.us) e LID nao podem
+     * virar telefone, pois isso pode casar
+     * chats diferentes com o mesmo cliente.
+     */
+    if (
+      jid.endsWith("@s.whatsapp.net") ||
+      !jid.includes("@")
+    ) {
+      const phone = normalizePhone(value);
+
+      if (phone) {
+        identities.add(phone);
+      }
     }
   }
 
@@ -193,8 +214,38 @@ export async function GET() {
       );
     }
 
+    const authenticatedUser =
+      await authorizationService.getCurrentUser();
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authenticatedUser.companyId;
+
+    const canViewAllConversations =
+      authorizationService.hasPermission(
+        authenticatedUser,
+        M1MUserPermission.VIEW_ALL_CONVERSATIONS,
+      );
+
+    const assignedSectorIds =
+      canViewAllConversations
+        ? []
+        : (
+            await prisma.m1MSectorUser.findMany({
+              where: {
+                userId:
+                  authenticatedUser.userId,
+              },
+              select: {
+                sectorId: true,
+              },
+            })
+          ).map(
+            (assignment) =>
+              assignment.sectorId,
+          );
+
+    const assignedSectorIdSet =
+      new Set(assignedSectorIds);
 
     const company =
       await companyRepository.findById(
@@ -327,6 +378,38 @@ export async function GET() {
         },
       });
 
+    const activeAttendances =
+      await prisma.m1MAttendance.findMany({
+        where: {
+          companyId,
+          state: {
+            in: ["IA", "HUMANO"],
+          },
+        },
+        orderBy: {
+          startedAt: "desc",
+        },
+      });
+
+    const attendanceByCustomerId =
+      new Map<
+        string,
+        (typeof activeAttendances)[number]
+      >();
+
+    for (const attendance of activeAttendances) {
+      if (
+        !attendanceByCustomerId.has(
+          attendance.customerId,
+        )
+      ) {
+        attendanceByCustomerId.set(
+          attendance.customerId,
+          attendance,
+        );
+      }
+    }
+
     const customerMap =
       new Map<
         string,
@@ -438,6 +521,19 @@ export async function GET() {
 
           groupSubject,
 
+          attendanceId:
+            attendanceByCustomerId.get(
+              customer.id,
+            )?.id ?? null,
+          attendanceState:
+            attendanceByCustomerId.get(
+              customer.id,
+            )?.state ?? null,
+          attendanceSectorId:
+            attendanceByCustomerId.get(
+              customer.id,
+            )?.sectorId ?? null,
+
           crmCustomerId:
             customer.id,
           crmName:
@@ -466,8 +562,30 @@ export async function GET() {
         };
       });
 
+    const visibleChats =
+      canViewAllConversations
+        ? mergedChats
+        : mergedChats.filter((chat) => {
+            const sectorId =
+              "attendanceSectorId" in chat
+                ? chat.attendanceSectorId ??
+                  null
+                : null;
+
+            const attendanceState =
+              "attendanceState" in chat
+                ? chat.attendanceState ?? null
+                : null;
+
+            return (
+              attendanceState === "HUMANO" &&
+              !!sectorId &&
+              assignedSectorIdSet.has(sectorId)
+            );
+          });
+
     return NextResponse.json(
-      mergedChats,
+      visibleChats,
     );
   } catch (error) {
     console.error(

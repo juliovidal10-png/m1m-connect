@@ -31,6 +31,12 @@ export type TransferAttendanceToSectorData = {
   sectorId: string;
 };
 
+export type RouteAttendanceToSectorByAIData = {
+  companyId: string;
+  attendanceId: string;
+  sectorId: string;
+};
+
 export type FinishAttendanceData = {
   companyId: string;
   attendanceId: string;
@@ -209,6 +215,34 @@ export const attendanceRepository = {
         sectorId:
           data.sectorId,
         state:
+          M1MAttendanceState.HUMANO,
+        responsibleId: null,
+        assignedAt: null,
+        finishedAt: null,
+      },
+      include: {
+        sector: true,
+      },
+    });
+  },
+
+  async routeToSectorByAI(
+    data: RouteAttendanceToSectorByAIData,
+  ) {
+    const attendance =
+      await requireAttendance(
+        data.companyId,
+        data.attendanceId,
+      );
+
+    return prisma.m1MAttendance.update({
+      where: {
+        id: attendance.id,
+      },
+      data: {
+        sectorId:
+          data.sectorId,
+        state:
           M1MAttendanceState.IA,
         responsibleId: null,
         assignedAt: null,
@@ -285,3 +319,4 @@ export const attendanceRepository = {
     });
   },
 };
+

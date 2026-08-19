@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   type ChangeEvent,
@@ -35,6 +35,10 @@ type Chat = {
   profilePicUrl: string | null;
   updatedAt: string;
   unreadCount: number | null;
+
+  attendanceId?: string | null;
+  attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
+  attendanceSectorId?: string | null;
 
   crmCustomerId?: string | null;
   crmName?: string | null;
@@ -830,6 +834,10 @@ export default function ChatInbox() {
     setIsForwarding,
   ] = useState(false);
 
+  const [
+    showScrollToBottomButton,
+    setShowScrollToBottomButton,
+  ] = useState(false);
   const messagesEndRef =
     useRef<HTMLDivElement | null>(null);
 
@@ -882,6 +890,12 @@ export default function ChatInbox() {
 
   const handledNavigationRef =
     useRef<string | null>(null);
+
+  const activeChatJidRef =
+    useRef<string | null>(null);
+
+  const messagesRequestIdRef =
+    useRef(0);
 
   const contactsMap = useMemo(
     () => buildContactsMap(contacts),
@@ -960,8 +974,13 @@ export default function ChatInbox() {
               selectedChat?.remoteJid) ===
             (chat.canonicalJid ||
               chat.remoteJid),
-          onSelect: () =>
-            setSelectedChat(chat),
+          onSelect: () => {
+            activeChatJidRef.current =
+              chat.remoteJid;
+            messagesRequestIdRef.current += 1;
+            setMessages([]);
+            setSelectedChat(chat);
+          },
         })),
       [
         contactsMap,
@@ -1074,7 +1093,26 @@ export default function ChatInbox() {
       [messages],
     );
 
-  const loadContacts =
+  
+  const selectedChatListSignature =
+    useMemo(
+      () => {
+        if (!selectedChat) {
+          return "";
+        }
+
+        return [
+          selectedChat.updatedAt,
+          selectedChat.lastMessage?.messageType ?? "",
+          selectedChat.lastMessage?.key?.remoteJid ?? "",
+          selectedChat.lastMessage?.key?.remoteJidAlt ?? "",
+          selectedChat.lastMessage?.message?.conversation ?? "",
+          selectedChat.lastMessage?.message?.imageMessage?.caption ?? "",
+        ].join("|");
+      },
+      [selectedChat],
+    );
+const loadContacts =
     useCallback(async () => {
       try {
         const response = await fetch(
@@ -1300,6 +1338,11 @@ export default function ChatInbox() {
       chat: Chat,
       showLoading = false,
     ) => {
+      const requestId =
+        ++messagesRequestIdRef.current;
+      const requestedChatJid =
+        chat.remoteJid;
+
       if (showLoading) {
         setIsLoadingMessages(true);
         setErrorMessage("");
@@ -1317,6 +1360,13 @@ export default function ChatInbox() {
 
         const data =
           await response.json();
+
+        if (
+          requestId !==
+            messagesRequestIdRef.current
+        ) {
+          return;
+        }
 
         if (!response.ok) {
           throw new Error(
@@ -1384,6 +1434,13 @@ export default function ChatInbox() {
           },
         );
       } catch (error) {
+        if (
+          requestId !==
+            messagesRequestIdRef.current
+        ) {
+          return;
+        }
+
         if (showLoading) {
           setErrorMessage(
             error instanceof Error
@@ -1392,7 +1449,11 @@ export default function ChatInbox() {
           );
         }
       } finally {
-        if (showLoading) {
+        if (
+          showLoading &&
+          requestId ===
+            messagesRequestIdRef.current
+        ) {
           setIsLoadingMessages(
             false,
           );
@@ -1409,6 +1470,11 @@ export default function ChatInbox() {
     loadContacts,
     loadChats,
   ]);
+
+  useEffect(() => {
+    activeChatJidRef.current =
+      selectedChat?.remoteJid ?? null;
+  }, [selectedChat?.remoteJid]);
 
   useEffect(() => {
     setSelectedFiles([]);
@@ -1651,6 +1717,32 @@ export default function ChatInbox() {
     );
   }, [isConversationSearchOpen]);
 
+  function handleQuotedMessageClick(
+    stanzaId: string,
+  ) {
+    const targetId = stanzaId?.trim();
+
+    if (!targetId) {
+      return;
+    }
+
+    const element =
+      messageElementRefs.current.get(
+        targetId,
+      );
+
+    if (!element) {
+      showActionNotice(
+        "A mensagem original não está carregada nesta conversa.",
+      );
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }
   function openConversationSearch() {
     setIsConversationSearchOpen(true);
 
@@ -1806,19 +1898,13 @@ export default function ChatInbox() {
 
   const refreshChat =
     useCallback(async () => {
+      /*
+       * O refresh frequente atualiza apenas a lista.
+       * O historico da conversa deixa de ser
+       * resincronizado inteiro a cada 2 segundos.
+       */
       await loadChats(false);
-
-      if (selectedChat) {
-        await loadMessages(
-          selectedChat,
-          false,
-        );
-      }
-    }, [
-      loadChats,
-      loadMessages,
-      selectedChat,
-    ]);
+    }, [loadChats]);
 
   useAutoRefresh({
     callback: refreshChat,
@@ -1826,6 +1912,50 @@ export default function ChatInbox() {
     enabled: true,
   });
 
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior,
+        block: "end",
+      });
+      setShowScrollToBottomButton(false);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const element =
+      messagesEndRef.current;
+
+    if (
+      !element ||
+      typeof IntersectionObserver ===
+        "undefined"
+    ) {
+      return;
+    }
+
+    const observer =
+      new IntersectionObserver(
+        ([entry]) => {
+          setShowScrollToBottomButton(
+            !entry.isIntersecting,
+          );
+        },
+        {
+          threshold: 0.01,
+        },
+      );
+
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    selectedChat?.remoteJid,
+    selectedChatListSignature,
+  ]);
   useEffect(() => {
     const currentChatJid =
       selectedChat?.remoteJid ??
@@ -1837,7 +1967,7 @@ export default function ChatInbox() {
 
     const newMessageArrived =
       previousLastMessageSignatureRef.current !==
-      lastMessageSignature;
+      selectedChatListSignature;
 
     if (
       lastMessageSignature &&
@@ -1854,14 +1984,36 @@ export default function ChatInbox() {
       );
     }
 
+    /*
+     * A lista de conversas continua sendo consultada
+     * a cada 2 segundos. O historico so e atualizado
+     * quando a assinatura da ultima mensagem muda.
+     *
+     * Na troca de conversa, o carregamento inicial
+     * continua sendo feito pelo efeito dedicado.
+     */
+    if (
+      newMessageArrived &&
+      !chatChanged &&
+      selectedChat
+    ) {
+      void loadMessages(
+        selectedChat,
+        false,
+      );
+    }
+
     previousChatJidRef.current =
       currentChatJid;
 
     previousLastMessageSignatureRef.current =
-      lastMessageSignature;
+      selectedChatListSignature;
   }, [
+    selectedChat,
     selectedChat?.remoteJid,
     lastMessageSignature,
+    selectedChatListSignature,
+    loadMessages,
   ]);
 
   function calculateEmojiPickerPosition(
@@ -2403,6 +2555,44 @@ export default function ChatInbox() {
     }, 2200);
   }
 
+  function handleMessageEdited(
+    messageId: string,
+    newText: string,
+  ) {
+    setMessages((currentMessages) =>
+      currentMessages.map((message) => {
+        if (message.id !== messageId) {
+          return message;
+        }
+
+        const currentMessage =
+          message.message || {};
+
+        if (
+          currentMessage.extendedTextMessage
+        ) {
+          return {
+            ...message,
+            message: {
+              ...currentMessage,
+              extendedTextMessage: {
+                ...currentMessage.extendedTextMessage,
+                text: newText,
+              },
+            },
+          };
+        }
+
+        return {
+          ...message,
+          message: {
+            ...currentMessage,
+            conversation: newText,
+          },
+        };
+      }),
+    );
+  }
   function handleMessageDeleted(
     messageId: string,
   ) {
@@ -2978,6 +3168,8 @@ export default function ChatInbox() {
 
     const failedFiles: File[] = [];
     const caption = text.trim();
+    const selectedReply =
+      replyMessage;
     let captionSent = false;
 
     setIsSendingMedia(true);
@@ -3046,6 +3238,36 @@ export default function ChatInbox() {
             );
           }
 
+          if (selectedReply) {
+            const quotedId =
+              selectedReply.key.id ||
+              selectedReply.id;
+
+            if (quotedId) {
+              formData.append(
+                "quotedKey",
+                JSON.stringify({
+                  id: quotedId,
+                  remoteJid:
+                    selectedReply.key.remoteJid,
+                  remoteJidAlt:
+                    selectedReply.key.remoteJidAlt,
+                  fromMe:
+                    selectedReply.key.fromMe,
+                  participant:
+                    selectedReply.key.participant,
+                }),
+              );
+
+              formData.append(
+                "quotedMessage",
+                JSON.stringify(
+                  selectedReply.message,
+                ),
+              );
+            }
+          }
+
           const response =
             await fetch(
               "/api/chat/send-media",
@@ -3087,6 +3309,7 @@ export default function ChatInbox() {
 
       if (failedFiles.length === 0) {
         setText("");
+        setReplyMessage(null);
       }
 
       if (
@@ -3163,10 +3386,14 @@ export default function ChatInbox() {
               ? {
                   quotedKey: {
                     id:
+                      replyMessage.key.id ||
                       replyMessage.id,
                     remoteJid:
                       replyMessage.key
                         .remoteJid,
+                    remoteJidAlt:
+                      replyMessage.key
+                        .remoteJidAlt,
                     fromMe:
                       replyMessage.key
                         .fromMe,
@@ -3200,6 +3427,11 @@ export default function ChatInbox() {
             selectedChat.remoteJid,
         },
         pushName: "Você",
+        m1mAuthor: {
+          type: "HUMAN",
+          id: null,
+          name: "Você",
+        },
         messageType:
           "conversation",
         messageTimestamp:
@@ -3312,7 +3544,20 @@ export default function ChatInbox() {
                 null
               }
               attendanceStatus={
+                selectedChat.attendanceState ||
                 selectedChat.crmStatus ||
+                null
+              }
+              attendanceId={
+                selectedChat.attendanceId ||
+                null
+              }
+              attendanceState={
+                selectedChat.attendanceState ||
+                null
+              }
+              attendanceSectorId={
+                selectedChat.attendanceSectorId ||
                 null
               }
               lastInteraction={
@@ -3526,6 +3771,22 @@ export default function ChatInbox() {
                         ),
                       );
 
+                    const messageAuthorLabel =
+                      isFromMe
+                        ? message.m1mAuthor
+                            ?.type === "AI"
+                          ? "IA"
+                          : message
+                                .m1mAuthor
+                                ?.type ===
+                              "HUMAN"
+                            ? message
+                                .m1mAuthor
+                                ?.name ||
+                              "Atendente"
+                            : null
+                        : null;
+
                     return (
                       <div
                         key={message.id}
@@ -3585,6 +3846,9 @@ export default function ChatInbox() {
                               onDeleted={
                                 handleMessageDeleted
                               }
+                              onEdited={
+                                handleMessageEdited
+                              }
                               onNotice={
                                 showActionNotice
                               }
@@ -3620,10 +3884,19 @@ export default function ChatInbox() {
                               : "rounded-bl-md bg-white text-[#191919]"
                           }`}
                         >
+                          {isFromMe &&
+                            messageAuthorLabel && (
+                              <p className="mb-1 text-right text-[10px] font-semibold text-black/45">
+                                {
+                                  messageAuthorLabel
+                                }
+                              </p>
+                            )}
+
                           {!isFromMe &&
                             !isGroupedWithPrevious &&
                             message.pushName && (
-                              <p className="mb-1 text-xs font-semibold text-[#e93800]">
+                              <p className="mb-1 text-xs font-semibold text-[#087B7B]">
                                 {
                                   message.pushName
                                 }
@@ -3634,8 +3907,20 @@ export default function ChatInbox() {
                             message={
                               message
                             }
+                            galleryMessages={
+                              reactionData.visibleMessages.filter(
+                                (item) =>
+                                  item.messageType ===
+                                    "imageMessage" ||
+                                  item.messageType ===
+                                    "videoMessage",
+                              )
+                            }
                             onForward={
                               handleForwardMessage
+                            }
+                            onQuotedMessageClick={
+                              handleQuotedMessageClick
                             }
                           />
 
@@ -3704,6 +3989,9 @@ export default function ChatInbox() {
                               onDeleted={
                                 handleMessageDeleted
                               }
+                              onEdited={
+                                handleMessageEdited
+                              }
                               onNotice={
                                 showActionNotice
                               }
@@ -3732,15 +4020,39 @@ export default function ChatInbox() {
               <div
                 ref={messagesEndRef}
               />
+              {showScrollToBottomButton && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    scrollToBottom("smooth")
+                  }
+                  aria-label="Ir para a mensagem mais recente"
+                  title="Ir para a mensagem mais recente"
+                  className="fixed bottom-24 right-8 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-black/10 bg-white text-black/65 shadow-lg transition hover:bg-[#F7F7F7] hover:text-black"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             <footer className="shrink-0 border-t border-black/5 bg-white p-4">
               {replyMessage && (
-                <div className="mb-3 flex items-start gap-3 rounded-2xl border border-[#ff3d00]/20 bg-[#fff8f5] px-4 py-3">
-                  <div className="mt-0.5 h-full min-h-12 w-1 shrink-0 rounded-full bg-[#ff3d00]" />
+                <div className="mb-3 flex items-start gap-3 rounded-2xl border border-[#0A9090]/20 bg-[#F6FBFB] px-4 py-3">
+                  <div className="mt-0.5 h-full min-h-12 w-1 shrink-0 rounded-full bg-[#0A9090]" />
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-[#e93800]">
+                    <p className="text-xs font-bold text-[#087B7B]">
                       Respondendo a{" "}
                       {replyMessage.key.fromMe
                         ? "Você"
@@ -3771,7 +4083,7 @@ export default function ChatInbox() {
               )}
 
               {selectedFiles.length > 0 && (
-                <div className="mb-3 rounded-2xl border border-[#ff3d00]/20 bg-[#fff8f5] p-3">
+                <div className="mb-3 rounded-2xl border border-[#0A9090]/20 bg-[#F6FBFB] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-[#191919]">
@@ -3797,7 +4109,7 @@ export default function ChatInbox() {
                         selectedFiles.length >=
                           MAX_ATTACHMENTS
                       }
-                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#ff3d00]/25 bg-[#fff1ec] px-3 text-xs font-bold text-[#e93800] transition hover:border-[#ff3d00]/40 hover:bg-[#ffe7de] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#0A9090]/25 bg-[#ECF8F8] px-3 text-xs font-bold text-[#087B7B] transition hover:border-[#0A9090]/40 hover:bg-[#D9F1F1] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <span className="text-base leading-none">
                         +
@@ -3813,7 +4125,7 @@ export default function ChatInbox() {
                           key={`${file.name}-${file.size}-${file.lastModified}-${fileIndex}`}
                           className="flex items-center gap-3 rounded-xl border border-black/5 bg-white px-3 py-2.5"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff1ec] text-base">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#ECF8F8] text-base">
                             {getMediaType(file) ===
                             "image"
                               ? "🖼️"
@@ -3848,7 +4160,7 @@ export default function ChatInbox() {
                             disabled={isSendingMedia}
                             aria-label={`Remover ${file.name}`}
                             title="Remover arquivo"
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-[#e93800] transition hover:bg-[#ff3d00]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-[#087B7B] transition hover:bg-[#0A9090]/10 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             ×
                           </button>
@@ -3858,7 +4170,7 @@ export default function ChatInbox() {
                   </div>
 
                   {mediaSendProgress && (
-                    <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[#e93800]">
+                    <div className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[#087B7B]">
                       Enviando{" "}
                       {mediaSendProgress.current} de{" "}
                       {mediaSendProgress.total}...
@@ -3869,7 +4181,7 @@ export default function ChatInbox() {
                     type="button"
                     onClick={clearSelectedFiles}
                     disabled={isSendingMedia}
-                    className="mt-3 text-xs font-semibold text-black/45 transition hover:text-[#e93800] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-3 text-xs font-semibold text-black/45 transition hover:text-[#087B7B] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Remover todos
                   </button>
@@ -3920,8 +4232,8 @@ export default function ChatInbox() {
                     title="Emojis"
                     className={`flex h-10 w-10 items-center justify-center rounded-full text-black/65 transition disabled:cursor-not-allowed disabled:opacity-40 ${
                       isEmojiPickerOpen
-                        ? "bg-black/[0.06] text-[#e93800]"
-                        : "hover:bg-black/[0.05] hover:text-[#e93800]"
+                        ? "bg-black/[0.06] text-[#087B7B]"
+                        : "hover:bg-black/[0.05] hover:text-[#087B7B]"
                     }`}
                   >
                     <svg
@@ -4165,7 +4477,7 @@ export default function ChatInbox() {
                   }
                   aria-label="Selecionar arquivo"
                   title="Anexar arquivo"
-                  className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/65 transition hover:bg-black/[0.05] hover:text-[#e93800] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/65 transition hover:bg-black/[0.05] hover:text-[#087B7B] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -4248,7 +4560,7 @@ export default function ChatInbox() {
                         }
                         aria-label="Gravar mensagem de áudio"
                         title="Gravar áudio"
-                        className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/70 transition hover:bg-black/[0.05] hover:text-[#e93800] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-black/70 transition hover:bg-black/[0.05] hover:text-[#087B7B] disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <svg
                           viewBox="0 0 24 24"
@@ -4329,7 +4641,7 @@ export default function ChatInbox() {
                         ? `Enviando ${mediaSendProgress.current} de ${mediaSendProgress.total}`
                         : "Enviar mensagem"
                     }
-                    className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ff3d00] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A9090] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg
                       viewBox="0 0 24 24"
@@ -4363,9 +4675,9 @@ export default function ChatInbox() {
 
         {selectedChat &&
           isDraggingFiles && (
-            <div className="pointer-events-none absolute inset-4 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-[#ff3d00]/55 bg-white/95 shadow-2xl backdrop-blur-sm">
+            <div className="pointer-events-none absolute inset-4 z-40 flex items-center justify-center rounded-3xl border-2 border-dashed border-[#0A9090]/55 bg-white/95 shadow-2xl backdrop-blur-sm">
               <div className="max-w-md px-8 text-center">
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#fff1ec] text-[#e93800]">
+                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#ECF8F8] text-[#087B7B]">
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -4397,7 +4709,7 @@ export default function ChatInbox() {
                   Imagens, vídeos, áudios, PDFs e outros documentos serão adicionados ao envio.
                 </p>
 
-                <p className="mt-3 text-xs font-semibold text-[#e93800]">
+                <p className="mt-3 text-xs font-semibold text-[#087B7B]">
                   Até {MAX_ATTACHMENTS} arquivos por vez
                 </p>
               </div>
@@ -4452,7 +4764,7 @@ export default function ChatInbox() {
                 </div>
 
                 <div className="shrink-0 border-b border-black/10 p-4">
-                  <div className="flex h-11 items-center gap-3 rounded-xl border border-black/10 bg-white px-4 transition focus-within:border-[#ff3d00] focus-within:ring-4 focus-within:ring-[#ff3d00]/10">
+                  <div className="flex h-11 items-center gap-3 rounded-xl border border-black/10 bg-white px-4 transition focus-within:border-[#0A9090] focus-within:ring-4 focus-within:ring-[#0A9090]/10">
                     <svg
                       viewBox="0 0 24 24"
                       fill="none"
@@ -4524,7 +4836,7 @@ export default function ChatInbox() {
                               )
                             }
                             disabled={isForwarding}
-                            className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-[#fff1ec] disabled:cursor-wait disabled:opacity-50"
+                            className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-[#ECF8F8] disabled:cursor-wait disabled:opacity-50"
                           >
                             {picture ? (
                               <img
@@ -4533,7 +4845,7 @@ export default function ChatInbox() {
                                 className="h-11 w-11 shrink-0 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] font-bold text-[#e93800]">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] font-bold text-[#087B7B]">
                                 {chatName.charAt(
                                   0,
                                 )}
@@ -4552,7 +4864,7 @@ export default function ChatInbox() {
                               </p>
                             </div>
 
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fff1ec] text-base text-[#e93800]">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] text-base text-[#087B7B]">
                               ↪
                             </span>
                           </button>
@@ -4608,9 +4920,21 @@ export default function ChatInbox() {
             null
           }
           attendanceStatus={
+            selectedChat.attendanceState ||
             selectedChat.crmStatus ||
             null
           }
+          customerId={
+            selectedChat.crmCustomerId ||
+            null
+          }
+          canAssumeAttendance={
+            selectedChat.attendanceState === "HUMANO" &&
+            !selectedChat.crmResponsibleId
+          }
+          onAssigned={async () => {
+            await loadChats(false);
+          }}
           onClose={() =>
             setIsCustomerQuickPanelOpen(
               false,
@@ -4622,3 +4946,8 @@ export default function ChatInbox() {
     </div>
   );
 }
+
+
+
+
+

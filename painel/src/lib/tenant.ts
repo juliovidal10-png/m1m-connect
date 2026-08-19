@@ -12,7 +12,7 @@ const SESSION_COOKIE_NAME =
  *
  * Obtém a empresa diretamente da sessão do usuário logado.
  */
-export async function getAuthenticatedCompanyId() {
+export async function getAuthenticatedSession() {
   const cookieStore = await cookies();
 
   const token =
@@ -26,10 +26,14 @@ export async function getAuthenticatedCompanyId() {
     );
   }
 
+  return sessionService.verifyToken(
+    token,
+  );
+}
+
+export async function getAuthenticatedCompanyId() {
   const session =
-    await sessionService.verifyToken(
-      token,
-    );
+    await getAuthenticatedSession();
 
   if (!session.companyId) {
     throw new Error(

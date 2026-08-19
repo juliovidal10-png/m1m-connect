@@ -1,4 +1,5 @@
 import {
+  M1MMessageAuthorType,
   M1MMessageDirection,
   M1MMessageType,
 } from "@/generated/prisma/enums";
@@ -15,11 +16,15 @@ export type CreateMessageData = {
   direction: M1MMessageDirection;
   type: M1MMessageType;
   fromMe: boolean;
+  authorType?: M1MMessageAuthorType | null;
+  authorId?: string | null;
+  authorName?: string | null;
   content?: string | null;
   mediaUrl?: string | null;
   mimeType?: string | null;
   rawPayload?: Prisma.InputJsonValue | null;
   sentAt: Date;
+  processingStartedAt?: Date | null;
   processedAt?: Date | null;
 };
 
@@ -36,11 +41,16 @@ export const messageRepository = {
         direction: data.direction,
         type: data.type,
         fromMe: data.fromMe,
+        authorType: data.authorType ?? null,
+        authorId: data.authorId ?? null,
+        authorName: data.authorName ?? null,
         content: data.content ?? null,
         mediaUrl: data.mediaUrl ?? null,
         mimeType: data.mimeType ?? null,
         rawPayload: data.rawPayload ?? undefined,
         sentAt: data.sentAt,
+        processingStartedAt:
+          data.processingStartedAt ?? null,
         processedAt: data.processedAt ?? null,
       },
     });
@@ -87,6 +97,23 @@ export const messageRepository = {
     });
   },
 
+  async setAuthorship(
+    messageId: string,
+    authorType: M1MMessageAuthorType,
+    authorId?: string | null,
+    authorName?: string | null,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        id: messageId,
+      },
+      data: {
+        authorType,
+        authorId: authorId ?? null,
+        authorName: authorName ?? null,
+      },
+    });
+  },
   async listMessagesByCustomer(
     companyId: string,
     customerId: string,
@@ -98,6 +125,20 @@ export const messageRepository = {
       },
       orderBy: {
         sentAt: "asc",
+      },
+    });
+  },
+
+  async attachMessageToAttendance(
+    messageId: string,
+    attendanceId: string,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        id: messageId,
+      },
+      data: {
+        attendanceId,
       },
     });
   },
@@ -117,15 +158,29 @@ export const messageRepository = {
 
   async claimProcessing(
     messageId: string,
+    staleAfterMs = 5 * 60 * 1000,
   ) {
+    const staleBefore =
+      new Date(Date.now() - staleAfterMs);
+
     const result =
       await prisma.m1MMessage.updateMany({
         where: {
           id: messageId,
           processedAt: null,
+          OR: [
+            {
+              processingStartedAt: null,
+            },
+            {
+              processingStartedAt: {
+                lt: staleBefore,
+              },
+            },
+          ],
         },
         data: {
-          processedAt: new Date(),
+          processingStartedAt: new Date(),
         },
       });
 
@@ -140,11 +195,10 @@ export const messageRepository = {
         id: messageId,
       },
       data: {
-        processedAt: null,
+        processingStartedAt: null,
       },
     });
   },
-
   async markAsProcessed(
     messageId: string,
     processedAt?: Date,
@@ -154,8 +208,10 @@ export const messageRepository = {
         id: messageId,
       },
       data: {
+        processingStartedAt: null,
         processedAt: processedAt ?? new Date(),
       },
     });
   },
 };
+

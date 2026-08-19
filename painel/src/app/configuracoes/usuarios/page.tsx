@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import UsersSettings from "@/components/config/UsersSettings";
 import Sidebar from "@/components/layout/Sidebar";
@@ -25,7 +25,7 @@ export default function UsuariosPage() {
           <div className="mx-auto max-w-6xl">
             <Link
               href="/configuracoes"
-              className="mb-5 inline-flex rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+              className="mb-5 inline-flex rounded-xl border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
             >
               ← Voltar para configurações
             </Link>

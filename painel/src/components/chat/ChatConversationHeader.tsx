@@ -1,5 +1,7 @@
 "use client";
 
+import AttendanceActions from "./AttendanceActions";
+
 import type {
   KeyboardEvent,
   RefObject,
@@ -11,6 +13,9 @@ type ChatConversationHeaderProps = {
   company?: string | null;
   responsible?: string | null;
   attendanceStatus?: string | null;
+  attendanceId?: string | null;
+  attendanceState?: string | null;
+  attendanceSectorId?: string | null;
   lastInteraction?: string | null;
   isSearchOpen: boolean;
   searchQuery: string;
@@ -84,6 +89,9 @@ export default function ChatConversationHeader({
   company,
   responsible,
   attendanceStatus,
+  attendanceId,
+  attendanceState,
+  attendanceSectorId,
   lastInteraction,
   isSearchOpen,
   searchQuery,
@@ -212,14 +220,14 @@ export default function ChatConversationHeader({
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.04em] ${
                   attendanceStatus === "HUMANO"
                     ? "border-blue-200 bg-blue-50 text-blue-700"
-                    : "border-orange-200 bg-orange-50 text-orange-700"
+                    : "border-teal-200 bg-teal-50 text-teal-700"
                 }`}
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
                     attendanceStatus === "HUMANO"
                       ? "bg-blue-500"
-                      : "bg-orange-500"
+                      : "bg-teal-500"
                   }`}
                 />
                 {attendanceStatus === "HUMANO"
@@ -264,6 +272,12 @@ export default function ChatConversationHeader({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <AttendanceActions
+              attendanceId={attendanceId}
+              attendanceState={attendanceState}
+              currentSectorId={attendanceSectorId}
+            />
+
             <button
               type="button"
               onClick={onToggleCustomerPanel}
@@ -279,8 +293,8 @@ export default function ChatConversationHeader({
               }
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition-all duration-200 ${
                 isCustomerPanelOpen
-                  ? "border-[#ff3d00]/25 bg-[#fff5f1] text-[#e93800]"
-                  : "border-black/10 bg-white text-black/55 hover:-translate-y-0.5 hover:border-[#ff3d00]/30 hover:bg-[#fff5f1] hover:text-[#e93800] hover:shadow-sm"
+                  ? "border-[#0A9090]/25 bg-[#F2FAFA] text-[#087B7B]"
+                  : "border-black/10 bg-white text-black/55 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
               }`}
             >
               <svg
@@ -312,7 +326,7 @@ export default function ChatConversationHeader({
               onClick={onOpenSearch}
               title="Pesquisar nesta conversa"
               aria-label="Pesquisar nesta conversa"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-black/55 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/30 hover:bg-[#fff5f1] hover:text-[#e93800] hover:shadow-sm"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-black/55 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
             >
               <SearchIcon />
             </button>

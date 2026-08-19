@@ -472,6 +472,32 @@ export default function FinanceiroOperacional() {
     setError("");
 
     try {
+      const authResponse =
+        await fetch(
+          "/api/auth/me",
+          {
+            cache: "no-store",
+          },
+        );
+
+      const authData =
+        await authResponse.json();
+
+      if (
+        !authResponse.ok ||
+        !authData?.authenticated ||
+        !authData?.user?.id
+      ) {
+        throw new Error(
+          "Sessão do usuário não identificada.",
+        );
+      }
+
+      const currentUserId =
+        String(
+          authData.user.id,
+        );
+
       const response =
         await fetch(
           `/api/payment-receipts/${receipt.id}`,
@@ -487,9 +513,9 @@ export default function FinanceiroOperacional() {
                 actorType:
                   "USER",
                 actorId:
-                  "julio",
+                  currentUserId,
                 responsibleId:
-                  "julio",
+                  currentUserId,
                 rejectionReason,
               }),
           },
@@ -511,6 +537,58 @@ export default function FinanceiroOperacional() {
         actionError instanceof Error
           ? actionError.message
           : "Erro ao atualizar o comprovante.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function deleteReceipt(
+    receipt: PaymentReceipt,
+  ) {
+    if (actionId) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `Excluir definitivamente o comprovante de ${getCustomerName(
+          receipt,
+        )}?`,
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setActionId(receipt.id);
+    setError("");
+
+    try {
+      const response =
+        await fetch(
+          `/api/payment-receipts/${receipt.id}`,
+          {
+            method: "DELETE",
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Não foi possível excluir o comprovante.",
+        );
+      }
+
+      await loadReceipts();
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Erro ao excluir o comprovante.",
       );
     } finally {
       setActionId(null);
@@ -649,7 +727,7 @@ export default function FinanceiroOperacional() {
                 )
               }
               placeholder="Buscar por cliente, código, banco ou pagamento"
-              className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 lg:max-w-md"
+              className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 lg:max-w-md"
             />
           </div>
 
@@ -686,7 +764,7 @@ export default function FinanceiroOperacional() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#e93800]">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#087B7B]">
                           {formatCustomerCode(
                             receipt
                               .customer
@@ -773,7 +851,7 @@ export default function FinanceiroOperacional() {
                           }
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                          className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                         >
                           Visualizar
                         </a>
@@ -785,7 +863,7 @@ export default function FinanceiroOperacional() {
                             .customer
                             .remoteJid,
                         )}&tab=arquivos`}
-                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                       >
                         Cliente 360°
                       </Link>
@@ -796,10 +874,26 @@ export default function FinanceiroOperacional() {
                             .customer
                             .remoteJid,
                         )}`}
-                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                       >
                         Conversa
                       </Link>
+
+                      <button
+                        type="button"
+                        disabled={actionId !== null}
+                        onClick={() =>
+                          void deleteReceipt(
+                            receipt,
+                          )
+                        }
+                        className="inline-flex h-9 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {actionId ===
+                        receipt.id
+                          ? "Processando..."
+                          : "Excluir"}
+                      </button>
                     </div>
 
                     {receipt.status !==
@@ -809,10 +903,7 @@ export default function FinanceiroOperacional() {
                           "RECEIVED" && (
                           <ActionButton
                             label="Iniciar análise"
-                            disabled={
-                              actionId !==
-                              null
-                            }
+                            disabled={actionId !== null}
                             onClick={() =>
                               void runAction(
                                 receipt,
@@ -822,56 +913,67 @@ export default function FinanceiroOperacional() {
                           />
                         )}
 
-                        <ActionButton
-                          label="Aprovar"
-                          disabled={
-                            actionId !==
-                            null
-                          }
-                          onClick={() =>
-                            void runAction(
-                              receipt,
-                              "APPROVE",
-                            )
-                          }
-                          success
-                        />
+                        {(receipt.status ===
+                          "RECEIVED" ||
+                          receipt.status ===
+                            "CLASSIFIED" ||
+                          receipt.status ===
+                            "UNDER_REVIEW") && (
+                          <ActionButton
+                            label="Aprovar"
+                            disabled={actionId !== null}
+                            onClick={() =>
+                              void runAction(
+                                receipt,
+                                "APPROVE",
+                              )
+                            }
+                            success
+                          />
+                        )}
 
-                        <ActionButton
-                          label="Rejeitar"
-                          disabled={
-                            actionId !==
-                            null
-                          }
-                          onClick={() =>
-                            void runAction(
-                              receipt,
-                              "REJECT",
-                            )
-                          }
-                          danger
-                        />
+                        {(receipt.status ===
+                          "RECEIVED" ||
+                          receipt.status ===
+                            "CLASSIFIED" ||
+                          receipt.status ===
+                            "UNDER_REVIEW") && (
+                          <ActionButton
+                            label="Rejeitar"
+                            disabled={actionId !== null}
+                            onClick={() =>
+                              void runAction(
+                                receipt,
+                                "REJECT",
+                              )
+                            }
+                            danger
+                          />
+                        )}
 
-                        <ActionButton
-                          label="Solicitar novo"
-                          disabled={
-                            actionId !==
-                            null
-                          }
-                          onClick={() =>
-                            void runAction(
-                              receipt,
-                              "AWAIT_NEW_RECEIPT",
-                            )
-                          }
-                        />
+                        {(receipt.status ===
+                          "RECEIVED" ||
+                          receipt.status ===
+                            "CLASSIFIED" ||
+                          receipt.status ===
+                            "UNDER_REVIEW" ||
+                          receipt.status ===
+                            "REJECTED") && (
+                          <ActionButton
+                            label="Solicitar novo"
+                            disabled={actionId !== null}
+                            onClick={() =>
+                              void runAction(
+                                receipt,
+                                "AWAIT_NEW_RECEIPT",
+                              )
+                            }
+                          />
+                        )}
 
                         <ActionButton
                           label="Finalizar"
-                          disabled={
-                            actionId !==
-                            null
-                          }
+                          disabled={actionId !== null}
                           onClick={() =>
                             void runAction(
                               receipt,
@@ -935,7 +1037,7 @@ function ActionButton({
           ? "bg-emerald-600 text-white hover:bg-emerald-700"
           : danger
             ? "bg-red-50 text-red-700 hover:bg-red-100"
-            : "border border-black/10 bg-white text-black/60 hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+            : "border border-black/10 bg-white text-black/60 hover:border-[#0A9090]/25 hover:text-[#087B7B]"
       }`}
     >
       {label}

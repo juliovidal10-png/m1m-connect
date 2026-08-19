@@ -4,14 +4,17 @@ import {
 } from "next/server";
 
 import {
-  getAuthenticatedCompanyId,
-} from "@/lib/tenant";
+  authorizationService,
+} from "@/services/auth/authorization.service";
 import {
   companyRepository,
 } from "@/repositories/company.repository";
 import {
   conversationSyncService,
 } from "@/services/conversation-sync.service";
+import {
+  messageReconciliationService,
+} from "@/services/message-reconciliation.service";
 
 function getErrorMessage(
   error: unknown,
@@ -26,8 +29,7 @@ export async function GET(
   request: NextRequest,
 ) {
   try {
-    const companyId =
-      await getAuthenticatedCompanyId();
+    const authenticatedUser =       await authorizationService.getCurrentUser();      const companyId =       authenticatedUser.companyId;
 
     const remoteJid =
       request.nextUrl.searchParams.get(
@@ -84,6 +86,33 @@ export async function GET(
         instanceName,
         companyId,
       );
+
+    try {
+      const reconciliation =
+        await messageReconciliationService
+          .reconcileReceiptMediaForConversation(
+            companyId,
+            instanceName,
+            remoteJid,
+          );
+
+      if (
+        reconciliation.candidates > 0
+      ) {
+        console.log(
+          "[M1M RECONCILIACAO] Conversa verificada:",
+          {
+            remoteJid,
+            ...reconciliation,
+          },
+        );
+      }
+    } catch (reconciliationError) {
+      console.warn(
+        "[M1M RECONCILIACAO] Falha nao bloqueante:",
+        reconciliationError,
+      );
+    }
 
     return NextResponse.json(
       messages,

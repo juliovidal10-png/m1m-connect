@@ -1,5 +1,5 @@
 # ===========================
-# Variáveis de ambiente
+# VariÃ¡veis de ambiente
 # ===========================
 .env
 .env.local
@@ -9,7 +9,7 @@
 .env.*.local
 
 # ===========================
-# Dependências
+# DependÃªncias
 # ===========================
 node_modules/
 **/node_modules/
@@ -42,7 +42,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ===========================
-# Arquivos temporários
+# Arquivos temporÃ¡rios
 # ===========================
 *.tmp
 *.temp
@@ -71,7 +71,7 @@ next-env.d.ts
 /src/generated/prisma
 
 # ===========================
-# Arquivos automáticos do Prisma
+# Arquivos automÃ¡ticos do Prisma
 # ===========================
 .agents/
 .claude/
@@ -86,3 +86,4 @@ skills-lock.json
 ChatInbox-atual.txt
 mensagens-teste.json
 src/components/chat/*-antes-*.tsx
+.env.production

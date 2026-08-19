@@ -133,7 +133,7 @@ export default function LoginPage() {
           <section className="hidden min-h-[640px] flex-col justify-between bg-[#171717] p-10 text-white lg:flex xl:p-12">
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#e93800] text-lg font-black">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#087B7B] text-lg font-black">
                   M
                 </div>
 
@@ -175,7 +175,7 @@ export default function LoginPage() {
             <div className="w-full max-w-md">
               <div className="lg:hidden">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#e93800] font-black text-white">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#087B7B] font-black text-white">
                     M
                   </div>
 
@@ -191,7 +191,7 @@ export default function LoginPage() {
               </div>
 
               <div className="mt-10 lg:mt-0">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#e93800]">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#087B7B]">
                   Acesso à plataforma
                 </p>
 
@@ -224,7 +224,7 @@ export default function LoginPage() {
                       setError(null);
                     }}
                     placeholder="seuemail@empresa.com.br"
-                    className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3.5 text-sm text-[#171717] outline-none transition placeholder:text-black/25 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                    className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3.5 text-sm text-[#171717] outline-none transition placeholder:text-black/25 focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
                   />
                 </label>
 
@@ -249,7 +249,7 @@ export default function LoginPage() {
                         setError(null);
                       }}
                       placeholder="Digite sua senha"
-                      className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3.5 pr-20 text-sm text-[#171717] outline-none transition placeholder:text-black/25 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100"
+                      className="w-full rounded-2xl border border-black/10 bg-[#fafafa] px-4 py-3.5 pr-20 text-sm text-[#171717] outline-none transition placeholder:text-black/25 focus:border-teal-400 focus:bg-white focus:ring-4 focus:ring-teal-100"
                     />
 
                     <button

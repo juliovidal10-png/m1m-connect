@@ -28,6 +28,18 @@ export const messageService = {
         );
       }
 
+      if (
+        data.authorType &&
+        !existingMessage.authorType
+      ) {
+        return messageRepository.setAuthorship(
+          existingMessage.id,
+          data.authorType,
+          data.authorId,
+          data.authorName,
+        );
+      }
+
       return existingMessage;
     }
 
@@ -93,6 +105,16 @@ export const messageService = {
     );
   },
 
+  async attachMessageToAttendance(
+    messageId: string,
+    attendanceId: string,
+  ) {
+    return messageRepository.attachMessageToAttendance(
+      messageId,
+      attendanceId,
+    );
+  },
+
   async listMessagesByAttendance(
     attendanceId: string,
   ) {
@@ -127,3 +149,4 @@ export const messageService = {
     );
   },
 };
+

@@ -1,4 +1,4 @@
-﻿export type SectorMenuItem = {
+export type SectorMenuItem = {
   id: string;
   name: string;
 };
@@ -9,18 +9,40 @@ function normalizeCompanyName(
   return companyName?.trim() || null;
 }
 
+function formatSectorNames(
+  sectors: SectorMenuItem[],
+) {
+  const names =
+    sectors
+      .map((sector) =>
+        sector.name.trim(),
+      )
+      .filter(Boolean);
+
+  if (names.length === 0) {
+    return null;
+  }
+
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} ou ${names[1]}`;
+  }
+
+  return `${names
+    .slice(0, -1)
+    .join(", ")} ou ${names[names.length - 1]}`;
+}
+
 export const sectorMenuService = {
   buildMessage(
     sectors: SectorMenuItem[],
     companyName?: string | null,
   ) {
     if (sectors.length === 0) {
-      return [
-        "Olá! Sua mensagem foi recebida.",
-        "",
-        "No momento, não há setores disponíveis para encaminhamento.",
-        "Nossa equipe dará continuidade ao atendimento assim que possível.",
-      ].join("\n");
+      return "Oi! Recebemos sua mensagem. Nossa equipe vai dar continuidade ao atendimento assim que possível.";
     }
 
     const normalizedCompanyName =
@@ -28,25 +50,19 @@ export const sectorMenuService = {
         companyName,
       );
 
+    const sectorNames =
+      formatSectorNames(
+        sectors,
+      );
+
     const greeting =
       normalizedCompanyName
-        ? `Olá! Você está falando com a ${normalizedCompanyName}.`
-        : "Olá! Seja bem-vindo(a).";
-
-    const options =
-      sectors.map(
-        (sector, index) =>
-          `${index + 1} - ${sector.name}`,
-      );
+        ? `Oi! Você está falando com a ${normalizedCompanyName}.`
+        : "Oi!";
 
     return [
       greeting,
-      "",
-      "Para direcionar seu atendimento, escolha uma opção:",
-      "",
-      ...options,
-      "",
-      "Responda com o número ou com o nome do setor desejado.",
-    ].join("\n");
+      `Como podemos ajudar? Você precisa falar sobre ${sectorNames}?`,
+    ].join(" ");
   },
 };

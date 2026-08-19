@@ -3,6 +3,9 @@ import {
   NextResponse,
 } from "next/server";
 
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+
 import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
@@ -46,6 +49,9 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    await authorizationService.requirePermission(
+      M1MUserPermission.ASSUME_ATTENDANCE,
+    );
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
         {
@@ -258,3 +264,5 @@ export async function POST(
     );
   }
 }
+
+

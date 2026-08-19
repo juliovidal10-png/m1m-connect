@@ -10,10 +10,15 @@ import {
   isIP,
 } from "node:net";
 
+import {
+  getAuthenticatedCompanyId,
+} from "@/lib/tenant";
+
 export const runtime = "nodejs";
 
 const REQUEST_TIMEOUT_MS = 7000;
 const MAX_HTML_BYTES = 1_500_000;
+const MAX_REDIRECTS = 5;
 
 function decodeHtml(value: string) {
   return value
@@ -204,9 +209,100 @@ function resolveUrl(
   }
 }
 
+async function fetchPublicHtml(
+  initialUrl: URL,
+  signal: AbortSignal,
+) {
+  let currentUrl =
+    initialUrl;
+
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_REDIRECTS;
+    redirectCount += 1
+  ) {
+    await assertPublicUrl(
+      currentUrl,
+    );
+
+    const response =
+      await fetch(
+        currentUrl,
+        {
+          method: "GET",
+          redirect: "manual",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (compatible; M1MConnectPreview/1.0)",
+            Accept:
+              "text/html,application/xhtml+xml",
+          },
+          signal,
+          cache:
+            "force-cache",
+          next: {
+            revalidate: 3600,
+          },
+        },
+      );
+
+    if (
+      response.status >= 300 &&
+      response.status < 400
+    ) {
+      const location =
+        response.headers.get(
+          "location",
+        );
+
+      if (!location) {
+        return response;
+      }
+
+      if (
+        redirectCount >=
+        MAX_REDIRECTS
+      ) {
+        throw new Error(
+          "Limite de redirecionamentos excedido.",
+        );
+      }
+
+      currentUrl =
+        new URL(
+          location,
+          currentUrl,
+        );
+
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new Error(
+    "Redirecionamento inválido.",
+  );
+}
+
 export async function GET(
   request: NextRequest,
 ) {
+  try {
+    await getAuthenticatedCompanyId();
+  } catch {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Não autorizado.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
   const rawUrl =
     request.nextUrl.searchParams.get(
       "url",
@@ -258,26 +354,11 @@ export async function GET(
     );
 
   try {
-    const response = await fetch(
-      targetUrl,
-      {
-        method: "GET",
-        redirect: "follow",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; M1MConnectPreview/1.0)",
-          Accept:
-            "text/html,application/xhtml+xml",
-        },
-        signal:
-          controller.signal,
-        cache:
-          "force-cache",
-        next: {
-          revalidate: 3600,
-        },
-      },
-    );
+    const response =
+      await fetchPublicHtml(
+        targetUrl,
+        controller.signal,
+      );
 
     if (!response.ok) {
       return NextResponse.json(
@@ -289,6 +370,16 @@ export async function GET(
         },
       );
     }
+
+    const finalUrl =
+      new URL(
+        response.url ||
+          targetUrl.toString(),
+      );
+
+    await assertPublicUrl(
+      finalUrl,
+    );
 
     const contentType =
       response.headers.get(
@@ -335,12 +426,6 @@ export async function GET(
       (await response.text()).slice(
         0,
         MAX_HTML_BYTES,
-      );
-
-    const finalUrl =
-      new URL(
-        response.url ||
-          targetUrl.toString(),
       );
 
     const title =
@@ -404,7 +489,7 @@ export async function GET(
       {
         headers: {
           "Cache-Control":
-            "public, max-age=3600, stale-while-revalidate=86400",
+            "private, max-age=3600",
         },
       },
     );

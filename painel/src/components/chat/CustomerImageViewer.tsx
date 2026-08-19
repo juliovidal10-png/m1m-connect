@@ -33,7 +33,7 @@ export default function CustomerImageViewer({
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 p-6">
         <div className="rounded-2xl bg-white px-6 py-5 text-center shadow-2xl">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-black/10 border-t-[#ff3d00]" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-black/10 border-t-[#0A9090]" />
 
           <p className="mt-4 text-sm font-semibold text-black/70">
             Carregando imagem...
@@ -75,7 +75,7 @@ export default function CustomerImageViewer({
           <button
             type="button"
             onClick={onClose}
-            className="mt-5 h-11 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:opacity-90"
+            className="mt-5 h-11 w-full rounded-xl bg-[#0A9090] text-sm font-semibold text-white transition hover:opacity-90"
           >
             Fechar
           </button>

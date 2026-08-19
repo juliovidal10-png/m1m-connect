@@ -145,7 +145,7 @@ export default function ConnectWhatsAppModal({
               placeholder="Ex.: Financeiro"
               autoFocus
               disabled={isLoading}
-              className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10 disabled:cursor-not-allowed disabled:bg-black/[0.03]"
+              className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 disabled:cursor-not-allowed disabled:bg-black/[0.03]"
             />
 
             <p className="mt-2 text-xs text-black/40">
@@ -171,7 +171,7 @@ export default function ConnectWhatsAppModal({
               <button
                 type="submit"
                 disabled={!connectionName.trim() || isLoading}
-                className="rounded-xl bg-[#ff3d00] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-[#0A9090] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isLoading ? "Criando..." : "Criar conexão"}
               </button>

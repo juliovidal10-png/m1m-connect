@@ -11,6 +11,9 @@ type CustomerActionsProps = {
   customerId?: string | null;
   remoteJid?: string | null;
 
+  canAssumeAttendance: boolean;
+  canEditCrm: boolean;
+
   onAssign: () => void;
   onSave: () => void;
 };
@@ -64,60 +67,63 @@ export default function CustomerActions({
   isLoadingCustomer,
   customerId,
   remoteJid,
+  canAssumeAttendance,
+  canEditCrm,
   onAssign,
   onSave,
 }: CustomerActionsProps) {
-  const isHuman =
-    attendanceStatus === "HUMANO";
+  const isHuman = attendanceStatus === "HUMANO";
+
+  if (!canAssumeAttendance && !canEditCrm) {
+    return null;
+  }
 
   return (
     <footer className="border-t border-black/5 bg-white p-4">
       <div className="space-y-3">
-        <button
-          type="button"
-          onClick={onAssign}
-          disabled={
-            isAssigning ||
-            isLoadingCustomer ||
-            !customerId ||
-            isHuman
-          }
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {!isAssigning && (
-            <AssumeIcon />
-          )}
+        {canAssumeAttendance && (
+          <button
+            type="button"
+            onClick={onAssign}
+            disabled={
+              isAssigning ||
+              isLoadingCustomer ||
+              !customerId
+            }
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-50 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {!isAssigning && <AssumeIcon />}
 
-          <span>
-            {isAssigning
-              ? "Assumindo atendimento..."
-              : isHuman
-                ? "Atendimento assumido"
+            <span>
+              {isAssigning
+                ? "Assumindo atendimento..."
                 : "Assumir atendimento"}
-          </span>
-        </button>
+            </span>
+          </button>
+        )}
 
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={
-            isSaving ||
-            isLoadingCustomer ||
-            !remoteJid
-          }
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:bg-[#e93800] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {!isSaving && (
-            <SaveIcon />
-          )}
+        {canEditCrm && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={
+              isSaving ||
+              isLoadingCustomer ||
+              !remoteJid
+            }
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#0A9090] text-sm font-semibold text-white transition hover:bg-[#087B7B] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {!isSaving && <SaveIcon />}
 
-          <span>
-            {isSaving
-              ? "Salvando..."
-              : "Salvar alterações"}
-          </span>
-        </button>
+            <span>
+              {isSaving
+                ? "Salvando..."
+                : "Salvar alterações"}
+            </span>
+          </button>
+        )}
       </div>
     </footer>
   );
 }
+

@@ -4,9 +4,25 @@ import {
 } from "next/server";
 
 import {
+  M1MUserPermission,
+} from "@/generated/prisma/enums";
+
+import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
+import {
+  AuthorizationError,
+  authorizationService,
+} from "@/services/auth/authorization.service";
 import { companyScheduleService } from "@/services/company-schedule.service";
+
+function getErrorStatus(
+  error: unknown,
+) {
+  return error instanceof AuthorizationError
+    ? error.statusCode
+    : 500;
+}
 
 function getErrorMessage(
   error: unknown,
@@ -44,7 +60,7 @@ export async function GET() {
         ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }
@@ -54,8 +70,13 @@ export async function PUT(
   request: NextRequest,
 ) {
   try {
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.MANAGE_HOURS,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
 
     const body =
       await request.json();
@@ -83,7 +104,7 @@ export async function PUT(
         ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }

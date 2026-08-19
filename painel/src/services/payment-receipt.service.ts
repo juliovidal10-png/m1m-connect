@@ -15,6 +15,9 @@ import {
   type UpdatePaymentReceiptData,
 } from "@/repositories/payment-receipt.repository";
 import {
+  automaticMessageService,
+} from "@/services/automatic-message.service";
+import {
   identityResolverService,
 } from "@/services/identity-resolver.service";
 
@@ -56,7 +59,7 @@ function requireText(
 
   if (!normalizedValue) {
     throw new Error(
-      `${fieldName} Ã© obrigatÃ³rio.`,
+      `${fieldName} é obrigatório.`,
     );
   }
 
@@ -88,7 +91,7 @@ async function requireCompany(
 
   if (!company) {
     throw new Error(
-      "Empresa nÃ£o encontrada.",
+      "Empresa não encontrada.",
     );
   }
 
@@ -147,7 +150,7 @@ async function requireReceipt(
 
   if (!receipt) {
     throw new Error(
-      "Comprovante nÃ£o encontrado.",
+      "Comprovante não encontrado.",
     );
   }
 
@@ -166,7 +169,7 @@ function ensureNotFinished(
     M1MPaymentReceiptStatus.FINISHED
   ) {
     throw new Error(
-      "O comprovante jÃ¡ foi finalizado.",
+      "O comprovante já foi finalizado.",
     );
   }
 }
@@ -191,7 +194,7 @@ async function updateWithEvent(
 
   if (!updatedReceipt) {
     throw new Error(
-      "Comprovante nÃ£o encontrado.",
+      "Comprovante não encontrado.",
     );
   }
 
@@ -236,6 +239,40 @@ export const paymentReceiptService = {
       if (existingReceipt) {
         return existingReceipt;
       }
+    }
+
+    const awaitingReceipts =
+      await paymentReceiptRepository.listByCompany(
+        normalizedCompanyId,
+        M1MPaymentReceiptStatus.AWAITING_NEW_RECEIPT,
+        customerId,
+      );
+
+    for (const awaitingReceipt of awaitingReceipts) {
+      await updateWithEvent(
+        normalizedCompanyId,
+        awaitingReceipt.id,
+        {
+          status:
+            M1MPaymentReceiptStatus.FINISHED,
+          finishedAt:
+            new Date(),
+        },
+        {
+          type:
+            M1MPaymentReceiptEventType.FINISHED,
+          actorType:
+            M1MAttendanceActorType.SYSTEM,
+          actorId:
+            null,
+          metadata: {
+            reason:
+              "REPLACED_BY_NEW_RECEIPT",
+            replacementMessageId:
+              input.messageId ?? null,
+          },
+        },
+      );
     }
 
     const receipt =
@@ -483,7 +520,7 @@ export const paymentReceiptService = {
     const normalizedResponsibleId =
       requireText(
         responsibleId,
-        "ResponsÃ¡vel",
+        "Responsável",
       );
 
     if (
@@ -644,22 +681,79 @@ export const paymentReceiptService = {
       receipt.status,
     );
 
-    return updateWithEvent(
-      normalizedCompanyId,
-      receipt.id,
-      {
-        status:
-          M1MPaymentReceiptStatus.AWAITING_NEW_RECEIPT,
+    const {
+      instanceName,
+    } =
+      await requireCompanyInstanceName(
+        normalizedCompanyId,
+      );
+
+    const remoteJid =
+      requireText(
+        receipt.customer?.remoteJid,
+        "WhatsApp do cliente",
+      );
+
+    const messageText =
+      "Olá! Precisamos de um novo comprovante de pagamento para dar continuidade à conferência. Por favor, envie o novo comprovante por aqui.";
+
+    await automaticMessageService.sendText({
+      companyId:
+        normalizedCompanyId,
+      customerId:
+        receipt.customerId,
+      attendanceId:
+        receipt.attendanceId ?? null,
+      instanceName,
+      remoteJid,
+      text:
+        messageText,
+    });
+
+    const updatedReceipt =
+      await updateWithEvent(
+        normalizedCompanyId,
+        receipt.id,
+        {
+          status:
+            M1MPaymentReceiptStatus.AWAITING_NEW_RECEIPT,
+          customerNotifiedAt:
+            new Date(),
+        },
+        {
+          type:
+            M1MPaymentReceiptEventType.AWAITING_NEW_RECEIPT,
+          actorType:
+            actor.actorType,
+          actorId:
+            actor.actorId ?? null,
+          metadata: {
+            notificationSent:
+              true,
+            notificationText:
+              messageText,
+          },
+        },
+      );
+
+    await paymentReceiptRepository.createEvent({
+      receiptId:
+        receipt.id,
+      type:
+        M1MPaymentReceiptEventType.CUSTOMER_NOTIFIED,
+      actorType:
+        actor.actorType,
+      actorId:
+        actor.actorId ?? null,
+      metadata: {
+        channel:
+          "WHATSAPP",
+        text:
+          messageText,
       },
-      {
-        type:
-          M1MPaymentReceiptEventType.AWAITING_NEW_RECEIPT,
-        actorType:
-          actor.actorType,
-        actorId:
-          actor.actorId ?? null,
-      },
-    );
+    });
+
+    return updatedReceipt;
   },
 
   async markCustomerNotified(

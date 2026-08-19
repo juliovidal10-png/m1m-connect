@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { M1MUserPermission } from "@/generated/prisma/enums";
+import { authorizationService } from "@/services/auth/authorization.service";
+
 import {
   openAIProviderService,
 } from "@/core/ai/openai-provider.service";
@@ -7,7 +10,25 @@ import {
 export const runtime = "nodejs";
 
 export async function POST() {
+  if (
+    process.env.NODE_ENV ===
+    "production"
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Rota técnica indisponível em produção.",
+      },
+      {
+        status: 404,
+      },
+    );
+  }
+
   try {
+    await authorizationService.requirePermission(
+      M1MUserPermission.MANAGE_AI,
+    );
     const result =
       await openAIProviderService.generateResponse({
         systemPrompt: [
@@ -53,3 +74,5 @@ export async function POST() {
     );
   }
 }
+
+

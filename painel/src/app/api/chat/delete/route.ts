@@ -4,8 +4,16 @@ import {
 } from "next/server";
 
 import {
+  M1MUserPermission,
+} from "@/generated/prisma/enums";
+
+import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
+import {
+  AuthorizationError,
+  authorizationService,
+} from "@/services/auth/authorization.service";
 import {
   prisma,
 } from "@/lib/prisma";
@@ -62,14 +70,19 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "ConfiguraÁ„o da Evolution API n„o encontrada.",
+            "Configura√ß√£o da Evolution API n√£o encontrada.",
         },
         { status: 500 },
       );
     }
 
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.DELETE_MESSAGES,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
 
     const company =
       await prisma.m1MCompany.findUnique({
@@ -88,7 +101,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "A empresa n„o possui WhatsApp configurado.",
+            "A empresa n√£o possui WhatsApp configurado.",
         },
         { status: 400 },
       );
@@ -103,7 +116,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "Os dados da mensagem s„o inv·lidos.",
+            "Os dados da mensagem s√£o inv√°lidos.",
         },
         { status: 400 },
       );
@@ -132,7 +145,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "O identificador real da mensagem no WhatsApp È obrigatÛrio.",
+            "O identificador real da mensagem no WhatsApp √© obrigat√≥rio.",
         },
         { status: 400 },
       );
@@ -142,7 +155,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "A conversa da mensagem n„o foi identificada.",
+            "A conversa da mensagem n√£o foi identificada.",
         },
         { status: 400 },
       );
@@ -198,7 +211,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error:
-            "N„o foi possÌvel apagar a mensagem para o cliente.",
+            "N√£o foi poss√≠vel apagar a mensagem para o cliente.",
           evolutionStatus:
             response.status,
           details:
@@ -235,7 +248,7 @@ export async function DELETE(
             ? error.message
             : "Erro interno ao apagar mensagem.",
       },
-      { status: 500 },
+      { status: error instanceof AuthorizationError ? error.statusCode : 500 },
     );
   }
 }

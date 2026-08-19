@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -41,12 +42,9 @@ type CustomerPanelProps = {
 };
 
 type CustomerTab =
-  | "dados"
-  | "timeline"
-  | "notas"
-  | "lembretes"
+  | "cliente"
+  | "atividades"
   | "arquivos";
-
 type IconName =
   | "user"
   | "folder"
@@ -143,15 +141,196 @@ export default function CustomerPanel({
   lastInteraction,
   messages = [],
   conversationHref,
-  initialTab = "dados",
+  initialTab = "cliente",
 }: CustomerPanelProps) {
-  const [activeTab, setActiveTab] =
-    useState<CustomerTab>("dados");
+  const [effectivePermissions, setEffectivePermissions] =
+    useState<string[]>([]);
 
   const [
-    isEditingCustomer,
-    setIsEditingCustomer,
+    persistedMessages,
+    setPersistedMessages,
+  ] = useState<ChatMessage[]>([]);
+
+  const [
+    isLoadingPersistedMessages,
+    setIsLoadingPersistedMessages,
   ] = useState(false);
+
+  const [
+    persistedMessagesError,
+    setPersistedMessagesError,
+  ] = useState("");
+
+  const effectiveMessages = useMemo(() => {
+    const messageMap =
+      new Map<string, ChatMessage>();
+
+    for (const message of persistedMessages) {
+      const messageKey =
+        message.key?.id ||
+        message.id;
+
+      messageMap.set(
+        messageKey,
+        message,
+      );
+    }
+
+    return Array.from(
+      messageMap.values(),
+    ).sort(
+      (firstMessage, secondMessage) =>
+        Number(
+          firstMessage.messageTimestamp,
+        ) -
+        Number(
+          secondMessage.messageTimestamp,
+        ),
+    );
+  }, [
+    persistedMessages,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || !remoteJid) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadPersistedMessages() {
+      setIsLoadingPersistedMessages(true);
+      setPersistedMessagesError("");
+
+      try {
+        const response = await fetch(
+          `/api/customer-center/media?remoteJid=${encodeURIComponent(remoteJid)}&phone=${encodeURIComponent(phone)}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
+
+        const contentType =
+          response.headers.get("content-type") ?? "";
+
+        if (
+          !contentType.includes(
+            "application/json",
+          )
+        ) {
+          throw new Error(
+            "A rota de mensagens retornou uma resposta invalida.",
+          );
+        }
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ||
+              "Nao foi possivel carregar as mensagens do cliente.",
+          );
+        }
+
+        setPersistedMessages(
+          Array.isArray(data)
+            ? (data as ChatMessage[])
+            : [],
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Erro ao carregar mensagens no Cliente 360:",
+          error,
+        );
+
+        setPersistedMessages([]);
+
+        setPersistedMessagesError(
+          error instanceof Error
+            ? error.message
+            : "Nao foi possivel carregar os arquivos da Central do Cliente.",
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingPersistedMessages(false);
+        }
+      }
+    }
+
+    void loadPersistedMessages();
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    isOpen,
+    remoteJid,
+  ]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadEffectivePermissions() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Não foi possível carregar as permissões.",
+          );
+        }
+
+        setEffectivePermissions(
+          Array.isArray(data?.user?.effectivePermissions)
+            ? data.user.effectivePermissions
+            : Array.isArray(data?.effectivePermissions)
+              ? data.effectivePermissions
+              : [],
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Erro ao carregar permissões do painel do cliente:",
+          error,
+        );
+        setEffectivePermissions([]);
+      }
+    }
+
+    void loadEffectivePermissions();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  const canAssumeAttendance =
+    effectivePermissions.includes("ASSUME_ATTENDANCE");
+
+  const canEditCrm =
+    effectivePermissions.includes("EDIT_CRM");
+  const [activeTab, setActiveTab] =
+    useState<CustomerTab>("cliente");
 
   const [
     selectedReceiptId,
@@ -164,7 +343,6 @@ export default function CustomerPanel({
     }
 
     setActiveTab(initialTab);
-    setIsEditingCustomer(false);
   }, [
     isOpen,
     initialTab,
@@ -179,6 +357,8 @@ export default function CustomerPanel({
     setCity,
     responsible,
     setResponsible,
+    responsibleId,
+    setResponsibleId,
     attendanceStatus,
     notes,
     setNotes,
@@ -245,7 +425,7 @@ export default function CustomerPanel({
     hasOpenViewer,
   } = useCustomerMedia({
     isOpen,
-    messages,
+    messages: effectiveMessages,
   });
 
   const {
@@ -267,7 +447,7 @@ export default function CustomerPanel({
   } = useCustomerTimeline({
     isOpen:
       isOpen &&
-      activeTab === "timeline",
+      activeTab === "atividades",
     customerId,
   });
 
@@ -314,37 +494,23 @@ export default function CustomerPanel({
     icon: IconName;
   }> = [
     {
-      id: "dados",
-      label: "Dados",
+      id: "cliente",
+      label: "Cliente",
       icon: "user",
     },
     {
-      id: "lembretes",
-      label: "Pendências",
-      icon: "calendar",
-    },
-    {
-      id: "arquivos",
-      label: "Documentos",
-      icon: "folder",
-    },
-    {
-      id: "timeline",
-      label: "Timeline",
+      id: "atividades",
+      label: "Atividades",
       icon: "activity",
     },
     {
-      id: "notas",
-      label: "Observações",
-      icon: "note",
+      id: "arquivos",
+      label: "Arquivos",
+      icon: "folder",
     },
   ];
-
   const shouldShowCustomerFooter =
-    activeTab === "notas" ||
-    (activeTab === "dados" &&
-      isEditingCustomer);
-
+    activeTab === "cliente";
   return (
     <>
       {!selectedReceiptId && (
@@ -360,7 +526,7 @@ export default function CustomerPanel({
           <header className="shrink-0 border-b border-black/5 bg-white">
             <div className="flex h-20 items-center justify-between px-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#e93800]">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#087B7B]">
                   Cliente 360°
                 </p>
 
@@ -373,7 +539,7 @@ export default function CustomerPanel({
                 {conversationHref && (
                   <Link
                     href={conversationHref}
-                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#ff3d00]/20 bg-white px-3 text-xs font-bold text-[#e93800] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/35 hover:bg-[#fff5f1] hover:shadow-sm"
+                    className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#0A9090]/20 bg-white px-3 text-xs font-bold text-[#087B7B] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0A9090]/35 hover:bg-[#F2FAFA] hover:shadow-sm"
                   >
                     <AppIcon
                       name="message"
@@ -388,7 +554,7 @@ export default function CustomerPanel({
                   onClick={onClose}
                   aria-label="Fechar painel"
                   title="Fechar"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl leading-none text-black/45 transition-all duration-200 hover:border-[#ff3d00]/25 hover:bg-[#fff5f1] hover:text-[#e93800]"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 text-xl leading-none text-black/45 transition-all duration-200 hover:border-[#0A9090]/25 hover:bg-[#F2FAFA] hover:text-[#087B7B]"
                 >
                   ×
                 </button>
@@ -406,13 +572,12 @@ export default function CustomerPanel({
                     type="button"
                     onClick={() => {
                       setActiveTab(tab.id);
-                      setIsEditingCustomer(false);
                       clearFeedback();
                     }}
                     className={`relative flex min-w-fit flex-1 items-center justify-center gap-1.5 px-2 py-3 text-[11px] font-semibold transition-colors duration-200 ${
                       isActive
-                        ? "text-[#e93800]"
-                        : "text-black/40 hover:text-[#e93800]"
+                        ? "text-[#087B7B]"
+                        : "text-black/40 hover:text-[#087B7B]"
                     }`}
                   >
                     <AppIcon
@@ -422,25 +587,22 @@ export default function CustomerPanel({
 
                     {tab.label}
 
-                    {tab.id === "lembretes" &&
+                    {tab.id === "atividades" &&
                       reminders.length > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ff3d00] px-1 text-[9px] font-bold text-white">
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1 text-[9px] font-bold text-white">
                           {reminders.length}
                         </span>
                       )}
 
                     {tab.id === "arquivos" &&
-                      mediaMessages.length +
-                        receipts.length >
-                        0 && (
+                      mediaMessages.length > 0 && (
                         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-black/[0.07] px-1 text-[9px] font-bold text-black/55">
-                          {mediaMessages.length +
-                            receipts.length}
+                          {mediaMessages.length}
                         </span>
                       )}
 
                     {isActive && (
-                      <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#ff3d00]" />
+                      <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#0A9090]" />
                     )}
                   </button>
                 );
@@ -464,8 +626,7 @@ export default function CustomerPanel({
                 lastInteraction={lastInteraction}
                 remindersCount={reminders.length}
                 documentsCount={
-                  mediaMessages.length +
-                  receipts.length
+                  mediaMessages.length
                 }
                 onOpenDocuments={() =>
                   setActiveTab("arquivos")
@@ -491,111 +652,78 @@ export default function CustomerPanel({
               </div>
             )}
 
-            {activeTab === "dados" && (
+                        {activeTab === "cliente" && (
+              <div className="px-6 pt-6">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#087B7B]">
+                  Dados do cliente
+                </p>
+              </div>
+            )}
+{activeTab === "cliente" && (
               <div className="p-6">
-                {!isEditingCustomer ? (
-                  <section className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-black/35">
-                          Cadastro
-                        </p>
+                <CustomerInformation
+                  company={company}
+                  city={city}
+                  responsible={responsible}
+                  responsibleId={responsibleId}
+                  phone={phone}
+                  attendanceStatus={
+                    attendanceStatus === "HUMANO"
+                      ? "HUMANO"
+                      : "IA"
+                  }
+                  lastInteraction={lastInteraction}
+                  isLoading={isLoadingCustomer || !canEditCrm}
+                  onCompanyChange={setCompany}
+                  onCityChange={setCity}
+                  onResponsibleChange={(responsibleName, userId) => {
+                    setResponsible(responsibleName);
+                    setResponsibleId(userId);
+                  }}
+                />
+              </div>
+            )}
 
-                        <h3 className="mt-1 text-base font-bold text-[#171717]">
-                          Dados do cliente
-                        </h3>
-
-                        <p className="mt-1 max-w-xl text-sm leading-6 text-black/45">
-                          As informações principais já aparecem no resumo acima. Edite somente quando precisar atualizar o cadastro.
-                        </p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingCustomer(true);
-                          clearFeedback();
-                        }}
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white px-4 text-xs font-bold text-black/60 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/30 hover:bg-[#fff5f1] hover:text-[#e93800] hover:shadow-sm"
-                      >
-                        Editar cadastro
-                      </button>
-                    </div>
-                  </section>
+                        {activeTab === "cliente" && (
+              <div className="px-6 pt-2">
+                <div className="border-t border-black/5 pt-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/35">
+                    Observações internas
+                  </p>
+                  <p className="mt-1 text-xs text-black/40">
+                    Notas livres sobre o cliente, sem prazo ou obrigação de ação.
+                  </p>
+                </div>
+              </div>
+            )}
+{activeTab === "cliente" && (
+              <div className="p-6">
+                {canEditCrm ? (
+                  <CustomerNotes
+                    value={notes}
+                    isSaving={isSaving}
+                    onChange={setNotes}
+                    onSave={handleSaveCustomer}
+                  />
                 ) : (
-                  <div>
-                    <div className="mb-5 flex items-center justify-between gap-4">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#e93800]">
-                          Edição
-                        </p>
-
-                        <h3 className="mt-1 text-base font-bold text-[#171717]">
-                          Atualizar cadastro
-                        </h3>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsEditingCustomer(false);
-                          clearFeedback();
-                        }}
-                        className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/50 transition hover:border-black/20 hover:text-black/75"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-
-                    <CustomerInformation
-                      company={company}
-                      city={city}
-                      responsible={responsible}
-                      phone={phone}
-                      attendanceStatus={
-                        attendanceStatus === "HUMANO"
-                          ? "HUMANO"
-                          : "IA"
-                      }
-                      lastInteraction={lastInteraction}
-                      isLoading={isLoadingCustomer}
-                      onCompanyChange={setCompany}
-                      onCityChange={setCity}
-                      onResponsibleChange={setResponsible}
-                    />
+                  <div className="rounded-xl border border-black/10 bg-black/[0.025] p-4 text-sm text-black/50">
+                    Você não possui permissão para editar o CRM deste cliente.
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === "timeline" && (
-              <div className="p-6">
-                <CustomerTimeline
-                  items={timelineItems}
-                  total={timelineTotal}
-                  isLoading={
-                    isLoadingTimeline
-                  }
-                  error={timelineError}
-                  onReload={() =>
-                    void reloadTimeline()
-                  }
-                />
+                        {activeTab === "atividades" && (
+              <div className="px-6 pt-6">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#087B7B]">
+                  Pendências ativas
+                </p>
+                <p className="mt-1 text-xs text-black/40">
+                  O que ainda precisa de ação neste atendimento.
+                </p>
               </div>
             )}
-
-            {activeTab === "notas" && (
-              <div className="p-6">
-                <CustomerNotes
-                  value={notes}
-                  isSaving={isSaving}
-                  onChange={setNotes}
-                  onSave={handleSaveCustomer}
-                />
-              </div>
-            )}
-
-            {activeTab === "lembretes" && (
+{activeTab === "atividades" && (
               <div className="p-6">
                 <CustomerReminders
                   reminders={reminders}
@@ -636,8 +764,52 @@ export default function CustomerPanel({
               </div>
             )}
 
+                        {activeTab === "atividades" && (
+              <div className="px-6 pt-2">
+                <div className="border-t border-black/5 pt-6">
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/35">
+                    Histórico
+                  </p>
+                  <p className="mt-1 text-xs text-black/40">
+                    Linha do tempo completa das interações com o cliente.
+                  </p>
+                </div>
+              </div>
+            )}
+{activeTab === "atividades" && (
+              <div className="p-6">
+                <CustomerTimeline
+                  items={timelineItems}
+                  total={timelineTotal}
+                  isLoading={
+                    isLoadingTimeline
+                  }
+                  error={timelineError}
+                  onReload={() =>
+                    void reloadTimeline()
+                  }
+                  conversationHref={
+                    conversationHref
+                  }
+                />
+              </div>
+            )}
+
             {activeTab === "arquivos" && (
-              <CustomerFiles
+              <>
+                {isLoadingPersistedMessages && (
+                  <div className="border-b border-black/5 px-6 py-3 text-xs font-medium text-black/40">
+                    Carregando arquivos da Central do Cliente...
+                  </div>
+                )}
+
+                {persistedMessagesError && (
+                  <div className="mx-6 mt-5 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                    {persistedMessagesError}
+                  </div>
+                )}
+
+                <CustomerFiles
                 mediaMessages={mediaMessages}
                 mediaCards={mediaCards}
                 activeMediaFilter={
@@ -686,6 +858,7 @@ export default function CustomerPanel({
                   setSelectedReceiptId
                 }
               />
+              </>
             )}
           </div>
 
@@ -704,6 +877,8 @@ export default function CustomerPanel({
               }
               customerId={customerId}
               remoteJid={remoteJid}
+              canAssumeAttendance={canAssumeAttendance}
+              canEditCrm={canEditCrm}
               onAssign={
                 handleAssignResponsible
               }
@@ -764,3 +939,4 @@ export default function CustomerPanel({
     </>
   );
 }
+

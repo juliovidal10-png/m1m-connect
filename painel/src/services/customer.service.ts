@@ -11,6 +11,7 @@ export type SaveCustomerInput = {
   company?: string | null;
   city?: string | null;
   responsible?: string | null;
+  responsibleId?: string | null;
   observations?: string | null;
   status?: string | null;
 };
@@ -185,6 +186,8 @@ export const customerService = {
       city: input.city,
       responsible:
         input.responsible,
+      responsibleId:
+        input.responsibleId,
       observations:
         input.observations,
       status:

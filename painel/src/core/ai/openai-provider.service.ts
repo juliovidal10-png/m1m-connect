@@ -77,7 +77,7 @@ export const openAIProviderService = {
         reasoning: {
           effort: "minimal",
         },
-        max_output_tokens: 1000,
+        max_output_tokens: 300,
       });
 
     const text =

@@ -32,3 +32,213 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* =========================================================
+   M1M GLOBAL CARD HOVER
+   Identidade visual: turquesa #0A9090
+   Aplicado somente a cards interativos.
+   ========================================================= */
+
+:where(
+  a,
+  button,
+  [role="button"],
+  [data-card-interactive="true"]
+).m1m-card-hover {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+:where(
+  a,
+  button,
+  [role="button"],
+  [data-card-interactive="true"]
+).m1m-card-hover:hover {
+  border-color: rgba(10, 144, 144, 0.48) !important;
+  box-shadow: 0 8px 22px rgba(10, 144, 144, 0.08);
+}
+
+.m1m-card-hover:hover .m1m-card-icon {
+  background: #ecf8f8 !important;
+  color: #0a9090 !important;
+}
+
+.m1m-card-hover:hover .m1m-card-icon svg,
+.m1m-card-hover:hover .m1m-card-icon svg * {
+  color: #0a9090 !important;
+  stroke: currentColor;
+}
+
+.m1m-card-hover:hover .m1m-card-title,
+.m1m-card-hover:hover .m1m-card-action {
+  color: #087b7b !important;
+}
+
+/* Fallback seguro para cards interativos existentes que usam group/cursor-pointer.
+   Nao altera paineis estaticos, alertas ou containers comuns. */
+main :where(a, button):not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover,
+main [role="button"]:not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover,
+main [class*="cursor-pointer"]:not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover {
+  border-color: rgba(10, 144, 144, 0.48) !important;
+  box-shadow: 0 8px 22px rgba(10, 144, 144, 0.08);
+}
+
+main :where(a, button):not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover svg,
+main [role="button"]:not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover svg,
+main [class*="cursor-pointer"]:not(.m1m-no-global-hover)[class*="rounded-2xl"][class*="border"][class*="bg-white"]:hover svg {
+  color: #0a9090 !important;
+}
+
+/* =========================================================
+   M1M OVERDUE DANGER PERMANENT
+   Alertas de itens atrasados permanecem vermelhos inclusive
+   durante hover. Aplicavel ao Dashboard e Agenda Operacional.
+   ========================================================= */
+
+.m1m-overdue-danger {
+  border-color: #fecaca !important;
+}
+
+.m1m-overdue-danger,
+.m1m-overdue-danger:hover {
+  border-color: #fecaca !important;
+}
+
+.m1m-overdue-danger:hover {
+  box-shadow: 0 8px 22px rgba(220, 38, 38, 0.08) !important;
+}
+
+.m1m-overdue-danger .m1m-card-icon,
+.m1m-overdue-danger:hover .m1m-card-icon {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+.m1m-overdue-danger svg,
+.m1m-overdue-danger svg *,
+.m1m-overdue-danger:hover svg,
+.m1m-overdue-danger:hover svg * {
+  color: #dc2626 !important;
+  stroke: currentColor;
+}
+
+.m1m-overdue-danger .m1m-card-action,
+.m1m-overdue-danger:hover .m1m-card-action,
+.m1m-overdue-danger [class*="text-red-"],
+.m1m-overdue-danger:hover [class*="text-red-"] {
+  color: #dc2626 !important;
+}
+
+/* =========================================================
+   M1M DASHBOARD OVERDUE DYNAMIC STATE
+   /agenda?filter=OVERDUE
+   Com pendencia: vermelho permanente.
+   Sem pendencia: turquesa permanente.
+   ========================================================= */
+
+/* ESTADO NORMAL: nenhuma pendencia atrasada.
+   O MetricCard deixa de receber border-red-* quando danger=false. */
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) {
+  border-color: rgba(10, 144, 144, 0.30) !important;
+}
+
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) .m1m-card-icon,
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) [class*="rounded-xl"]:has(svg) {
+  background: #ecf8f8 !important;
+  color: #0a9090 !important;
+}
+
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) svg,
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) svg * {
+  color: #0a9090 !important;
+  stroke: currentColor;
+}
+
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) [class*="text-3xl"],
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) [class*="text-2xl"],
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) .m1m-card-action,
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]) [class*="group-hover:text"] {
+  color: #087b7b !important;
+}
+
+/* Hover do estado normal continua turquesa. */
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover {
+  border-color: rgba(10, 144, 144, 0.55) !important;
+  box-shadow: 0 8px 22px rgba(10, 144, 144, 0.08) !important;
+}
+
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover svg,
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover svg *,
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover [class*="text-3xl"],
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover [class*="text-2xl"],
+main a[href="/agenda?filter=OVERDUE"]:not([class*="border-red-"]):hover [class*="group-hover:text"] {
+  color: #087b7b !important;
+}
+
+/* ESTADO DANGER: existe pendencia atrasada.
+   Vermelho vence qualquer regra global turquesa. */
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover {
+  border-color: #fecaca !important;
+  box-shadow: 0 8px 22px rgba(220, 38, 38, 0.08) !important;
+}
+
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] .m1m-card-icon,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover .m1m-card-icon,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] [class*="rounded-xl"]:has(svg),
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="rounded-xl"]:has(svg) {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+}
+
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] svg,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] svg *,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover svg,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover svg * {
+  color: #dc2626 !important;
+  stroke: currentColor;
+}
+
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] [class*="text-red-"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="text-red-"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] [class*="text-3xl"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="text-3xl"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] [class*="text-2xl"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="text-2xl"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] .m1m-card-action,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover .m1m-card-action,
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"] [class*="group-hover:text"],
+main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="group-hover:text"] {
+  color: #dc2626 !important;
+}
+
+/* M1M FINANCE HOVER BY PALETTE */
+.m1m-finance-received-hover {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.m1m-finance-received-hover:hover {
+  border-color: rgba(16, 185, 129, 0.48) !important;
+  background-color: rgba(16, 185, 129, 0.04) !important;
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.08) !important;
+}
+
+.m1m-finance-receivable-hover {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.m1m-finance-receivable-hover:hover {
+  border-color: rgba(245, 158, 11, 0.52) !important;
+  background-color: rgba(245, 158, 11, 0.05) !important;
+  box-shadow: 0 8px 22px rgba(245, 158, 11, 0.10) !important;
+}

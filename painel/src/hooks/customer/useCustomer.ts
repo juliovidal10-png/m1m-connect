@@ -16,6 +16,7 @@ type CustomerRecord = {
   company: string | null;
   city: string | null;
   responsible: string | null;
+  responsibleId: string | null;
   observations: string | null;
   status: string | null;
 };
@@ -50,7 +51,12 @@ export default function useCustomer({
   const [
     responsible,
     setResponsible,
-  ] = useState("Julinho");
+  ] = useState("");
+
+  const [
+    responsibleId,
+    setResponsibleId,
+  ] = useState("");
 
   const [
     attendanceStatus,
@@ -116,7 +122,8 @@ export default function useCustomer({
     setCustomerCode(null);
     setCompany("");
     setCity("");
-    setResponsible("Julinho");
+    setResponsible("");
+    setResponsibleId("");
     setAttendanceStatus("IA");
     setNotes("");
     clearFeedback();
@@ -197,6 +204,10 @@ export default function useCustomer({
             "",
         );
 
+        setResponsibleId(
+          customer.responsibleId ?? "",
+        );
+
         setAttendanceStatus(
           customer.status || "IA",
         );
@@ -262,6 +273,7 @@ export default function useCustomer({
             company,
             city,
             responsible,
+            responsibleId,
             observations:
               notes,
             status:
@@ -301,8 +313,11 @@ export default function useCustomer({
       );
 
       setResponsible(
-        customer.responsible ||
-          "Julinho",
+        customer.responsible || "",
+      );
+
+      setResponsibleId(
+        customer.responsibleId || "",
       );
 
       setAttendanceStatus(
@@ -390,8 +405,6 @@ export default function useCustomer({
               },
               body: JSON.stringify({
                 customerId,
-                responsibleId:
-                  "julio",
               }),
             },
           );
@@ -407,7 +420,8 @@ export default function useCustomer({
         }
 
         setResponsible(
-          "Julinho",
+          data.customer?.responsible ||
+            "",
         );
 
         setAttendanceStatus(
@@ -443,6 +457,8 @@ export default function useCustomer({
     setCity,
     responsible,
     setResponsible,
+    responsibleId,
+    setResponsibleId,
     attendanceStatus,
     notes,
     setNotes,

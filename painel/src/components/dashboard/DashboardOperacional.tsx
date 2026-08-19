@@ -39,6 +39,12 @@ type DashboardData = {
   receipts: ReceiptRecord[];
 };
 
+type TrialAccessData = {
+  subscriptionStatus?: "TRIAL" | "ACTIVE" | "SUSPENDED" | "EXPIRED";
+  trialEndsAt?: string | null;
+  accessAllowed?: boolean;
+};
+
 type MetricIcon =
   | "agenda"
   | "overdue"
@@ -89,6 +95,124 @@ function formatTime(
       minute: "2-digit",
     },
   ).format(value);
+}
+
+function getRemainingTrialDays(
+  value: string | null | undefined,
+) {
+  if (!value) {
+    return null;
+  }
+
+  const endDate =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      endDate.getTime(),
+    )
+  ) {
+    return null;
+  }
+
+  const difference =
+    endDate.getTime() -
+    Date.now();
+
+  if (difference <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(
+    difference /
+      (24 * 60 * 60 * 1000),
+  );
+}
+
+function formatTrialEnd(
+  value: string | null | undefined,
+) {
+  if (!value) {
+    return null;
+  }
+
+  const endDate =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      endDate.getTime(),
+    )
+  ) {
+    return null;
+  }
+
+  const date =
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      },
+    ).format(endDate);
+
+  const time =
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        hour: "2-digit",
+        minute: "2-digit",
+      },
+    ).format(endDate);
+
+  return `${date} às ${time}`;
+}
+
+function TrialGiftIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-8 w-8"
+      aria-hidden="true"
+    >
+      <rect
+        x="3"
+        y="8"
+        width="18"
+        height="13"
+        rx="2"
+      />
+      <path d="M12 8v13" />
+      <path d="M3 12h18" />
+      <path d="M12 8H8.7a2.7 2.7 0 1 1 2.7-2.7V8" />
+      <path d="M12 8h3.3A2.7 2.7 0 1 0 12.6 5.3V8" />
+    </svg>
+  );
+}
+
+
+function RefreshIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[14px] w-[14px]"
+      aria-hidden="true"
+    >
+      <path d="M20 6v5h-5" />
+      <path d="M19.5 11A7.5 7.5 0 1 0 20 15" />
+    </svg>
+  );
 }
 
 function MetricIcon({
@@ -213,7 +337,7 @@ function MetricCard({
   return (
     <Link
       href={href}
-      className={`group rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#ff3d00]/35 hover:shadow-md ${
+      className={`group rounded-2xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         danger
           ? "border-red-200"
           : "border-black/5"
@@ -221,7 +345,7 @@ function MetricCard({
     >
       <div className="flex items-start justify-between gap-4">
         <div
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-colors duration-200 group-hover:bg-[#fff3ee] group-hover:text-[#e93800] ${
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
             danger
               ? "bg-red-50 text-red-600"
               : "bg-black/[0.035] text-black/60"
@@ -232,7 +356,7 @@ function MetricCard({
           />
         </div>
 
-        <span className="text-xs font-bold text-black/30 transition-colors duration-200 group-hover:text-[#e93800]">
+        <span className="text-xs font-bold text-black/30 transition group-hover:text-[#087B7B]">
           Abrir →
         </span>
       </div>
@@ -284,6 +408,39 @@ export default function DashboardOperacional() {
   ] = useState<Date | null>(
     null,
   );
+
+  const [
+    trialAccess,
+    setTrialAccess,
+  ] = useState<TrialAccessData | null>(
+    null,
+  );
+
+  const loadTrialAccess =
+    useCallback(async () => {
+      try {
+        const response =
+          await fetch(
+            "/api/company/access-status",
+            {
+              cache:
+                "no-store",
+            },
+          );
+
+        if (!response.ok) {
+          setTrialAccess(null);
+          return;
+        }
+
+        const result =
+          (await response.json()) as TrialAccessData;
+
+        setTrialAccess(result);
+      } catch {
+        setTrialAccess(null);
+      }
+    }, []);
 
   const loadDashboard =
     useCallback(async () => {
@@ -387,15 +544,36 @@ export default function DashboardOperacional() {
 
   useEffect(() => {
     void loadDashboard();
+    void loadTrialAccess();
 
-    const intervalId = window.setInterval(() => {
-      void loadDashboard();
-    }, 30_000);
+    const intervalId =
+      window.setInterval(
+        () => {
+          void loadDashboard();
+          void loadTrialAccess();
+        },
+        30_000,
+      );
 
     return () => {
-      window.clearInterval(intervalId);
+      window.clearInterval(
+        intervalId,
+      );
     };
-  }, [loadDashboard]);
+  }, [
+    loadDashboard,
+    loadTrialAccess,
+  ]);
+
+  const trialRemainingDays =
+    getRemainingTrialDays(
+      trialAccess?.trialEndsAt,
+    );
+
+  const trialEndLabel =
+    formatTrialEnd(
+      trialAccess?.trialEndsAt,
+    );
 
   const metrics =
     useMemo(() => {
@@ -427,7 +605,7 @@ export default function DashboardOperacional() {
               !Number.isNaN(
                 remindAt.getTime(),
               ) &&
-              remindAt >
+              remindAt >=
                 now &&
               remindAt <=
                 todayEnd
@@ -447,7 +625,7 @@ export default function DashboardOperacional() {
               !Number.isNaN(
                 remindAt.getTime(),
               ) &&
-              remindAt <=
+              remindAt <
                 now
             );
           },
@@ -521,7 +699,7 @@ export default function DashboardOperacional() {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center bg-[#f7f7f8]">
         <div className="text-center">
-          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[#ff3d00]" />
+          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[#0A9090]" />
 
           <p className="mt-3 text-sm font-medium text-black/45">
             Carregando operação...
@@ -534,7 +712,7 @@ export default function DashboardOperacional() {
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8]">
       <div className="mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_430px_auto] lg:items-center lg:gap-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.15em] text-black/35">
               Visão geral
@@ -549,7 +727,36 @@ export default function DashboardOperacional() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex justify-start lg:justify-center">
+            {trialAccess?.subscriptionStatus ===
+              "TRIAL" &&
+              trialRemainingDays !== null &&
+              trialEndLabel && (
+                <div className="w-full rounded-2xl border border-[#0A9090] bg-white px-5 py-3 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="shrink-0 text-[#0A9090]">
+                      <TrialGiftIcon />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold leading-5 text-[#171717]">
+                        Teste grátis:{" "}
+                        {trialRemainingDays === 1
+                          ? "1 dia restante"
+                          : `${trialRemainingDays} dias restantes`}
+                      </p>
+
+                      <p className="mt-0.5 text-xs leading-5 text-black/50">
+                        Seu teste vai até{" "}
+                        {trialEndLabel}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+          </div>
+
+          <div className="flex items-center justify-start gap-3 lg:justify-end">
             {lastUpdatedAt && (
               <p className="text-xs text-black/40">
                 Atualizado às{" "}
@@ -561,12 +768,16 @@ export default function DashboardOperacional() {
 
             <button
               type="button"
-              onClick={() =>
-                void loadDashboard()
-              }
-              className="h-10 rounded-xl border border-black/10 bg-white px-4 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+              onClick={() => {
+                void loadDashboard();
+                void loadTrialAccess();
+              }}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 text-xs font-bold leading-none text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
             >
-              Atualizar
+              <span className="flex items-center justify-center">
+                <RefreshIcon />
+              </span>
+              <span className="leading-none">Atualizar</span>
             </button>
           </div>
         </header>
@@ -655,7 +866,7 @@ export default function DashboardOperacional() {
 
               <Link
                 href="/agenda?filter=TODAY"
-                className="text-xs font-bold text-[#e93800]"
+                className="text-xs font-bold text-[#087B7B]"
               >
                 Ver agenda →
               </Link>

@@ -4,9 +4,25 @@ import {
 } from "next/server";
 
 import {
+  M1MUserPermission,
+} from "@/generated/prisma/enums";
+
+import {
   getAuthenticatedCompanyId,
 } from "@/lib/tenant";
+import {
+  AuthorizationError,
+  authorizationService,
+} from "@/services/auth/authorization.service";
 import { userService } from "@/services/user.service";
+
+function getErrorStatus(
+  error: unknown,
+) {
+  return error instanceof AuthorizationError
+    ? error.statusCode
+    : 500;
+}
 
 function getErrorMessage(
   error: unknown,
@@ -30,6 +46,7 @@ function toSafeUser<
     useCustomPermissions: boolean;
     permissions: unknown;
     active: boolean;
+    isPrimary: boolean;
     createdAt: Date;
     updatedAt: Date;
   },
@@ -47,6 +64,7 @@ function toSafeUser<
       user.useCustomPermissions,
     permissions: user.permissions,
     active: user.active,
+    isPrimary: user.isPrimary,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -79,7 +97,7 @@ export async function GET() {
         ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }
@@ -89,8 +107,13 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    const authorizedUser =
+      await authorizationService.requirePermission(
+        M1MUserPermission.MANAGE_USERS,
+      );
+
     const companyId =
-      await getAuthenticatedCompanyId();
+      authorizedUser.companyId;
 
     const body = await request.json();
 
@@ -137,7 +160,7 @@ export async function POST(
         ),
       },
       {
-        status: 500,
+        status: getErrorStatus(error),
       },
     );
   }

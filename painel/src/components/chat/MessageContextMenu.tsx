@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -15,6 +15,10 @@ type MessageContextMenuProps = {
   side: "left" | "right";
   onDeleted: (
     messageId: string,
+  ) => void;
+  onEdited: (
+    messageId: string,
+    text: string,
   ) => void;
   onNotice: (message: string) => void;
   onReply: (message: ChatMessage) => void;
@@ -34,6 +38,7 @@ export default function MessageContextMenu({
   text,
   side,
   onDeleted,
+  onEdited,
   onNotice,
   onReply,
   onForward,
@@ -258,6 +263,74 @@ export default function MessageContextMenu({
     }
   }
 
+  async function handleEdit() {
+    if (
+      !message.key.fromMe ||
+      message.id.startsWith("local-") ||
+      !text.trim()
+    ) {
+      return;
+    }
+
+    const newText = window.prompt(
+      "Editar mensagem:",
+      text,
+    );
+
+    if (
+      newText === null ||
+      !newText.trim() ||
+      newText.trim() === text.trim()
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "/api/chat/edit",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            messageId:
+              message.key.id || message.id,
+            remoteJid:
+              message.key.remoteJid,
+            text: newText.trim(),
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "Não foi possível editar a mensagem.",
+        );
+      }
+
+      setIsOpen(false);
+      onEdited(
+        message.id,
+        newText.trim(),
+      );
+      onNotice("Mensagem editada.");
+    } catch (error) {
+      console.error(
+        "Erro ao editar mensagem:",
+        error,
+      );
+
+      onNotice(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível editar a mensagem.",
+      );
+    }
+  }
   async function handleDelete() {
     if (
       !message.key.fromMe ||
@@ -360,7 +433,7 @@ export default function MessageContextMenu({
         }}
         className={`flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition duration-150 ${
           isOpen
-            ? "border-[#ff3d00]/30 bg-[#fff1ec] text-[#e93800] opacity-100"
+            ? "border-[#0A9090]/30 bg-[#ECF8F8] text-[#087B7B] opacity-100"
             : "border-black/10 bg-white text-black/60 opacity-0 hover:border-black/20 hover:text-black group-hover:opacity-100 focus:opacity-100"
         }`}
       >
@@ -435,7 +508,7 @@ export default function MessageContextMenu({
               }}
               title="Mais reações"
               aria-label="Abrir todos os emojis"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-black/65 transition hover:scale-105 hover:bg-black/[0.06] hover:text-[#e93800] active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-black/65 transition hover:scale-105 hover:bg-black/[0.06] hover:text-[#087B7B] active:scale-95"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -459,7 +532,7 @@ export default function MessageContextMenu({
               setIsOpen(false);
               onReply(message);
             }}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#fff1ec] hover:text-[#e93800]"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#ECF8F8] hover:text-[#087B7B]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -489,7 +562,7 @@ export default function MessageContextMenu({
             type="button"
             onClick={handleCopy}
             disabled={!text.trim()}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#fff1ec] hover:text-[#e93800] disabled:cursor-not-allowed disabled:opacity-35"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#ECF8F8] hover:text-[#087B7B] disabled:cursor-not-allowed disabled:opacity-35"
           >
             <svg
               viewBox="0 0 24 24"
@@ -523,7 +596,7 @@ export default function MessageContextMenu({
               setIsOpen(false);
               onForward(message);
             }}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#fff1ec] hover:text-[#e93800]"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#ECF8F8] hover:text-[#087B7B]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -556,7 +629,7 @@ export default function MessageContextMenu({
                 "Escolha um emoji na barra superior.",
               );
             }}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#fff1ec] hover:text-[#e93800]"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#ECF8F8] hover:text-[#087B7B]"
           >
             <svg
               viewBox="0 0 24 24"
@@ -654,6 +727,35 @@ export default function MessageContextMenu({
 
                 <button
                   type="button"
+                  onClick={handleEdit}
+                  disabled={!text.trim()}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-black/70 transition hover:bg-[#ECF8F8] hover:text-[#087B7B] disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0"
+                  >
+                    <path
+                      d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="m13.5 8.5 3 3"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span>Editar</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleDelete}
                   disabled={isDeleting}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
@@ -687,3 +789,4 @@ export default function MessageContextMenu({
     </div>
   );
 }
+

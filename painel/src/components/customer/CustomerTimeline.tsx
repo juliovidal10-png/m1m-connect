@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type {
   CustomerTimelineItem,
   CustomerTimelineSource,
@@ -11,6 +13,7 @@ type CustomerTimelineProps = {
   isLoading: boolean;
   error: string;
   onReload: () => void;
+  conversationHref?: string;
 };
 
 type TimelineIconName =
@@ -131,18 +134,18 @@ function normalizeBrokenText(
   const replacements: Array<
     [string, string]
   > = [
-    ["AnÃ¡lise", "Análise"],
-    ["anÃ¡lise", "análise"],
+    ["Análise", "Análise"],
+    ["análise", "análise"],
     ["Ãudio", "Áudio"],
-    ["Ã¡udio", "áudio"],
-    ["PendÃªncia", "Pendência"],
-    ["pendÃªncia", "pendência"],
-    ["ObservaÃ§Ã£o", "Observação"],
-    ["observaÃ§Ã£o", "observação"],
-    ["nÃ£o", "não"],
-    ["NÃ£o", "Não"],
-    ["informaÃ§Ã£o", "informação"],
-    ["finalizaÃ§Ã£o", "finalização"],
+    ["áudio", "áudio"],
+    ["Pendência", "Pendência"],
+    ["pendência", "pendência"],
+    ["Observação", "Observação"],
+    ["observação", "observação"],
+    ["não", "não"],
+    ["Não", "Não"],
+    ["informação", "informação"],
+    ["finalização", "finalização"],
   ];
 
   return replacements.reduce(
@@ -274,11 +277,12 @@ export default function CustomerTimeline({
   isLoading,
   error,
   onReload,
+  conversationHref,
 }: CustomerTimelineProps) {
   if (isLoading) {
     return (
       <div className="rounded-2xl border border-black/5 bg-white p-6 text-center">
-        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-black/10 border-t-[#ff3d00]" />
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-black/10 border-t-[#0A9090]" />
 
         <p className="mt-3 text-sm font-medium text-black/45">
           Carregando linha do tempo...
@@ -358,7 +362,7 @@ export default function CustomerTimeline({
             onClick={onReload}
             title="Atualizar linha do tempo"
             aria-label="Atualizar linha do tempo"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white text-black/45 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white text-black/45 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
           >
             <TimelineIcon
               name="refresh"
@@ -435,6 +439,18 @@ export default function CustomerTimeline({
                             </span>
                           </p>
                         )}
+                        {item.source === "MESSAGE" &&
+                          conversationHref && (
+                            <Link
+                              href={conversationHref}
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[#0A9090]/15 bg-[#F2FAFA] px-2.5 py-1.5 text-[10px] font-bold text-[#087B7B] transition hover:border-[#0A9090]/30 hover:bg-white"
+                            >
+                              Ver na conversa
+                              <span aria-hidden="true">
+                                →
+                              </span>
+                            </Link>
+                          )}
                       </div>
                     </article>
                   ),

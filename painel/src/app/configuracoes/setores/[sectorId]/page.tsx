@@ -324,7 +324,7 @@ export default function SectorWorkspacePage() {
             <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-black/40">
               <Link
                 href="/configuracoes"
-                className="transition hover:text-orange-600"
+                className="transition hover:text-teal-600"
               >
                 Central de Configurações
               </Link>
@@ -333,7 +333,7 @@ export default function SectorWorkspacePage() {
 
               <Link
                 href="/configuracoes"
-                className="transition hover:text-orange-600"
+                className="transition hover:text-teal-600"
               >
                 Setores
               </Link>
@@ -348,7 +348,7 @@ export default function SectorWorkspacePage() {
                 className={
                   activeView === "overview"
                     ? "font-semibold text-black/70"
-                    : "transition hover:text-orange-600"
+                    : "transition hover:text-teal-600"
                 }
               >
                 {sector?.name ?? "Carregando..."}
@@ -464,7 +464,7 @@ export default function SectorWorkspacePage() {
               </div>
             ) : (
               <>
-                <section className="mt-6 rounded-2xl border border-orange-100 bg-white p-6 shadow-sm lg:p-8">
+                <section className="mt-6 rounded-2xl border border-teal-100 bg-white p-6 shadow-sm lg:p-8">
                   <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-3">
@@ -473,7 +473,7 @@ export default function SectorWorkspacePage() {
                         </div>
 
                         <div>
-                          <p className="text-sm font-semibold text-orange-600">
+                          <p className="text-sm font-semibold text-teal-600">
                             Setor da empresa
                           </p>
 
@@ -502,7 +502,7 @@ export default function SectorWorkspacePage() {
                           : "Setor inativo"}
                       </span>
 
-                      <span className="rounded-full bg-orange-50 px-4 py-2 text-xs font-bold text-orange-700">
+                      <span className="rounded-full bg-teal-50 px-4 py-2 text-xs font-bold text-teal-700">
                         Ordem {sector.sortOrder}
                       </span>
                     </div>
@@ -511,7 +511,7 @@ export default function SectorWorkspacePage() {
 
                 <div className="mt-6">
                   <div>
-                    <p className="text-sm font-semibold text-orange-600">
+                    <p className="text-sm font-semibold text-teal-600">
                       Módulos
                     </p>
 
@@ -530,7 +530,7 @@ export default function SectorWorkspacePage() {
                             module.id,
                           )
                         }
-                        className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-black/10 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
+                        className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-black/10 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
                       >
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/10 bg-black/[0.025] text-black/55">
                           <ModuleIcon
@@ -547,7 +547,7 @@ export default function SectorWorkspacePage() {
                         </p>
 
                         <div className="mt-5 border-t border-black/5 pt-4">
-                          <span className="text-sm font-bold text-orange-600 transition group-hover:text-orange-700">
+                          <span className="text-sm font-bold text-teal-600 transition group-hover:text-teal-700">
                             Abrir módulo →
                           </span>
                         </div>

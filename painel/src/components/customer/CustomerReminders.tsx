@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  useEffect,
+  useState,
+} from "react";
+
+import {
   formatReminderDate,
   isReminderOverdue,
 } from "./customer-utils";
@@ -11,6 +16,13 @@ export type ReminderRecord = {
   description?: string | null;
   remindAt: string;
   responsible?: string | null;
+};
+
+type ReminderUserOption = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  active: boolean;
 };
 
 type CustomerRemindersProps = {
@@ -63,6 +75,69 @@ export default function CustomerReminders({
   onSave,
   onComplete,
 }: CustomerRemindersProps) {
+  const [
+    responsibleUsers,
+    setResponsibleUsers,
+  ] = useState<ReminderUserOption[]>([]);
+
+  useEffect(() => {
+    const controller =
+      new AbortController();
+
+    async function loadResponsibleUsers() {
+      try {
+        const response = await fetch(
+          "/api/users",
+          {
+            cache: "no-store",
+            signal:
+              controller.signal,
+          },
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Nao foi possivel carregar os responsaveis.",
+          );
+        }
+
+        setResponsibleUsers(
+          (Array.isArray(data)
+            ? data
+            : []
+          ).filter(
+            (
+              user: ReminderUserOption,
+            ) => user.active,
+          ),
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Erro ao carregar responsaveis dos lembretes:",
+          error,
+        );
+
+        setResponsibleUsers([]);
+      }
+    }
+
+    void loadResponsibleUsers();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
   return (
     <div className="space-y-4">
       <section>
@@ -132,7 +207,7 @@ export default function CustomerReminders({
                     className={`rounded-xl border p-4 ${
                       overdue
                         ? "border-red-200 bg-red-50"
-                        : "border-orange-200 bg-orange-50/40"
+                        : "border-teal-200 bg-teal-50/40"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -140,7 +215,7 @@ export default function CustomerReminders({
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                           overdue
                             ? "bg-red-100"
-                            : "bg-orange-100"
+                            : "bg-teal-100"
                         }`}
                       >
                         {overdue
@@ -159,7 +234,7 @@ export default function CustomerReminders({
                               className={`mt-1 text-xs font-semibold ${
                                 overdue
                                   ? "text-red-600"
-                                  : "text-orange-600"
+                                  : "text-teal-600"
                               }`}
                             >
                               {formatReminderDate(
@@ -242,7 +317,7 @@ export default function CustomerReminders({
                 )
               }
               placeholder="Ex.: Ligar para o cliente"
-              className="h-11 w-full rounded-xl border border-black/10 px-4 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+              className="h-11 w-full rounded-xl border border-black/10 px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
             />
           </div>
 
@@ -260,7 +335,7 @@ export default function CustomerReminders({
                 )
               }
               placeholder="Ex.: Cliente pediu retorno sobre o orçamento."
-              className="w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+              className="w-full resize-none rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
             />
           </div>
 
@@ -278,7 +353,7 @@ export default function CustomerReminders({
                     event.target.value,
                   )
                 }
-                className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
               />
             </div>
 
@@ -295,7 +370,7 @@ export default function CustomerReminders({
                     event.target.value,
                   )
                 }
-                className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+                className="h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
               />
             </div>
           </div>
@@ -312,15 +387,40 @@ export default function CustomerReminders({
                   event.target.value,
                 )
               }
-              className="h-11 w-full rounded-xl border border-black/10 px-4 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+              className="h-11 w-full rounded-xl border border-black/10 px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
             >
-              <option value="Julinho">
-                Julinho
-              </option>
-
               <option value="">
                 Sem responsável
               </option>
+
+              {reminderResponsible &&
+                !responsibleUsers.some(
+                  (user) =>
+                    (user.displayName?.trim() ||
+                      user.name) ===
+                    reminderResponsible,
+                ) && (
+                  <option
+                    value={reminderResponsible}
+                  >
+                    {reminderResponsible}
+                  </option>
+                )}
+
+              {responsibleUsers.map((user) => {
+                const visibleName =
+                  user.displayName?.trim() ||
+                  user.name;
+
+                return (
+                  <option
+                    key={user.id}
+                    value={visibleName}
+                  >
+                    {visibleName}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -328,7 +428,7 @@ export default function CustomerReminders({
             type="button"
             disabled={isSaving}
             onClick={onSave}
-            className="h-11 w-full rounded-xl bg-[#ff3d00] text-sm font-semibold text-white transition hover:bg-[#e93800] disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 w-full rounded-xl bg-[#0A9090] text-sm font-semibold text-white transition hover:bg-[#087B7B] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving
               ? "Salvando..."

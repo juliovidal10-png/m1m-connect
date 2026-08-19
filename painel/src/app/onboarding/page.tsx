@@ -868,7 +868,7 @@ export default function OnboardingPage() {
           onChange={(event) =>
             updateCompanyField(field, event.target.value)
           }
-          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
         />
       </label>
     );
@@ -878,7 +878,7 @@ export default function OnboardingPage() {
     <main className="h-screen overflow-y-auto bg-[#f6f7f8] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#e93800]">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#087B7B]">
             Configuração inicial
           </p>
 
@@ -897,7 +897,7 @@ export default function OnboardingPage() {
               key={step}
               className={`rounded-2xl border px-4 py-3 ${
                 index === currentStep
-                  ? "border-orange-200 bg-orange-50"
+                  ? "border-teal-200 bg-teal-50"
                   : index < currentStep
                     ? "border-emerald-100 bg-emerald-50/70"
                     : "border-black/[0.06] bg-white"
@@ -1025,7 +1025,7 @@ export default function OnboardingPage() {
                         }
                         rows={4}
                         placeholder="Explique de forma simples quem é a empresa e o que ela faz."
-                        className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                        className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                       />
                     </label>
 
@@ -1114,10 +1114,10 @@ export default function OnboardingPage() {
                 {userSuccess && <div className="mt-5 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">{userSuccess}</div>}
 
                 {isUserFormOpen && (
-                  <form onSubmit={createUser} className="mt-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-5">
+                  <form onSubmit={createUser} className="mt-6 rounded-2xl border border-teal-100 bg-teal-50/40 p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-orange-600">Novo colaborador</p>
+                        <p className="text-sm font-bold text-teal-600">Novo colaborador</p>
                         <p className="mt-1 text-sm text-black/45">Cadastre somente os dados essenciais agora.</p>
                       </div>
                       <button type="button" onClick={() => setIsUserFormOpen(false)}
@@ -1136,7 +1136,7 @@ export default function OnboardingPage() {
                           <span className="mb-2 block text-sm font-semibold text-black/70">{label}</span>
                           <input type={type} value={userForm[field]}
                             onChange={(event) => updateUserField(field, event.target.value)}
-                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100" />
+                            className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100" />
                         </label>
                       ))}
 
@@ -1144,7 +1144,7 @@ export default function OnboardingPage() {
                         <span className="mb-2 block text-sm font-semibold text-black/70">Perfil de acesso</span>
                         <select value={userForm.role}
                           onChange={(event) => updateUserField("role", event.target.value as UserRole)}
-                          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100">
+                          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100">
                           <option value="ADMIN">Administrador</option>
                           <option value="MANAGER">Gestor</option>
                           <option value="ATTENDANT">Atendente</option>
@@ -1155,7 +1155,7 @@ export default function OnboardingPage() {
 
                     <div className="mt-6 flex justify-end">
                       <button type="submit" disabled={isSavingUser}
-                        className="rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                        className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
                         {isSavingUser ? "Salvando..." : "Criar colaborador"}
                       </button>
                     </div>
@@ -1240,11 +1240,11 @@ export default function OnboardingPage() {
                 {isSectorFormOpen && (
                   <form
                     onSubmit={createSector}
-                    className="mt-6 rounded-2xl border border-orange-100 bg-orange-50/40 p-5"
+                    className="mt-6 rounded-2xl border border-teal-100 bg-teal-50/40 p-5"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-orange-600">
+                        <p className="text-sm font-bold text-teal-600">
                           Novo setor
                         </p>
                         <p className="mt-1 text-sm text-black/45">
@@ -1272,7 +1272,7 @@ export default function OnboardingPage() {
                             updateSectorField("name", event.target.value)
                           }
                           placeholder="Ex.: Comercial"
-                          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                         />
                       </label>
 
@@ -1287,7 +1287,7 @@ export default function OnboardingPage() {
                           }
                           rows={3}
                           placeholder="Ex.: Vendas, orçamentos e informações comerciais."
-                          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                         />
                       </label>
                     </div>
@@ -1296,7 +1296,7 @@ export default function OnboardingPage() {
                       <button
                         type="submit"
                         disabled={isSavingSector}
-                        className="rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-50"
+                        className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:opacity-50"
                       >
                         {isSavingSector ? "Salvando..." : "Criar setor"}
                       </button>
@@ -1448,7 +1448,7 @@ export default function OnboardingPage() {
                                           : null,
                                       })
                                     }
-                                    className="h-4 w-4 accent-orange-600"
+                                    className="h-4 w-4 accent-teal-600"
                                   />
                                   Atendimento neste dia
                                 </label>
@@ -1480,7 +1480,7 @@ export default function OnboardingPage() {
                                             : schedule.secondClosingTime,
                                         })
                                       }
-                                      className="h-4 w-4 accent-orange-600"
+                                      className="h-4 w-4 accent-teal-600"
                                     />
                                     24 horas
                                   </label>
@@ -1501,7 +1501,7 @@ export default function OnboardingPage() {
                                               : null,
                                           })
                                         }
-                                        className="h-4 w-4 accent-orange-600"
+                                        className="h-4 w-4 accent-teal-600"
                                       />
                                       Fecha para almoço
                                     </label>
@@ -1534,7 +1534,7 @@ export default function OnboardingPage() {
                                         openingTime: event.target.value || null,
                                       })
                                     }
-                                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                                   />
                                 </label>
 
@@ -1552,7 +1552,7 @@ export default function OnboardingPage() {
                                         closingTime: event.target.value || null,
                                       })
                                     }
-                                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                                   />
                                 </label>
 
@@ -1571,7 +1571,7 @@ export default function OnboardingPage() {
                                               event.target.value || null,
                                           })
                                         }
-                                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                                       />
                                     </label>
 
@@ -1588,7 +1588,7 @@ export default function OnboardingPage() {
                                               event.target.value || null,
                                           })
                                         }
-                                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+                                        className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
                                       />
                                     </label>
                                   </>
@@ -1702,7 +1702,7 @@ export default function OnboardingPage() {
                             type="button"
                             onClick={connectWhatsApp}
                             disabled={isConnectingWhatsApp}
-                            className="mt-5 rounded-xl bg-orange-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-50"
+                            className="mt-5 rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:opacity-50"
                           >
                             {isConnectingWhatsApp && !whatsAppQrCode
                               ? "Gerando QR Code..."
@@ -1738,7 +1738,7 @@ export default function OnboardingPage() {
                       )}
 
                       {(whatsAppQrCode || whatsAppStatus?.state === "CONNECTING") && (
-                        <p className="mt-4 text-sm font-medium text-orange-600">
+                        <p className="mt-4 text-sm font-medium text-teal-600">
                           Aguardando a conexão do WhatsApp...
                         </p>
                       )}
@@ -1896,8 +1896,8 @@ export default function OnboardingPage() {
                         </div>
                       </div>
 
-                      <div className="mt-5 rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
-                        <p className="text-sm font-bold text-orange-700">
+                      <div className="mt-5 rounded-2xl border border-teal-100 bg-teal-50/50 p-4">
+                        <p className="text-sm font-bold text-teal-700">
                           Como a IA deve agir
                         </p>
                         <p className="mt-1 text-sm leading-6 text-black/50">
@@ -2007,7 +2007,7 @@ export default function OnboardingPage() {
                         className={`h-2.5 w-2.5 rounded-full ${
                           whatsAppStatus?.state === "CONNECTED"
                             ? "bg-emerald-500"
-                            : "bg-orange-400"
+                            : "bg-teal-400"
                         }`}
                       />
                       <p className="text-sm font-bold text-[#171717]">
@@ -2052,8 +2052,8 @@ export default function OnboardingPage() {
                   </div>
                 </div>
 
-                <div className="mt-7 rounded-2xl border border-orange-100 bg-orange-50/50 p-5">
-                  <p className="text-sm font-bold text-orange-700">
+                <div className="mt-7 rounded-2xl border border-teal-100 bg-teal-50/50 p-5">
+                  <p className="text-sm font-bold text-teal-700">
                     Ao finalizar
                   </p>
                   <p className="mt-1 text-sm leading-6 text-black/50">

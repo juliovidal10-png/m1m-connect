@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 
 type ConnectionState = "CONNECTED" | "CONNECTING" | "DISCONNECTED";
 
@@ -180,6 +181,13 @@ export default function WhatsAppConnectionPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">
             Conecte o número da empresa ao M1M Connect escaneando o QR Code pelo WhatsApp.
           </p>
+
+          <Link
+            href="/configuracoes"
+            className="mt-3 inline-flex h-10 items-center rounded-lg border border-black/10 bg-white px-4 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
+          >
+            ← Voltar para configurações
+          </Link>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">

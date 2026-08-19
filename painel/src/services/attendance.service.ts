@@ -7,6 +7,7 @@ import {
   attendanceRepository,
   type CreateAttendanceEventData,
 } from "@/repositories/attendance.repository";
+import { customerRepository } from "@/repositories/customer.repository";
 
 type TransferAttendanceToSectorInput = {
   companyId: string;
@@ -98,21 +99,51 @@ export const attendanceService = {
         M1MAttendanceState.IA &&
       !attendance.responsibleId
     ) {
+      await customerRepository.releaseResponsible(
+        input.companyId,
+        attendance.customerId,
+      );
+
       return attendance;
     }
 
     const previousSectorId =
       attendance.sectorId;
+    const isAIRouting =
+      input.actorType ===
+      M1MAttendanceActorType.AI;
 
     const updatedAttendance =
-      await attendanceRepository.transferToSector({
-        companyId:
-          input.companyId,
-        attendanceId:
-          attendance.id,
-        sectorId:
-          sector.id,
-      });
+      isAIRouting
+        ? await attendanceRepository.routeToSectorByAI({
+            companyId:
+              input.companyId,
+            attendanceId:
+              attendance.id,
+            sectorId:
+              sector.id,
+          })
+        : await attendanceRepository.transferToSector({
+            companyId:
+              input.companyId,
+            attendanceId:
+              attendance.id,
+            sectorId:
+              sector.id,
+          });
+
+    await customerRepository.releaseResponsible(
+      input.companyId,
+      attendance.customerId,
+    );
+
+    if (!isAIRouting) {
+      await customerRepository.markAsHuman(
+        input.companyId,
+        attendance.customerId,
+      );
+    }
+
 
     await attendanceRepository.createEvent({
       attendanceId:
@@ -246,6 +277,7 @@ export const attendanceService = {
   async finishAttendance(
     companyId: string,
     attendanceId: string,
+    actorId?: string | null,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
@@ -265,14 +297,7 @@ export const attendanceService = {
     ) {
       return attendance;
     }
-
-    if (!attendance.responsibleId) {
-      throw new Error(
-        "O atendimento não possui um responsável humano.",
-      );
-    }
-
-    const updatedAttendance =
+const updatedAttendance =
       await attendanceRepository.finishAttendance({
         companyId,
         attendanceId,
@@ -285,8 +310,15 @@ export const attendanceService = {
       actorType:
         M1MAttendanceActorType.USER,
       actorId:
-        attendance.responsibleId,
+        attendance.responsibleId ??
+        actorId ??
+        null,
     });
+
+    await customerRepository.releaseResponsible(
+      companyId,
+      attendance.customerId,
+    );
 
     return updatedAttendance;
   },
@@ -337,7 +369,121 @@ export const attendanceService = {
         M1MAttendanceActorType.AI,
     });
 
+    await customerRepository.releaseResponsible(
+      companyId,
+      attendance.customerId,
+    );
+
     return updatedAttendance;
+  },
+
+  async finishHumanAttendanceForNextConversation(
+
+    companyId: string,
+
+    attendanceId: string,
+
+  ) {
+
+    const attendance =
+
+      await attendanceRepository.findAttendanceById(
+
+        companyId,
+
+        attendanceId,
+
+      );
+
+
+    if (!attendance) {
+
+      throw new Error(
+
+        "Atendimento nao encontrado.",
+
+      );
+
+    }
+
+
+    if (
+
+      attendance.state ===
+
+      M1MAttendanceState.FINALIZADO
+
+    ) {
+
+      return attendance;
+
+    }
+
+
+    if (
+
+      attendance.state !==
+
+      M1MAttendanceState.HUMANO
+
+    ) {
+
+      throw new Error(
+
+        "Somente atendimento humano pode ser encerrado automaticamente por nova conversa.",
+
+      );
+
+    }
+
+
+    const updatedAttendance =
+
+      await attendanceRepository.finishAttendance({
+
+        companyId,
+
+        attendanceId,
+
+      });
+
+
+    await attendanceRepository.createEvent({
+
+      attendanceId,
+
+      type:
+
+        M1MAttendanceEventType.FINISHED_BY_HUMAN,
+
+      actorType:
+
+        M1MAttendanceActorType.SYSTEM,
+
+      actorId: null,
+
+      metadata: {
+
+        source: "NEXT_CONVERSATION_TIMEOUT",
+
+        inactivityHours: 12,
+
+      },
+
+    });
+
+
+    await customerRepository.releaseResponsible(
+
+      companyId,
+
+      attendance.customerId,
+
+    );
+
+
+    return updatedAttendance;
+
   },
 
   async getOpenAttendanceByCustomer(
@@ -358,3 +504,7 @@ export const attendanceService = {
     );
   },
 };
+
+
+
+

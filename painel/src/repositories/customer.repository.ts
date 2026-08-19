@@ -8,6 +8,7 @@ export type CustomerData = {
   company?: string | null;
   city?: string | null;
   responsible?: string | null;
+  responsibleId?: string | null;
   observations?: string | null;
   status?: string | null;
 };
@@ -303,7 +304,7 @@ function buildDisplayData(customer: {
       : (
           trustedSavedName ||
           displayPhone ||
-          "Cliente sem identificaÃ§Ã£o"
+          "Cliente sem identificação"
         );
 
   const suggestedName =
@@ -338,6 +339,7 @@ function buildUpdateData(
     company?: string | null;
     city?: string | null;
     responsible?: string | null;
+  responsibleId?: string | null;
     observations?: string | null;
     status?: string;
   } = {};
@@ -377,6 +379,15 @@ function buildUpdateData(
     updateData.responsible =
       normalizeOptionalText(
         data.responsible,
+      );
+  }
+
+  if (
+    data.responsibleId !== undefined
+  ) {
+    updateData.responsibleId =
+      normalizeOptionalText(
+        data.responsibleId,
       );
   }
 
@@ -480,6 +491,10 @@ async function createCustomerWithCode(
                 normalizeOptionalText(
                   data.responsible,
                 ),
+              responsibleId:
+                normalizeOptionalText(
+                  data.responsibleId,
+                ),
               observations:
                 normalizeOptionalText(
                   data.observations,
@@ -516,7 +531,7 @@ async function createCustomerWithCode(
   }
 
   throw new Error(
-    "NÃ£o foi possÃvel gerar o CÃ³digo M1M do cliente.",
+    "Não foi possível gerar o Código M1M do cliente.",
   );
 }
 
@@ -634,8 +649,18 @@ export const customerRepository = {
             select: {
               attendances: true,
               messages: true,
-              reminders: true,
-              paymentReceipts: true,
+              reminders: {
+                where: {
+                  status: "PENDING",
+                },
+              },
+              paymentReceipts: {
+                where: {
+                  status: {
+                    not: "FINISHED",
+                  },
+                },
+              },
             },
           },
         },
@@ -766,6 +791,38 @@ export const customerRepository = {
     });
   },
 
+  async releaseResponsible(
+    companyId: string,
+    customerId: string,
+  ) {
+    const customer =
+      await prisma.m1MCustomer.findFirst({
+        where: {
+          id: customerId,
+          companyId,
+        },
+      });
+
+    if (!customer) {
+      throw new Error(
+        "Cliente não encontrado.",
+      );
+    }
+
+    return prisma.m1MCustomer.update({
+      where: {
+        id: customer.id,
+      },
+      data: {
+        responsible: null,
+        responsibleId: null,
+        status: "IA",
+        assignedAt: null,
+        releasedAt: new Date(),
+      },
+    });
+  },
+
   async assignResponsible(
     companyId: string,
     customerId: string,
@@ -781,7 +838,7 @@ export const customerRepository = {
 
     if (!customer) {
       throw new Error(
-        "Cliente nÃ£o encontrado.",
+        "Cliente não encontrado.",
       );
     }
 
@@ -796,7 +853,7 @@ export const customerRepository = {
 
     if (!user) {
       throw new Error(
-        "ResponsÃ¡vel nÃ£o encontrado ou inativo.",
+        "Responsável não encontrado ou inativo.",
       );
     }
 
@@ -888,6 +945,8 @@ export const customerRepository = {
         city: data.city,
         responsible:
           data.responsible,
+        responsibleId:
+          data.responsibleId,
         observations:
           data.observations,
         status: data.status,

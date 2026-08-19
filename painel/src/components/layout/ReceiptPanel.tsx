@@ -84,8 +84,6 @@ type ReceiptPanelProps = {
   onUpdated: () => void;
 };
 
-const currentUserId = "julio";
-
 const statusLabels: Record<
   ReceiptStatus,
   string
@@ -117,7 +115,7 @@ const statusClasses: Record<
   REJECTED:
     "border-red-200 bg-red-50 text-red-700",
   AWAITING_NEW_RECEIPT:
-    "border-orange-200 bg-orange-50 text-orange-700",
+    "border-teal-200 bg-teal-50 text-teal-700",
   CUSTOMER_NOTIFIED:
     "border-violet-200 bg-violet-50 text-violet-700",
   FINISHED:
@@ -320,6 +318,11 @@ export default function ReceiptPanel({
   const [users, setUsers] =
     useState<UserRecord[]>([]);
 
+  const [
+    currentUserId,
+    setCurrentUserId,
+  ] = useState("");
+
   const [isLoading, setIsLoading] =
     useState(false);
 
@@ -379,14 +382,36 @@ export default function ReceiptPanel({
       ? `data:${media.mimetype};base64,${media.base64}`
       : null;
 
-  const localImageSource =
+  const persistedMediaUrl =
     receipt?.mediaUrl?.trim() ||
-    receipt?.message?.mediaUrl?.trim() ||
     null;
 
+  const localMediaSource =
+    persistedMediaUrl &&
+    receiptId
+      ? `/api/payment-receipts/${receiptId}/media`
+      : null;
+
   const imageSource =
-    evolutionImageSource ||
-    localImageSource;
+    localMediaSource ||
+    evolutionImageSource;
+
+  const receiptMimeType =
+    receipt?.mimeType?.trim() ||
+    receipt?.message?.mimeType?.trim() ||
+    media?.mimetype?.trim() ||
+    "";
+
+  const receiptFileName =
+    receipt?.fileName?.trim() ||
+    "";
+
+  const isPdfReceipt =
+    receiptMimeType ===
+      "application/pdf" ||
+    receiptFileName
+      .toLowerCase()
+      .endsWith(".pdf");
 
   const shouldLoadEvolutionMedia =
     Boolean(
@@ -397,12 +422,12 @@ export default function ReceiptPanel({
   const isReceiptMediaLoading =
     shouldLoadEvolutionMedia &&
     isLoadingMedia &&
-    !localImageSource;
+    !localMediaSource;
 
   const hasReceiptMediaError =
     shouldLoadEvolutionMedia &&
     hasMediaError &&
-    !localImageSource;
+    !localMediaSource;
 
   const activeUsers =
     useMemo(
@@ -431,6 +456,7 @@ export default function ReceiptPanel({
         const [
           receiptResponse,
           usersResponse,
+          authResponse,
         ] = await Promise.all([
           fetch(
             `/api/payment-receipts/${receiptId}`,
@@ -444,14 +470,22 @@ export default function ReceiptPanel({
               cache: "no-store",
             },
           ),
+          fetch(
+            "/api/auth/me",
+            {
+              cache: "no-store",
+            },
+          ),
         ]);
 
         const [
           receiptData,
           usersData,
+          authData,
         ] = await Promise.all([
           receiptResponse.json(),
           usersResponse.json(),
+          authResponse.json(),
         ]);
 
         if (!receiptResponse.ok) {
@@ -467,6 +501,25 @@ export default function ReceiptPanel({
               "Não foi possível carregar os usuários.",
           );
         }
+
+        if (
+          !authResponse.ok ||
+          !authData?.authenticated ||
+          !authData?.user?.id
+        ) {
+          throw new Error(
+            "Sessão do usuário não identificada.",
+          );
+        }
+
+        const authenticatedUserId =
+          String(
+            authData.user.id,
+          );
+
+        setCurrentUserId(
+          authenticatedUserId,
+        );
 
         const loadedReceipt =
           receiptData as ReceiptRecord;
@@ -484,7 +537,7 @@ export default function ReceiptPanel({
         setSelectedResponsibleId(
           loadedReceipt
             .responsible?.id ||
-            currentUserId,
+            authenticatedUserId,
         );
 
         setAmount(
@@ -777,7 +830,7 @@ export default function ReceiptPanel({
                           height: "360px",
                         }}
                       >
-                        <div className="h-9 w-9 animate-spin rounded-full border-4 border-black/10 border-t-orange-600" />
+                        <div className="h-9 w-9 animate-spin rounded-full border-4 border-black/10 border-t-teal-600" />
 
                         <p className="text-sm font-semibold text-black/50">
                           Carregando comprovante...
@@ -801,34 +854,62 @@ export default function ReceiptPanel({
                         </p>
                       </div>
                     ) : imageSource ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          window.open(
-                            imageSource,
-                            "_blank",
-                            "noopener,noreferrer",
-                          )
-                        }
-                        className="group relative block w-full"
-                        title="Abrir comprovante ampliado"
-                      >
-                        <img
-                          src={imageSource}
-                          alt="Comprovante enviado pelo cliente"
-                          className="block w-full bg-black/[0.015] object-contain transition group-hover:opacity-90"
-                          style={{
-                            width: "100%",
-                            maxWidth: "300px",
-                            height: "360px",
-                            maxHeight: "360px",
-                          }}
-                        />
+                      isPdfReceipt ? (
+                        <div className="relative w-full overflow-hidden bg-white">
+                          <iframe
+                            src={imageSource}
+                            title="Comprovante enviado pelo cliente"
+                            className="block w-full border-0 bg-white"
+                            style={{
+                              width: "100%",
+                              height: "360px",
+                            }}
+                          />
 
-                        <span className="absolute bottom-3 right-3 rounded-lg bg-black/70 px-3 py-2 text-xs font-bold text-white">
-                          Ampliar
-                        </span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.open(
+                                imageSource,
+                                "_blank",
+                                "noopener,noreferrer",
+                              )
+                            }
+                            className="absolute bottom-3 right-3 rounded-lg bg-black/70 px-3 py-2 text-xs font-bold text-white transition hover:bg-black/80"
+                          >
+                            Abrir PDF
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            window.open(
+                              imageSource,
+                              "_blank",
+                              "noopener,noreferrer",
+                            )
+                          }
+                          className="group relative block w-full"
+                          title="Abrir comprovante ampliado"
+                        >
+                          <img
+                            src={imageSource}
+                            alt="Comprovante enviado pelo cliente"
+                            className="block w-full bg-black/[0.015] object-contain transition group-hover:opacity-90"
+                            style={{
+                              width: "100%",
+                              maxWidth: "300px",
+                              height: "360px",
+                              maxHeight: "360px",
+                            }}
+                          />
+
+                          <span className="absolute bottom-3 right-3 rounded-lg bg-black/70 px-3 py-2 text-xs font-bold text-white">
+                            Ampliar
+                          </span>
+                        </button>
+                      )
                     ) : (
                       <div
                         className="flex flex-col items-center justify-center px-6 text-center"
@@ -899,7 +980,7 @@ export default function ReceiptPanel({
                           )
                         }
                         placeholder="0,00"
-                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                       />
                     </label>
 
@@ -917,7 +998,7 @@ export default function ReceiptPanel({
                           )
                         }
                         placeholder="Ex.: PIX"
-                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                       />
                     </label>
 
@@ -935,7 +1016,7 @@ export default function ReceiptPanel({
                           )
                         }
                         placeholder="Nome do banco"
-                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                        className="mt-2 h-11 w-full rounded-xl border border-black/10 px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                       />
                     </label>
 
@@ -953,7 +1034,7 @@ export default function ReceiptPanel({
                           )
                         }
                         placeholder="Informações internas da análise"
-                        className="mt-2 w-full resize-y rounded-xl border border-black/10 px-3 py-3 text-sm leading-6 outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                        className="mt-2 w-full resize-y rounded-xl border border-black/10 px-3 py-3 text-sm leading-6 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                       />
                     </label>
 
@@ -986,7 +1067,7 @@ export default function ReceiptPanel({
                         event.target.value,
                       )
                     }
-                    className="mt-2 h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                    className="mt-2 h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-100"
                   >
                     <option value="">
                       Selecione o responsável
@@ -1109,7 +1190,7 @@ export default function ReceiptPanel({
                           },
                         )
                       }
-                      className="h-11 rounded-xl border border-orange-200 bg-orange-50 text-sm font-bold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-11 rounded-xl border border-teal-200 bg-teal-50 text-sm font-bold text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Solicitar novo comprovante
                     </button>
@@ -1144,7 +1225,7 @@ export default function ReceiptPanel({
                       (event) => (
                         <article
                           key={event.id}
-                          className="border-l-2 border-orange-200 pl-4"
+                          className="border-l-2 border-teal-200 pl-4"
                         >
                           <p className="text-sm font-semibold text-black/70">
                             {eventLabels[
@@ -1202,7 +1283,7 @@ export default function ReceiptPanel({
               onClick={
                 openConversation
               }
-              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#ff3d00] px-4 text-sm font-bold text-white transition hover:bg-[#e93800] focus:outline-none focus:ring-4 focus:ring-[#ff3d00]/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0A9090] px-4 text-sm font-bold text-white transition hover:bg-[#087B7B] focus:outline-none focus:ring-4 focus:ring-[#0A9090]/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ConversationIcon />
               Abrir conversa com o cliente

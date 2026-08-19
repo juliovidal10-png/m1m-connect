@@ -367,7 +367,7 @@ export default function CrmOperacional() {
     },
     {
       value: "RECEIPTS",
-      label: "Com comprovantes",
+      label: "Com comprovantes em aberto",
       count: totals.receipts,
     },
   ];
@@ -449,7 +449,7 @@ export default function CrmOperacional() {
                 )
               }
               placeholder="Buscar por nome, telefone, empresa, cidade ou código"
-              className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+              className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
             />
           </div>
 
@@ -460,17 +460,17 @@ export default function CrmOperacional() {
                   key={
                     customer.id
                   }
-                  className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:border-[#ff3d00]/20 hover:shadow-md"
+                  className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:border-[#0A9090]/20 hover:shadow-md"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff3ee] text-xs font-bold text-[#e93800]">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F0F9F9] text-xs font-bold text-[#087B7B]">
                       {getInitials(
                         customer.displayName,
                       )}
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#e93800]">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#087B7B]">
                         {formatCustomerCode(
                           customer.customerCode,
                         )}
@@ -492,7 +492,7 @@ export default function CrmOperacional() {
                         customer.status ===
                         "HUMANO"
                           ? "bg-emerald-50 text-emerald-700"
-                          : "bg-orange-50 text-orange-700"
+                          : "bg-teal-50 text-teal-700"
                       }`}
                     >
                       {customer.status ===
@@ -564,7 +564,7 @@ export default function CrmOperacional() {
                       href={`/?remoteJid=${encodeURIComponent(
                         customer.remoteJid,
                       )}`}
-                      className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                      className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                     >
                       Conversa
                     </Link>
@@ -576,7 +576,7 @@ export default function CrmOperacional() {
                           customer,
                         );
                       }}
-                      className="h-9 rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#ff3d00]/25 hover:text-[#e93800]"
+                      className="h-9 rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                     >
                       Timeline
                     </button>
@@ -623,11 +623,11 @@ export default function CrmOperacional() {
           lastInteraction={formatDate(
             selectedCustomer.lastMessageAt,
           )}
-          messages={[]}
+
           conversationHref={`/?remoteJid=${encodeURIComponent(
             selectedCustomer.remoteJid,
           )}`}
-          initialTab="timeline"
+          initialTab="atividades"
         />
       )}
     </main>

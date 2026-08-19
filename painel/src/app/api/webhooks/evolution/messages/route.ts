@@ -1,4 +1,8 @@
 import {
+  timingSafeEqual,
+} from "node:crypto";
+
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -9,6 +13,13 @@ import {
 
 type UnknownRecord =
   Record<string, unknown>;
+
+const WEBHOOK_SECRET =
+  process.env.M1M_WEBHOOK_SECRET?.trim() ||
+  "";
+
+const WEBHOOK_SECRET_HEADER =
+  "x-m1m-webhook-secret";
 
 function isRecord(
   value: unknown,
@@ -32,6 +43,50 @@ function getBoolean(
   value: unknown,
 ) {
   return value === true;
+}
+
+function isWebhookAuthorized(
+  request: NextRequest,
+) {
+  if (!WEBHOOK_SECRET) {
+    return process.env.NODE_ENV !== "production";
+  }
+
+  const receivedSecret =
+    request.headers
+      .get(
+        WEBHOOK_SECRET_HEADER,
+      )
+      ?.trim() ||
+    "";
+
+  if (!receivedSecret) {
+    return false;
+  }
+
+  const expected =
+    Buffer.from(
+      WEBHOOK_SECRET,
+      "utf8",
+    );
+
+  const received =
+    Buffer.from(
+      receivedSecret,
+      "utf8",
+    );
+
+  if (
+    expected.length !==
+    received.length
+  ) {
+    return false;
+  }
+
+  return timingSafeEqual(
+    expected,
+    received,
+  );
 }
 
 function extractMessageText(
@@ -60,6 +115,48 @@ export async function POST(
   request: NextRequest,
 ) {
   try {
+    if (
+      process.env.NODE_ENV ===
+        "production" &&
+      !WEBHOOK_SECRET
+    ) {
+      console.error(
+        "[M1M WEBHOOK] M1M_WEBHOOK_SECRET não configurado em produção.",
+      );
+
+      return NextResponse.json(
+        {
+          received: false,
+          action:
+            "WEBHOOK_SECRET_NOT_CONFIGURED",
+        },
+        {
+          status: 503,
+        },
+      );
+    }
+
+    if (
+      !isWebhookAuthorized(
+        request,
+      )
+    ) {
+      console.warn(
+        "[M1M WEBHOOK] Chamada não autorizada bloqueada.",
+      );
+
+      return NextResponse.json(
+        {
+          received: false,
+          action:
+            "UNAUTHORIZED_WEBHOOK",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
     const body: unknown =
       await request.json();
 
@@ -130,7 +227,6 @@ export async function POST(
     const instanceName =
       getText(body.instance) ||
       getText(body.instanceName) ||
-      getText(data.instance) ||
       getText(data.instance);
 
     const diagnostic = {

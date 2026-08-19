@@ -7,6 +7,25 @@ datasource db {
   provider = "postgresql"
 }
 
+enum M1MSubscriptionStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+enum M1MBillingCycle {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum M1MSubscriptionEventType {
+  ACTIVATION
+  RENEWAL
+}
+
 enum M1MHumanReturnMode {
   IMMEDIATE
   NEXT_CONVERSATION
@@ -80,34 +99,41 @@ enum M1MPaymentReceiptEventType {
 }
 
 model M1MCompany {
-  id                  String             @id @default(cuid())
-  name                String
-  slug                String             @unique
-  segment             String?
-  presentation        String?
-  address             String?
-  city                String?
-  state               String?
-  zipCode             String?
-  phone               String?
-  whatsapp            String?
-  email               String?
-  website             String?
-  instagram           String?
-  outOfHoursMessage   String?
-  humanReturnMode     M1MHumanReturnMode @default(NEXT_CONVERSATION)
-  humanClosingMessage String?
-  active              Boolean            @default(true)
-  onboardingCompleted Boolean            @default(false)
-  aiEnabled           Boolean            @default(false)
-  whatsappInstanceName String?            @unique
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                     String                @id @default(cuid())
+  name                   String
+  slug                   String                @unique
+  segment                String?
+  presentation           String?
+  address                String?
+  city                   String?
+  state                  String?
+  zipCode                String?
+  phone                  String?
+  whatsapp               String?
+  email                  String?
+  website                String?
+  instagram              String?
+  outOfHoursMessage      String?
+  humanReturnMode        M1MHumanReturnMode    @default(NEXT_CONVERSATION)
+  humanClosingMessage    String?
+  active                 Boolean               @default(true)
+  subscriptionStatus     M1MSubscriptionStatus @default(TRIAL)
+  trialEndsAt            DateTime?
+  accessEndsAt           DateTime?
+  planName               String?
+  subscriptionPriceCents Int?
+  billingCycle           M1MBillingCycle?
+  subscriptionStartedAt  DateTime?
+  onboardingCompleted    Boolean               @default(false)
+  aiEnabled              Boolean               @default(false)
+  whatsappInstanceName   String?               @unique
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
 
-  users       M1MUser[]
-  customers   M1MCustomer[]
-  reminders   M1MReminder[]
-  attendances M1MAttendance[]
+  users        M1MUser[]
+  customers    M1MCustomer[]
+  reminders    M1MReminder[]
+  attendances  M1MAttendance[]
   messages     M1MMessage[]
   messageFlags M1MMessageFlag[]
 
@@ -116,6 +142,10 @@ model M1MCompany {
   profile         M1MCompanyProfile?
   paymentSettings M1MPaymentSettings?
   paymentReceipts M1MPaymentReceipt[]
+
+  subscriptionEvents M1MSubscriptionEvent[]
+
+  subscriptionPayments M1MSubscriptionPayment[]
 
   @@map("m1m_companies")
 }
@@ -303,6 +333,7 @@ model M1MUser {
   useCustomPermissions Boolean             @default(false)
   permissions          M1MUserPermission[] @default([])
   active               Boolean             @default(true)
+  isPrimary            Boolean             @default(false)
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
@@ -442,8 +473,14 @@ model M1MAttendanceEvent {
   @@map("m1m_attendance_events")
 }
 
+enum M1MMessageAuthorType {
+  CUSTOMER
+  HUMAN
+  AI
+}
+
 model M1MMessage {
-  id                 String              @id @default(cuid())
+  id                 String                @id @default(cuid())
   companyId          String
   customerId         String
   attendanceId       String?
@@ -453,14 +490,18 @@ model M1MMessage {
   direction          M1MMessageDirection
   type               M1MMessageType
   fromMe             Boolean
+  authorType         M1MMessageAuthorType?
+  authorId           String?
+  authorName         String?
   content            String?
   mediaUrl           String?
   mimeType           String?
   rawPayload         Json?
   sentAt             DateTime
+  processingStartedAt DateTime?
   processedAt        DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
 
   company        M1MCompany         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   customer       M1MCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -474,8 +515,11 @@ model M1MMessage {
   @@index([attendanceId])
   @@index([remoteJid])
   @@index([direction])
+  @@index([authorType])
+  @@index([authorId])
   @@index([type])
   @@index([sentAt])
+  @@index([processingStartedAt])
   @@index([processedAt])
   @@index([companyId, remoteJid, sentAt])
   @@map("m1m_messages")
@@ -561,4 +605,41 @@ model M1MPaymentReceiptEvent {
   @@index([actorId])
   @@index([createdAt])
   @@map("m1m_payment_receipt_events")
+}
+
+model M1MSubscriptionEvent {
+  id                   String                   @id @default(cuid())
+  companyId            String
+  type                 M1MSubscriptionEventType
+  planName             String?
+  amountCents          Int?
+  billingCycle         M1MBillingCycle?
+  previousAccessEndsAt DateTime?
+  newAccessEndsAt      DateTime?
+  createdAt            DateTime                 @default(now())
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  payments M1MSubscriptionPayment[]
+
+  @@index([companyId, createdAt])
+  @@map("m1m_subscription_events")
+}
+
+model M1MSubscriptionPayment {
+  id                  String   @id @default(cuid())
+  companyId           String
+  subscriptionEventId String?
+  amountCents         Int
+  paidAt              DateTime
+  paymentMethod       String?
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  company           M1MCompany            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscriptionEvent M1MSubscriptionEvent? @relation(fields: [subscriptionEventId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, paidAt])
+  @@index([subscriptionEventId])
+  @@map("m1m_subscription_payments")
 }

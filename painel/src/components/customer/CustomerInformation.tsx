@@ -10,6 +10,7 @@ type CustomerInformationProps = {
   company: string;
   city: string;
   responsible: string;
+  responsibleId: string;
   phone: string;
   attendanceStatus: "IA" | "HUMANO";
 
@@ -27,12 +28,20 @@ type CustomerInformationProps = {
 
   onResponsibleChange: (
     value: string,
+    userId: string,
   ) => void;
 };
 
 type CustomerSuggestionRecord = {
   company?: string | null;
   city?: string | null;
+};
+
+type CustomerUserOption = {
+  id: string;
+  name: string;
+  displayName?: string | null;
+  active: boolean;
 };
 
 function normalizeSuggestion(
@@ -87,6 +96,7 @@ export default function CustomerInformation({
   company,
   city,
   responsible,
+  responsibleId,
   phone,
   attendanceStatus,
   lastInteraction,
@@ -101,7 +111,69 @@ export default function CustomerInformation({
   ] = useState<CustomerSuggestionRecord[]>(
     [],
   );
+  const [
+    responsibleUsers,
+    setResponsibleUsers,
+  ] = useState<CustomerUserOption[]>([]);
 
+  useEffect(() => {
+    const controller =
+      new AbortController();
+
+    async function loadResponsibleUsers() {
+      try {
+        const response = await fetch(
+          "/api/users",
+          {
+            cache: "no-store",
+            signal:
+              controller.signal,
+          },
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Nao foi possivel carregar os responsaveis.",
+          );
+        }
+
+        setResponsibleUsers(
+          (Array.isArray(data)
+            ? data
+            : []
+          ).filter(
+            (
+              user: CustomerUserOption,
+            ) => user.active,
+          ),
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Erro ao carregar responsaveis do CRM:",
+          error,
+        );
+
+        setResponsibleUsers([]);
+      }
+    }
+
+    void loadResponsibleUsers();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
   useEffect(() => {
     const controller =
       new AbortController();
@@ -208,7 +280,7 @@ export default function CustomerInformation({
             )
           }
           placeholder="Nome da empresa"
-          className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+          className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
         />
 
         <datalist id="m1m-company-suggestions">
@@ -250,7 +322,7 @@ export default function CustomerInformation({
             )
           }
           placeholder="Cidade do cliente"
-          className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
+          className="mt-2 w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
         />
 
         <datalist id="m1m-city-suggestions">
@@ -279,22 +351,44 @@ export default function CustomerInformation({
         </label>
 
         <select
-          value={responsible}
+          value={responsibleId}
           disabled={isLoading}
-          onChange={(event) =>
-            onResponsibleChange(
-              event.target.value,
-            )
-          }
-          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#ff3d00] focus:ring-4 focus:ring-[#ff3d00]/10"
-        >
-          <option value="Julinho">
-            Julinho
-          </option>
+          onChange={(event) => {
+            const selectedUser =
+              responsibleUsers.find(
+                (user) =>
+                  user.id ===
+                  event.target.value,
+              );
 
+            onResponsibleChange(
+              selectedUser
+                ? selectedUser.displayName?.trim() ||
+                    selectedUser.name
+                : "",
+              selectedUser?.id || "",
+            );
+          }}
+          className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+        >
           <option value="">
             Sem responsável
           </option>
+
+          {responsibleUsers.map((user) => {
+            const visibleName =
+              user.displayName?.trim() ||
+              user.name;
+
+            return (
+              <option
+                key={user.id}
+                value={user.id}
+              >
+                {visibleName}
+              </option>
+            );
+          })}
         </select>
 
         <div

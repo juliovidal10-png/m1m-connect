@@ -1,4 +1,5 @@
 import {
+  M1MMessageAuthorType,
   M1MMessageDirection,
   M1MMessageType,
 } from "@/generated/prisma/enums";
@@ -160,6 +161,10 @@ export const automaticMessageService = {
         type:
           M1MMessageType.TEXT,
         fromMe: true,
+        authorType:
+          M1MMessageAuthorType.AI,
+        authorId: null,
+        authorName: "IA",
         content:
           input.text,
         rawPayload:

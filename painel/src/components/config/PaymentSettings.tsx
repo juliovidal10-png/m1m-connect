@@ -341,7 +341,7 @@ export default function PaymentSettings({
               event.target.value as never,
             )
           }
-          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+          className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
         />
       </label>
     );
@@ -374,7 +374,7 @@ export default function PaymentSettings({
               event.target.value as never,
             )
           }
-          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
+          className="w-full resize-y rounded-xl border border-black/10 bg-white px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
         />
       </label>
     );
@@ -433,14 +433,14 @@ export default function PaymentSettings({
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-orange-200 hover:text-orange-700"
+        className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
       >
         ← Voltar para configurações
       </button>
 
       <div className="rounded-2xl border border-black/5 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Informações comerciais
           </p>
 
@@ -483,7 +483,7 @@ export default function PaymentSettings({
                       key={
                         option.field
                       }
-                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:border-orange-200"
+                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 bg-white px-4 py-3 transition hover:border-teal-200"
                     >
                       <input
                         type="checkbox"
@@ -499,7 +499,7 @@ export default function PaymentSettings({
                               .checked,
                           )
                         }
-                        className="h-4 w-4 accent-orange-600"
+                        className="h-4 w-4 accent-teal-600"
                       />
 
                       <span className="text-sm font-medium">
@@ -646,7 +646,7 @@ export default function PaymentSettings({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-teal-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSaving
                   ? "Salvando..."

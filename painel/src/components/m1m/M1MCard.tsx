@@ -27,14 +27,14 @@ export default function M1MCard({
       className={`group flex min-h-56 w-full flex-col rounded-2xl border bg-white p-5 text-left shadow-sm transition-all duration-200 ${
         disabled
           ? "cursor-not-allowed border-black/5 opacity-45"
-          : "cursor-pointer border-black/5 hover:-translate-y-0.5 hover:border-[#ff3d00]/35 hover:shadow-md"
+          : "cursor-pointer border-black/5 hover:-translate-y-0.5 hover:border-[#0A9090]/35 hover:shadow-md"
       }`}
     >
       <div
         className={`flex h-12 w-12 items-center justify-center rounded-2xl transition-colors duration-200 ${
           disabled
             ? "bg-black/[0.025] text-black/25"
-            : "bg-black/[0.035] text-black/60 group-hover:bg-[#fff3ee] group-hover:text-[#e93800]"
+            : "bg-black/[0.035] text-black/60 group-hover:bg-[#F0F9F9] group-hover:text-[#087B7B]"
         }`}
       >
         {icon}
@@ -45,7 +45,7 @@ export default function M1MCard({
           className={`text-base font-bold transition-colors duration-200 ${
             disabled
               ? "text-black/35"
-              : "text-[#171717] group-hover:text-[#e93800]"
+              : "text-[#171717] group-hover:text-[#087B7B]"
           }`}
         >
           {title}
@@ -61,7 +61,7 @@ export default function M1MCard({
           className={`text-xs font-bold transition-colors duration-200 ${
             disabled
               ? "text-black/25"
-              : "text-black/35 group-hover:text-[#e93800]"
+              : "text-black/35 group-hover:text-[#087B7B]"
           }`}
         >
           {disabled ? "Em breve" : actionLabel}

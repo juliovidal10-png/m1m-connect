@@ -1,6 +1,8 @@
 const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
 
+const EVOLUTION_REQUEST_TIMEOUT_MS = 12_000;
+
 function validateConfig() {
   if (!API_URL || !API_KEY) {
     throw new Error(
@@ -17,20 +19,69 @@ function validateInstance(instanceName: string) {
   }
 }
 
+async function fetchEvolution(
+  input: string,
+  init: RequestInit = {},
+) {
+  const controller =
+    new AbortController();
+
+  const timeoutId =
+    setTimeout(
+      () => controller.abort(),
+      EVOLUTION_REQUEST_TIMEOUT_MS,
+    );
+
+  try {
+    return await fetch(
+      input,
+      {
+        ...init,
+        signal:
+          controller.signal,
+      },
+    );
+  } catch (error) {
+    if (
+      error instanceof DOMException &&
+      error.name === "AbortError"
+    ) {
+      throw new Error(
+        "A Evolution API demorou demais para responder.",
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function consumeErrorBody(
+  response: Response,
+) {
+  await response.text().catch(() => "");
+}
+
 export async function getInstances() {
   validateConfig();
 
-  const response = await fetch(
-    `${API_URL}/instance/fetchInstances`,
-    {
-      headers: {
-        apikey: API_KEY!,
+  const response =
+    await fetchEvolution(
+      `${API_URL}/instance/fetchInstances`,
+      {
+        headers: {
+          apikey: API_KEY!,
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
+    );
 
   if (!response.ok) {
+    await consumeErrorBody(
+      response,
+    );
+
     throw new Error(
       "Erro ao buscar instâncias.",
     );
@@ -42,41 +93,78 @@ export async function getInstances() {
 export async function getMessages(
   remoteJid: string,
   instanceName: string,
+  maxPages = 100,
 ) {
   validateConfig();
   validateInstance(instanceName);
 
-  const response = await fetch(
-    `${API_URL}/chat/findMessages/${instanceName}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: API_KEY!,
-      },
-      body: JSON.stringify({
-        where: {
-          key: {
-            remoteJid,
-          },
-        },
-        page: 1,
-        offset: 50,
-      }),
-      cache: "no-store",
-    },
+  const PAGE_SIZE = 50;
+  const MAX_PAGES = Math.max(
+    1,
+    Math.min(
+      Number.isFinite(maxPages)
+        ? Math.trunc(maxPages)
+        : 100,
+      100,
+    ),
   );
+  const allRecords: unknown[] = [];
 
-  if (!response.ok) {
-    throw new Error(
-      "Erro ao buscar mensagens.",
-    );
+  for (
+    let page = 1;
+    page <= MAX_PAGES;
+    page += 1
+  ) {
+    const response =
+      await fetchEvolution(
+        `${API_URL}/chat/findMessages/${instanceName}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            apikey: API_KEY!,
+          },
+          body: JSON.stringify({
+            where: {
+              key: {
+                remoteJid,
+              },
+            },
+            page,
+            offset: PAGE_SIZE,
+          }),
+          cache: "no-store",
+        },
+      );
+
+    if (!response.ok) {
+      await consumeErrorBody(
+        response,
+      );
+
+      throw new Error(
+        "Erro ao buscar mensagens.",
+      );
+    }
+
+    const data =
+      await response.json();
+
+    const records = Array.isArray(
+      data?.messages?.records,
+    )
+      ? data.messages.records
+      : [];
+
+    allRecords.push(...records);
+
+    if (records.length < PAGE_SIZE) {
+      break;
+    }
   }
 
-  const data =
-    await response.json();
-
-  return data?.messages?.records ?? [];
+  return allRecords;
 }
 
 export async function sendTextMessage(
@@ -105,20 +193,24 @@ export async function sendTextMessage(
     );
   }
 
-  const response = await fetch(
-    `${API_URL}/message/sendText/${instanceName}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: API_KEY!,
+  const response =
+    await fetchEvolution(
+      `${API_URL}/message/sendText/${instanceName}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          apikey: API_KEY!,
+        },
+        body: JSON.stringify({
+          number:
+            normalizedRemoteJid,
+          text:
+            normalizedText,
+        }),
       },
-      body: JSON.stringify({
-        number: normalizedRemoteJid,
-        text: normalizedText,
-      }),
-    },
-  );
+    );
 
   const data =
     await response

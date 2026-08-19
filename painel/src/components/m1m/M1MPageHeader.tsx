@@ -28,7 +28,7 @@ export default function M1MPageHeader({
         {showBackButton && (
           <Link
             href={backHref}
-            className="group mb-4 inline-flex items-center gap-2 text-sm font-semibold text-black/45 transition-colors duration-200 hover:text-[#e93800]"
+            className="group mb-4 inline-flex items-center gap-2 text-sm font-semibold text-black/45 transition-colors duration-200 hover:text-[#087B7B]"
           >
             <svg
               viewBox="0 0 24 24"

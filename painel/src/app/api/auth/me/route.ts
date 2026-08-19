@@ -12,8 +12,16 @@ import {
 } from "@/repositories/user.repository";
 
 import {
+  companyAccessService,
+} from "@/services/company-access.service";
+
+import {
   sessionService,
 } from "@/services/auth/session.service";
+
+import {
+  authorizationService,
+} from "@/services/auth/authorization.service";
 
 const SESSION_COOKIE_NAME =
   "m1m_session";
@@ -76,6 +84,27 @@ export async function GET(
       );
     }
 
+    const access =
+      await companyAccessService.checkCompanyAccess(
+        company.id,
+      );
+
+    const authorizationUser = {
+      userId: user.id,
+      companyId: user.companyId,
+      role: user.role,
+      isPrimary: user.isPrimary,
+      useCustomPermissions:
+        user.useCustomPermissions,
+      permissions:
+        user.permissions,
+    };
+
+    const effectivePermissions =
+      authorizationService.getEffectivePermissions(
+        authorizationUser,
+      );
+
     return NextResponse.json({
       authenticated: true,
       user: {
@@ -90,6 +119,7 @@ export async function GET(
           user.useCustomPermissions,
         permissions:
           user.permissions,
+        effectivePermissions,
       },
       company: {
         id: company.id,
@@ -99,6 +129,16 @@ export async function GET(
           company.onboardingCompleted,
         aiEnabled:
           company.aiEnabled,
+        subscriptionStatus:
+          access.status,
+        trialEndsAt:
+          access.trialEndsAt,
+        accessEndsAt:
+          access.accessEndsAt,
+        accessAllowed:
+          access.allowed,
+        accessReason:
+          access.reason,
       },
     });
   } catch (error) {

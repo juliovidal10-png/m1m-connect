@@ -305,14 +305,12 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-black/10 bg-white">
-      <div className="border-b border-black/10 px-5 py-5">
-        <p className="text-xl font-bold tracking-[-0.02em] text-orange-600">
-          M1M Connect
-        </p>
-
-        <p className="mt-1 text-xs font-medium text-black/45">
-          Marketing1Minuto
-        </p>
+      <div className="border-b border-black/10 px-3 py-4">
+        <img
+          src="/m1m-logo.svg"
+          alt="M1M Connect"
+          className="h-auto w-[calc(100%+8px)] max-w-none -ml-1 object-contain object-left"
+        />
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -402,7 +400,7 @@ export default function Sidebar() {
                                 ? "bg-red-600 text-white"
                                 : active
                                   ? "bg-black text-white"
-                                  : "bg-orange-100 text-orange-700"
+                                  : "bg-[#0A9090]/10 text-[#0A9090]"
                             }`}
                           >
                             {agendaSummary.today >

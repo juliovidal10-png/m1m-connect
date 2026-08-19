@@ -167,7 +167,7 @@ export default function useCustomerMedia({
   ]);
 
   const visibleMedia = useMemo(
-    () => filteredMedia.slice(0, 20),
+    () => filteredMedia,
     [filteredMedia],
   );
 

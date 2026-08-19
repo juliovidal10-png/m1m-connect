@@ -209,13 +209,13 @@ function StatusBadge({
         borderRadius: "999px",
         border: isHuman
           ? "1px solid #bbf7d0"
-          : "1px solid #fed7aa",
+          : "1px solid #BFE8E8",
         background: isHuman
           ? "#f0fdf4"
-          : "#fff7ed",
+          : "#ECF8F8",
         color: isHuman
           ? "#15803d"
-          : "#c2410c",
+          : "#087B7B",
         padding: "5px 10px",
         fontSize: "10px",
         fontWeight: 700,
@@ -231,23 +231,23 @@ function StatusBadge({
 }
 
 type CustomerPanelTab =
-  | "dados"
-  | "notas"
-  | "lembretes"
+  | "cliente"
+  | "cliente"
+  | "atividades"
   | "arquivos";
 
 function normalizeCustomerTab(
   value: string | null,
 ): CustomerPanelTab {
   if (
-    value === "notas" ||
-    value === "lembretes" ||
+    value === "cliente" ||
+    value === "atividades" ||
     value === "arquivos"
   ) {
     return value;
   }
 
-  return "dados";
+  return "cliente";
 }
 
 export default function ClientsPageContent() {
@@ -595,9 +595,9 @@ export default function ClientsPageContent() {
       <div
         style={{
           width: "100%",
-          maxWidth: "1500px",
+          maxWidth: "1680px",
           margin: "0 auto",
-          padding: "28px 32px 32px",
+          padding: "14px 16px 16px",
           boxSizing: "border-box",
         }}
       >
@@ -817,7 +817,7 @@ export default function ClientsPageContent() {
                           "1px solid rgba(0,0,0,0.06)",
                         background:
                           isSelected
-                            ? "#fff7ed"
+                            ? "#ECF8F8"
                             : "#ffffff",
                         padding:
                           "14px 24px",
@@ -865,12 +865,12 @@ export default function ClientsPageContent() {
                               "center",
                             background:
                               isSelected
-                                ? "#ea580c"
-                                : "#fff7ed",
+                                ? "#0A9090"
+                                : "#ECF8F8",
                             color:
                               isSelected
                                 ? "#ffffff"
-                                : "#c2410c",
+                                : "#087B7B",
                             fontSize:
                               "12px",
                             fontWeight:
@@ -905,7 +905,7 @@ export default function ClientsPageContent() {
                               textTransform:
                                 "uppercase",
                               color:
-                                "#e93800",
+                                "#087B7B",
                             }}
                           >
                             Cliente #

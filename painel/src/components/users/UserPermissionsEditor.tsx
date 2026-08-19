@@ -182,14 +182,14 @@ export default function UserPermissionsEditor({
 
   if (disabled) {
     return (
-      <section className="mt-6 rounded-2xl border border-orange-100 bg-white p-5 lg:p-6">
+      <section className="mt-6 rounded-2xl border border-teal-100 bg-white p-5 lg:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-start">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-2xl">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-2xl">
             🔒
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-orange-600">
+            <p className="text-sm font-semibold text-teal-600">
               Permissões operacionais
             </p>
 
@@ -241,17 +241,17 @@ export default function UserPermissionsEditor({
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-orange-100 bg-orange-50 px-5 py-4">
-              <p className="text-sm font-bold text-orange-800">
+            <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50 px-5 py-4">
+              <p className="text-sm font-bold text-teal-800">
                 🔒 Inteligência protegida pela M1M
               </p>
 
-              <p className="mt-2 text-xs leading-5 text-orange-700">
+              <p className="mt-2 text-xs leading-5 text-teal-700">
                 Esta área faz parte da infraestrutura
                 inteligente do M1M Connect.
               </p>
 
-              <p className="mt-2 text-xs leading-5 text-orange-700">
+              <p className="mt-2 text-xs leading-5 text-teal-700">
                 Prompts, IA, Base de Conhecimento e regras
                 avançadas são administrados exclusivamente
                 pela equipe M1M para garantir estabilidade,
@@ -268,7 +268,7 @@ export default function UserPermissionsEditor({
     <section className="mt-6 rounded-2xl border border-black/5 bg-white p-5 lg:p-6">
       <div className="flex flex-col gap-4 border-b border-black/5 pb-5 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-sm font-semibold text-orange-600">
+          <p className="text-sm font-semibold text-teal-600">
             Permissões operacionais
           </p>
 
@@ -292,7 +292,7 @@ export default function UserPermissionsEditor({
                 event.target.checked,
               )
             }
-            className="h-5 w-5 accent-orange-600"
+            className="h-5 w-5 accent-teal-600"
           />
 
           <span className="text-sm font-bold text-black/65">
@@ -301,17 +301,17 @@ export default function UserPermissionsEditor({
         </label>
       </div>
 
-      <div className="mt-5 rounded-xl border border-orange-100 bg-orange-50 px-5 py-4">
-        <p className="text-sm font-bold text-orange-800">
+      <div className="mt-5 rounded-xl border border-teal-100 bg-teal-50 px-5 py-4">
+        <p className="text-sm font-bold text-teal-800">
           🔒 Inteligência protegida pela M1M
         </p>
 
-        <p className="mt-2 text-xs leading-5 text-orange-700">
+        <p className="mt-2 text-xs leading-5 text-teal-700">
           Esta área faz parte da infraestrutura
           inteligente do M1M Connect.
         </p>
 
-        <p className="mt-2 text-xs leading-5 text-orange-700">
+        <p className="mt-2 text-xs leading-5 text-teal-700">
           Prompts, IA, Base de Conhecimento e regras
           avançadas são administrados exclusivamente
           pela equipe M1M para garantir estabilidade,
@@ -338,7 +338,7 @@ export default function UserPermissionsEditor({
               <button
                 type="button"
                 onClick={selectAll}
-                className="rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/55 transition hover:border-orange-200 hover:text-orange-700"
+                className="rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/55 transition hover:border-teal-200 hover:text-teal-700"
               >
                 Marcar todas
               </button>
@@ -346,7 +346,7 @@ export default function UserPermissionsEditor({
               <button
                 type="button"
                 onClick={clearAll}
-                className="rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/55 transition hover:border-orange-200 hover:text-orange-700"
+                className="rounded-lg border border-black/10 px-3 py-2 text-xs font-bold text-black/55 transition hover:border-teal-200 hover:text-teal-700"
               >
                 Limpar
               </button>
@@ -377,8 +377,8 @@ export default function UserPermissionsEditor({
                           key={permission.value}
                           className={
                             isSelected
-                              ? "flex cursor-pointer gap-3 rounded-xl border border-orange-200 bg-orange-50/60 p-4"
-                              : "flex cursor-pointer gap-3 rounded-xl border border-black/5 p-4 transition hover:border-orange-100"
+                              ? "flex cursor-pointer gap-3 rounded-xl border border-teal-200 bg-teal-50/60 p-4"
+                              : "flex cursor-pointer gap-3 rounded-xl border border-black/5 p-4 transition hover:border-teal-100"
                           }
                         >
                           <input
@@ -389,7 +389,7 @@ export default function UserPermissionsEditor({
                                 permission.value,
                               )
                             }
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-orange-600"
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-teal-600"
                           />
 
                           <span>
