@@ -1,10 +1,7 @@
-import {
+﻿import {
   NextRequest,
   NextResponse,
 } from "next/server";
-
-import fs from "node:fs/promises";
-import path from "node:path";
 
 import {
   M1MUserPermission,
@@ -16,6 +13,9 @@ import {
 import {
   paymentReceiptService,
 } from "@/services/payment-receipt.service";
+import {
+  receiptStorageService,
+} from "@/services/storage/receipt-storage.service";
 
 export const dynamic = "force-dynamic";
 
@@ -64,14 +64,14 @@ export async function GET(
 
     if (
       !mediaUrl ||
-      !mediaUrl.startsWith(
-        "/payment-receipts/",
+      !receiptStorageService.isManagedUrl(
+        mediaUrl,
       )
     ) {
       return NextResponse.json(
         {
           error:
-            "A mídia local deste comprovante não foi localizada.",
+            "A mídia deste comprovante não foi localizada.",
         },
         {
           status: 404,
@@ -80,41 +80,13 @@ export async function GET(
     }
 
     const fileName =
-      path.basename(mediaUrl);
-
-    const mediaDirectory =
-      path.resolve(
-        process.cwd(),
-        "public",
-        "payment-receipts",
-      );
-
-    const filePath =
-      path.resolve(
-        mediaDirectory,
-        fileName,
-      );
-
-    if (
-      !filePath.startsWith(
-        mediaDirectory +
-          path.sep,
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Caminho de mídia inválido.",
-        },
-        {
-          status: 400,
-        },
-      );
-    }
+      receipt.fileName?.trim() ||
+      mediaUrl.split("/").pop() ||
+      "comprovante";
 
     const file =
-      await fs.readFile(
-        filePath,
+      await receiptStorageService.read(
+        mediaUrl,
       );
 
     const contentType =

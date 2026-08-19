@@ -1,7 +1,4 @@
-import {
-  unlink,
-} from "node:fs/promises";
-import path from "node:path";
+import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 
 import {
   paymentReceiptDeletionRepository,
@@ -23,7 +20,7 @@ function requireText(
   return normalized;
 }
 
-function getLocalReceiptFilePath(
+async function deleteLocalFile(
   mediaUrl?: string | null,
 ) {
   const normalized =
@@ -31,38 +28,10 @@ function getLocalReceiptFilePath(
 
   if (
     !normalized ||
-    !normalized.startsWith(
-      "/payment-receipts/",
+    !receiptStorageService.isManagedUrl(
+      normalized,
     )
   ) {
-    return null;
-  }
-
-  const fileName =
-    path.basename(
-      normalized,
-    );
-
-  if (
-    !fileName ||
-    fileName === "." ||
-    fileName === ".."
-  ) {
-    return null;
-  }
-
-  return path.join(
-    process.cwd(),
-    "public",
-    "payment-receipts",
-    fileName,
-  );
-}
-
-async function deleteLocalFile(
-  filePath: string | null,
-) {
-  if (!filePath) {
     return {
       deleted: false,
       reason:
@@ -71,31 +40,21 @@ async function deleteLocalFile(
   }
 
   try {
-    await unlink(
-      filePath,
-    );
+    const deleted =
+      await receiptStorageService.remove(
+        normalized,
+      );
 
     return {
-      deleted: true,
+      deleted,
       reason:
-        "DELETED" as const,
+        deleted
+          ? "DELETED" as const
+          : "FILE_NOT_FOUND" as const,
     };
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return {
-        deleted: false,
-        reason:
-          "FILE_NOT_FOUND" as const,
-      };
-    }
-
     console.warn(
-      "[M1M COMPROVANTE] Registro excluído, mas não foi possível remover o arquivo local:",
+      "[M1M COMPROVANTE] Registro excluído, mas não foi possível remover o arquivo do storage:",
       error,
     );
 
@@ -135,13 +94,7 @@ export const paymentReceiptDeletionService = {
         "Comprovante não encontrado.",
       );
     }
-
-    const localFilePath =
-      getLocalReceiptFilePath(
-        receipt.mediaUrl,
-      );
-
-    const otherReferences =
+const otherReferences =
       receipt.mediaUrl
         ? await paymentReceiptDeletionRepository.countOtherByMediaUrl(
             normalizedCompanyId,
@@ -165,7 +118,7 @@ export const paymentReceiptDeletionService = {
     const localFile =
       otherReferences === 0
         ? await deleteLocalFile(
-            localFilePath,
+            receipt.mediaUrl,
           )
         : {
             deleted: false,

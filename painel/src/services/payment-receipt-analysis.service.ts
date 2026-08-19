@@ -1,9 +1,6 @@
-import {
-  readFile,
-} from "node:fs/promises";
-import path from "node:path";
 
-import OpenAI from "openai";
+import OpenAI from "openai";
+import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 
 export type PaymentReceiptAnalysisResult = {
   isPaymentReceipt: boolean;
@@ -175,54 +172,6 @@ function extractJson(
   ) as RawAnalysis;
 }
 
-function localPathFromMediaUrl(
-  mediaUrl: string,
-) {
-  const normalized =
-    mediaUrl.trim();
-
-  if (
-    !normalized.startsWith(
-      "/payment-receipts/",
-    )
-  ) {
-    throw new Error(
-      "O comprovante ainda não possui arquivo local para análise.",
-    );
-  }
-
-  const relativePath =
-    normalized
-      .replace(/^\/+/, "");
-
-  const publicRoot =
-    path.resolve(
-      process.cwd(),
-      "public",
-    );
-
-  const filePath =
-    path.resolve(
-      publicRoot,
-      relativePath,
-    );
-
-  const expectedPrefix =
-    `${publicRoot}${path.sep}`;
-
-  if (
-    !filePath.startsWith(
-      expectedPrefix,
-    )
-  ) {
-    throw new Error(
-      "Caminho local do comprovante inválido.",
-    );
-  }
-
-  return filePath;
-}
-
 function buildInstructions() {
   return [
     "Você analisa comprovantes de pagamento brasileiros.",
@@ -246,14 +195,9 @@ export const paymentReceiptAnalysisService = {
     mimeType?: string | null;
     fileName?: string | null;
   }): Promise<PaymentReceiptAnalysisResult> {
-    const filePath =
-      localPathFromMediaUrl(
-        input.mediaUrl,
-      );
-
     const fileBuffer =
-      await readFile(
-        filePath,
+      await receiptStorageService.read(
+        input.mediaUrl,
       );
 
     if (
@@ -273,9 +217,7 @@ export const paymentReceiptAnalysisService = {
 
     const fileName =
       input.fileName?.trim() ||
-      path.basename(
-        filePath,
-      );
+      (input.mediaUrl.split("/").pop() || "comprovante");
 
     const client =
       getClient();

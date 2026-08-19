@@ -1,8 +1,6 @@
-import {
-  mkdir,
-  writeFile,
-} from "node:fs/promises";
 import path from "node:path";
+
+import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 
 const API_URL =
   process.env.EVOLUTION_API_URL;
@@ -233,28 +231,7 @@ export const paymentReceiptMediaService = {
 
     const uniqueFileName =
       `${sanitizeFileName(messageId)}-${safeFileName}`;
-
-    const publicDirectory =
-      path.join(
-        process.cwd(),
-        "public",
-        "payment-receipts",
-      );
-
-    await mkdir(
-      publicDirectory,
-      {
-        recursive: true,
-      },
-    );
-
-    const filePath =
-      path.join(
-        publicDirectory,
-        uniqueFileName,
-      );
-
-    const fileBuffer =
+const fileBuffer =
       Buffer.from(
         removeDataUrlPrefix(
           media.base64,
@@ -267,15 +244,15 @@ export const paymentReceiptMediaService = {
         "A mídia recuperada está vazia.",
       );
     }
-
-    await writeFile(
-      filePath,
-      fileBuffer,
-    );
+    const stored =
+      await receiptStorageService.save({
+        fileName: uniqueFileName,
+        buffer: fileBuffer,
+      });
 
     return {
       mediaUrl:
-        `/payment-receipts/${uniqueFileName}`,
+        stored.mediaUrl,
       fileName:
         originalFileName ||
         safeFileName,
