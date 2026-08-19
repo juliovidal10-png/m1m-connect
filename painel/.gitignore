@@ -87,3 +87,15 @@ ChatInbox-atual.txt
 mensagens-teste.json
 src/components/chat/*-antes-*.tsx
 .env.production
+# M1M Connect - arquivos locais / runtime
+/public/payment-receipts/*
+!/public/payment-receipts/.gitkeep
+*.bak-*
+*.backup-*
+/diagnostico-*.ts
+/corrigir-registro-historico-*.ts
+/reanalisar-comprovante-*.ts
+/preparar-teste-*.ts
+/restaurar-trial-original.ts
+/testar-servico-trial.ts
+/verificar-status-trial-empresa.ts
