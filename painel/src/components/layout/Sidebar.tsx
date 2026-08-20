@@ -419,6 +419,28 @@ export default function Sidebar() {
         </div>
       </nav>
 
+      <div className="shrink-0 px-3 pb-3">
+        <Link
+          href="/ajuda"
+          className={
+            isItemActive(pathname, "/ajuda")
+              ? "flex w-full items-center gap-3 rounded-xl bg-black/[0.07] px-3 py-2.5 text-sm font-semibold text-black transition"
+              : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black"
+          }
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="h-[18px] w-[18px] shrink-0"
+          >
+            <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
+            <path d="M9.8 9.2a2.35 2.35 0 1 1 3.55 2.02c-.9.55-1.35 1.05-1.35 2.03" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            <circle cx="12" cy="16.8" r=".9" fill="currentColor" />
+          </svg>
+          <span className="min-w-0 flex-1">Ajuda</span>
+        </Link>
+      </div>
       <div className="border-t border-black/10">
         <CentralPendencias
           onAgendaSummaryChange={
