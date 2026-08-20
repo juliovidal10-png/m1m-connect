@@ -41,5 +41,6 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.tsenv
+next-env.d.ts
 /evolution/
+/painel/backups/

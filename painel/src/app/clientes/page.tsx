@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import ClientsPageContent from "@/components/clients/ClientsPageContent";
 import Sidebar from "@/components/layout/Sidebar";
 
@@ -19,7 +20,7 @@ export default function ClientsPage() {
           </div>
         </header>
 
-        <ClientsPageContent />
+        <Suspense fallback={null}><ClientsPageContent /></Suspense>
       </section>
     </main>
   );

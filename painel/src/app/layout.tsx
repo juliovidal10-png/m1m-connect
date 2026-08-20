@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import CompanyAccessGate from "@/components/access/CompanyAccessGate";
@@ -29,7 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CompanyAccessGate>{children}</CompanyAccessGate>
+        <Suspense fallback={null}><CompanyAccessGate>{children}</CompanyAccessGate></Suspense>
       </body>
     </html>
   );

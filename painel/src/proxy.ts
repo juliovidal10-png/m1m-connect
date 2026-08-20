@@ -12,6 +12,11 @@ const SESSION_COOKIE_NAME =
 
 const PUBLIC_PATHS = new Set([
   "/login",
+  "/aceite",
+  "/termos",
+  "/privacidade",
+  "/lgpd",
+  "/whatsapp",
 ]);
 
 function isM1MAdminPath(

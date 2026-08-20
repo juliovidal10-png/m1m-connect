@@ -305,13 +305,14 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-screen w-72 shrink-0 flex-col border-r border-black/10 bg-white">
-      <div className="border-b border-black/10 px-3 py-4">
+      <div className="flex h-[94px] w-full shrink-0 items-center justify-center px-4">
         <img
-          src="/m1m-logo.svg"
+          src="/m1m-sidebar-logo.svg"
           alt="M1M Connect"
-          className="h-auto w-[calc(100%+8px)] max-w-none -ml-1 object-contain object-left"
+          className="block h-auto w-full max-w-[256px] object-contain object-center"
         />
       </div>
+      <div className="h-px w-full shrink-0 bg-[#d9dde2]" aria-hidden="true" />
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">

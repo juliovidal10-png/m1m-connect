@@ -228,6 +228,25 @@ export async function GET() {
       profileName,
     });
   } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "";
+
+    if (
+      /sess[aã]o|autentic|cookie|companyId|empresa autenticada/i.test(
+        message,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: "Nao autenticado.",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
     console.error(
       "[WHATSAPP STATUS]",
       error,

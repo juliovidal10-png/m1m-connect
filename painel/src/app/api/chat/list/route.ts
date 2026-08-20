@@ -200,6 +200,98 @@ async function getGroupSubject(
   }
 }
 
+async function fetchAllEvolutionChats(
+  instanceName: string,
+) {
+  const pageSize = 200;
+  const maxPages = 50;
+
+  const allChats: EvolutionChat[] = [];
+  const seenIdentities =
+    new Set<string>();
+
+  for (
+    let page = 0;
+    page < maxPages;
+    page += 1
+  ) {
+    const skip =
+      page * pageSize;
+
+    const response =
+      await fetch(
+        `${API_URL}/chat/findChats/${encodeURIComponent(
+          instanceName,
+        )}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            apikey: API_KEY || "",
+          },
+          body: JSON.stringify({
+            where: {},
+            take: pageSize,
+            skip,
+          }),
+          cache: "no-store",
+        },
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        `Nao foi possivel buscar as conversas da Evolution. HTTP ${response.status}`,
+      );
+    }
+
+    const pageChats: EvolutionChat[] =
+      Array.isArray(data)
+        ? data
+        : Array.isArray(
+              data?.value,
+            )
+          ? data.value
+          : [];
+
+    if (pageChats.length === 0) {
+      break;
+    }
+
+    let newIdentities = 0;
+
+    for (const chat of pageChats) {
+      const identity =
+        getPrimaryRemoteJid(chat);
+
+      if (
+        identity &&
+        seenIdentities.has(identity)
+      ) {
+        continue;
+      }
+
+      if (identity) {
+        seenIdentities.add(identity);
+      }
+
+      allChats.push(chat);
+      newIdentities += 1;
+    }
+
+    if (
+      pageChats.length < pageSize ||
+      newIdentities === 0
+    ) {
+      break;
+    }
+  }
+
+  return allChats;
+}
 export async function GET() {
   try {
     if (!API_URL || !API_KEY) {
@@ -278,52 +370,10 @@ export async function GET() {
         },
       );
     }
-
-    const evolutionResponse = await fetch(
-      `${API_URL}/chat/findChats/${encodeURIComponent(
+    const chats =
+      await fetchAllEvolutionChats(
         instanceName,
-      )}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-          apikey: API_KEY,
-        },
-        body: JSON.stringify({
-          where: {},
-          take: 200,
-          skip: 0,
-        }),
-        cache: "no-store",
-      },
-    );
-
-    const evolutionData =
-      await evolutionResponse.json();
-
-    if (!evolutionResponse.ok) {
-      return NextResponse.json(
-        {
-          error:
-            "Não foi possível buscar as conversas.",
-          details: evolutionData,
-        },
-        {
-          status:
-            evolutionResponse.status,
-        },
       );
-    }
-
-    const chats: EvolutionChat[] =
-      Array.isArray(evolutionData)
-        ? evolutionData
-        : Array.isArray(
-              evolutionData?.value,
-            )
-          ? evolutionData.value
-          : [];
 
     const groupJids =
       Array.from(

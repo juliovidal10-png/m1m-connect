@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { authorizationService } from "@/services/auth/authorization.service";
@@ -147,7 +147,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error:
-          "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada.",
+          "Configuração da Evolution API não encontrada.",
       },
       {
         status: 500,
@@ -184,7 +184,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Empresa nÃ£o encontrada.",
+            "Empresa não encontrada.",
         },
         {
           status: 404,
@@ -199,7 +199,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "InstÃ¢ncia do WhatsApp nÃ£o configurada para esta empresa.",
+            "Instância do WhatsApp não configurada para esta empresa.",
         },
         {
           status: 400,
@@ -214,7 +214,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "NÃ£o foi possÃ­vel consultar as instÃ¢ncias do WhatsApp.",
+            "Não foi possível consultar as instâncias do WhatsApp.",
           details:
             instances.data,
         },
@@ -265,7 +265,7 @@ export async function POST() {
         return NextResponse.json(
           {
             error:
-              "NÃ£o foi possÃ­vel criar a conexÃ£o do WhatsApp.",
+              "Não foi possível criar a conexão do WhatsApp.",
             details:
               createData,
           },
@@ -308,7 +308,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "NÃ£o foi possÃ­vel gerar o QR Code do WhatsApp.",
+            "Não foi possível gerar o QR Code do WhatsApp.",
           details:
             connectData,
         },
@@ -345,6 +345,3 @@ export async function POST() {
     );
   }
 }
-
-
-

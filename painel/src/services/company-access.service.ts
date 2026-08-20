@@ -19,58 +19,7 @@ export type CompanyAccessResult = {
     | "SUSPENDED";
 };
 
-async function disconnectWhatsappInstance(
-  instanceName: string | null,
-) {
-  const normalizedInstanceName =
-    instanceName?.trim();
 
-  if (!normalizedInstanceName) {
-    return;
-  }
-
-  const apiUrl =
-    process.env.EVOLUTION_API_URL?.trim();
-  const apiKey =
-    process.env.EVOLUTION_API_KEY?.trim();
-
-  if (!apiUrl || !apiKey) {
-    console.warn(
-      "[TRIAL] Evolution API não configurada; não foi possível desconectar a instância.",
-    );
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      `${apiUrl}/instance/logout/${encodeURIComponent(normalizedInstanceName)}`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: apiKey,
-        },
-        cache: "no-store",
-      },
-    );
-
-    if (!response.ok) {
-      const details = await response
-        .text()
-        .catch(() => "");
-
-      console.warn(
-        "[TRIAL] Falha ao desconectar WhatsApp expirado:",
-        response.status,
-        details,
-      );
-    }
-  } catch (error) {
-    console.error(
-      "[TRIAL] Erro ao desconectar WhatsApp expirado:",
-      error,
-    );
-  }
-}
 
 export const companyAccessService = {
   async activateCompany(
@@ -118,12 +67,7 @@ export const companyAccessService = {
           whatsappInstanceName: true,
         },
       });
-
-    await disconnectWhatsappInstance(
-      company.whatsappInstanceName,
-    );
-
-    return company;
+return company;
   },
 
   async extendTrialSevenDays(
@@ -374,12 +318,7 @@ export const companyAccessService = {
               M1MSubscriptionStatus.EXPIRED,
           },
         });
-
-        await disconnectWhatsappInstance(
-          company.whatsappInstanceName,
-        );
-
-        return {
+return {
           allowed: false,
           status:
             M1MSubscriptionStatus.EXPIRED,
@@ -414,12 +353,7 @@ export const companyAccessService = {
             M1MSubscriptionStatus.EXPIRED,
         },
       });
-
-      await disconnectWhatsappInstance(
-        company.whatsappInstanceName,
-      );
-
-      return {
+return {
         allowed: false,
         status:
           M1MSubscriptionStatus.EXPIRED,

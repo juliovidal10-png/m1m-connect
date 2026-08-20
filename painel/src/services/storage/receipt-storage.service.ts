@@ -1,4 +1,4 @@
-﻿import {
+import {
   mkdir,
   readFile,
   unlink,
@@ -122,7 +122,7 @@ function resolveLocalPath(
 
   const directory =
     path.resolve(
-      process.cwd(),
+      /*turbopackIgnore: true*/ process.cwd(),
       "public",
       "payment-receipts",
     );
@@ -268,7 +268,7 @@ export const receiptStorageService = {
 
     const directory =
       path.resolve(
-        process.cwd(),
+        /*turbopackIgnore: true*/ process.cwd(),
         "public",
         "payment-receipts",
       );

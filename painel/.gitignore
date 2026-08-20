@@ -99,3 +99,5 @@ src/components/chat/*-antes-*.tsx
 /restaurar-trial-original.ts
 /testar-servico-trial.ts
 /verificar-status-trial-empresa.ts
+/backups/
+m1m-*.tmp.cjs

@@ -146,6 +146,7 @@ model M1MCompany {
   subscriptionEvents M1MSubscriptionEvent[]
 
   subscriptionPayments M1MSubscriptionPayment[]
+  legalAcceptances     M1MLegalAcceptance[]
 
   @@map("m1m_companies")
 }
@@ -344,6 +345,7 @@ model M1MUser {
   sectorUsers          M1MSectorUser[]
   paymentReceipts      M1MPaymentReceipt[]      @relation("PaymentReceiptResponsible")
   paymentReceiptEvents M1MPaymentReceiptEvent[] @relation("PaymentReceiptEventActor")
+  legalAcceptances     M1MLegalAcceptance[]
 
   @@index([companyId])
   @@map("m1m_users")
@@ -480,28 +482,28 @@ enum M1MMessageAuthorType {
 }
 
 model M1MMessage {
-  id                 String                @id @default(cuid())
-  companyId          String
-  customerId         String
-  attendanceId       String?
-  instanceName       String
-  evolutionMessageId String
-  remoteJid          String
-  direction          M1MMessageDirection
-  type               M1MMessageType
-  fromMe             Boolean
-  authorType         M1MMessageAuthorType?
-  authorId           String?
-  authorName         String?
-  content            String?
-  mediaUrl           String?
-  mimeType           String?
-  rawPayload         Json?
-  sentAt             DateTime
+  id                  String                @id @default(cuid())
+  companyId           String
+  customerId          String
+  attendanceId        String?
+  instanceName        String
+  evolutionMessageId  String
+  remoteJid           String
+  direction           M1MMessageDirection
+  type                M1MMessageType
+  fromMe              Boolean
+  authorType          M1MMessageAuthorType?
+  authorId            String?
+  authorName          String?
+  content             String?
+  mediaUrl            String?
+  mimeType            String?
+  rawPayload          Json?
+  sentAt              DateTime
   processingStartedAt DateTime?
-  processedAt        DateTime?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  processedAt         DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
 
   company        M1MCompany         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   customer       M1MCustomer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -642,4 +644,21 @@ model M1MSubscriptionPayment {
   @@index([companyId, paidAt])
   @@index([subscriptionEventId])
   @@map("m1m_subscription_payments")
+}
+
+model M1MLegalAcceptance {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String
+  document   String
+  version    String
+  acceptedAt DateTime @default(now())
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    M1MUser    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId, document, version])
+  @@index([companyId])
+  @@index([userId])
+  @@map("m1m_legal_acceptances")
 }

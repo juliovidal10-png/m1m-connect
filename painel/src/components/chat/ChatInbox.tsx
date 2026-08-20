@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   type ChangeEvent,
@@ -1093,7 +1093,7 @@ export default function ChatInbox() {
       [messages],
     );
 
-  
+
   const selectedChatListSignature =
     useMemo(
       () => {
@@ -1909,6 +1909,34 @@ const loadContacts =
   useAutoRefresh({
     callback: refreshChat,
     interval: 2000,
+    enabled: true,
+  });
+
+  const refreshContacts =
+    useCallback(async () => {
+      /*
+       * Contatos mudam com menos frequencia que chats,
+       * mas precisam ser renovados para nomes e fotos
+       * acompanharem o WhatsApp sem recarregar a tela.
+       *
+       * Uma falha temporaria de rede/recompilacao nao
+       * deve derrubar a interface nem apagar o estado
+       * que ja esta carregado. O ciclo seguinte tenta
+       * novamente normalmente.
+       */
+      try {
+        await loadContacts();
+      } catch (error) {
+        console.warn(
+          "[M1M CONTATOS] Refresh temporariamente indisponivel; mantendo dados atuais.",
+          error,
+        );
+      }
+    }, [loadContacts]);
+
+  useAutoRefresh({
+    callback: refreshContacts,
+    interval: 30000,
     enabled: true,
   });
 
@@ -4946,8 +4974,3 @@ const loadContacts =
     </div>
   );
 }
-
-
-
-
-

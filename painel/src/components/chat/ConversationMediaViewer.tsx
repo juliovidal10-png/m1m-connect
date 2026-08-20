@@ -59,7 +59,7 @@ function MediaContent({
   if (loading) {
     return (
       <div className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white/70">
-        Carregando mídia...
+        {"Carregando m\u00eddia..."}
       </div>
     );
   }
@@ -71,7 +71,7 @@ function MediaContent({
   ) {
     return (
       <div className="rounded-2xl bg-white/10 px-5 py-4 text-sm text-white/70">
-        Não foi possível carregar esta mídia.
+        {"N\u00e3o foi poss\u00edvel carregar esta m\u00eddia."}
       </div>
     );
   }
@@ -96,7 +96,7 @@ function MediaContent({
         }
         className="max-h-[calc(100vh-12rem)] max-w-[min(74vw,1120px)] object-contain shadow-2xl"
       >
-        Seu navegador não suporta reprodução de vídeo.
+        {"Seu navegador n\u00e3o suporta reprodu\u00e7\u00e3o de v\u00eddeo."}
       </video>
     );
   }
@@ -176,9 +176,24 @@ export default function ConversationMediaViewer({
     );
 
   const [
-    activeIndex,
-    setActiveIndex,
-  ] = useState(initialIndex);
+    activeMessageId,
+    setActiveMessageId,
+  ] = useState(
+    gallery[initialIndex]?.id ??
+      currentMessage.id,
+  );
+
+  const activeMessageRef =
+    useRef<ChatMessage>(
+      gallery[initialIndex] ??
+        currentMessage,
+    );
+
+  const activeIndex =
+    gallery.findIndex(
+      (item) =>
+        item.id === activeMessageId,
+    );
 
   const [zoom, setZoom] =
     useState(1);
@@ -205,8 +220,19 @@ export default function ConversationMediaViewer({
     });
 
   const activeMessage =
-    gallery[activeIndex] ||
-    currentMessage;
+    activeIndex >= 0
+      ? gallery[activeIndex]
+      : activeMessageRef.current;
+
+  useEffect(() => {
+    if (activeIndex >= 0) {
+      activeMessageRef.current =
+        gallery[activeIndex];
+    }
+  }, [
+    activeIndex,
+    gallery,
+  ]);
 
   const isImage =
     activeMessage.messageType ===
@@ -226,10 +252,18 @@ export default function ConversationMediaViewer({
       return;
     }
 
+    const previous =
+      gallery[activeIndex - 1];
+
+    if (!previous) {
+      return;
+    }
+
     resetView();
-    setActiveIndex(
-      (current) =>
-        current - 1,
+    activeMessageRef.current =
+      previous;
+    setActiveMessageId(
+      previous.id,
     );
   }
 
@@ -241,10 +275,18 @@ export default function ConversationMediaViewer({
       return;
     }
 
+    const next =
+      gallery[activeIndex + 1];
+
+    if (!next) {
+      return;
+    }
+
     resetView();
-    setActiveIndex(
-      (current) =>
-        current + 1,
+    activeMessageRef.current =
+      next;
+    setActiveMessageId(
+      next.id,
     );
   }
 
@@ -259,8 +301,19 @@ export default function ConversationMediaViewer({
       return;
     }
 
+    const selected =
+      gallery[index];
+
+    if (!selected) {
+      return;
+    }
+
     resetView();
-    setActiveIndex(index);
+    activeMessageRef.current =
+      selected;
+    setActiveMessageId(
+      selected.id,
+    );
   }
 
   useEffect(() => {
@@ -269,22 +322,25 @@ export default function ConversationMediaViewer({
       return;
     }
 
-    const nextIndex =
-      Math.max(
-        0,
-        gallery.findIndex(
-          (item) =>
-            item.id ===
-            currentMessage.id,
-        ),
-      );
+    const openedMessage =
+      gallery.find(
+        (item) =>
+          item.id ===
+          currentMessage.id,
+      ) ??
+      currentMessage;
 
-    setActiveIndex(nextIndex);
+    activeMessageRef.current =
+      openedMessage;
+
+    setActiveMessageId(
+      currentMessage.id,
+    );
+
     resetView();
   }, [
     isOpen,
     currentMessage.id,
-    gallery,
   ]);
 
   useEffect(() => {
@@ -538,8 +594,8 @@ export default function ConversationMediaViewer({
         onClick={() =>
           goToMedia(index)
         }
-        aria-label={`Abrir mídia ${index + 1}`}
-        title={`Mídia ${index + 1}`}
+        aria-label={`Abrir m\u00eddia ${index + 1}`}
+        title={`M\u00eddia ${index + 1}`}
         className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-black/30 transition ${
           isActive
             ? "border-[#0A9090] ring-2 ring-[#0A9090]/25"
@@ -558,14 +614,14 @@ export default function ConversationMediaViewer({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-white/70">
-              ▶
+              â–¶
             </div>
           )
         ) : loading ? (
           <div className="h-full w-full animate-pulse bg-white/10" />
         ) : error || !source ? (
           <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
-            mídia
+            {"m\u00eddia"}
           </div>
         ) : (
           <img
@@ -579,7 +635,7 @@ export default function ConversationMediaViewer({
           "videoMessage" && (
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-[10px] text-white">
-              ▶
+              â–¶
             </span>
           </span>
         )}
@@ -601,25 +657,50 @@ export default function ConversationMediaViewer({
               <button
                 type="button"
                 onClick={zoomOut}
-                disabled={
-                  zoom <= 1
-                }
+                disabled={zoom <= 1}
                 aria-label="Diminuir zoom"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-white/85 transition hover:bg-white/10 disabled:opacity-30"
+                title="Diminuir zoom"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 transition hover:bg-white/10 disabled:opacity-30"
               >
-                −
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-[22px] w-[22px]"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-4-4" />
+                  <path d="M8 11h6" />
+                </svg>
               </button>
 
               <button
                 type="button"
                 onClick={zoomIn}
-                disabled={
-                  zoom >= 3
-                }
+                disabled={zoom >= 3}
                 aria-label="Aumentar zoom"
-                className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-white/85 transition hover:bg-white/10 disabled:opacity-30"
+                title="Aumentar zoom"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 transition hover:bg-white/10 disabled:opacity-30"
               >
-                +
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-[22px] w-[22px]"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-4-4" />
+                  <path d="M8 11h6" />
+                  <path d="M11 8v6" />
+                </svg>
               </button>
             </>
           )}
@@ -634,9 +715,22 @@ export default function ConversationMediaViewer({
                 );
               }}
               aria-label="Encaminhar mídia"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-lg text-white/85 transition hover:bg-white/10"
+              title="Encaminhar"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 transition hover:bg-white/10"
             >
-              ↗
+              <svg
+                viewBox="0 0 24 24"
+                className="h-[22px] w-[22px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 8l5 4-5 4" />
+                <path d="M20 12H9a5 5 0 0 0-5 5v1" />
+              </svg>
             </button>
           )}
 
@@ -644,9 +738,22 @@ export default function ConversationMediaViewer({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-2xl text-white/85 transition hover:bg-white/10"
+            title="Fechar"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/85 transition hover:bg-white/10"
           >
-            ×
+            <svg
+              viewBox="0 0 24 24"
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12" />
+              <path d="M18 6L6 18" />
+            </svg>
           </button>
         </div>
       </header>
@@ -663,11 +770,22 @@ export default function ConversationMediaViewer({
             goPrevious();
           }}
           disabled={!hasPrevious}
-          aria-label="Mídia anterior"
-          title="Mídia anterior"
+          aria-label={"M\u00eddia anterior"}
+          title={"M\u00eddia anterior"}
           className="absolute left-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-3xl text-white/90 backdrop-blur transition hover:bg-black/55 disabled:pointer-events-none disabled:opacity-0 sm:left-5"
         >
-          ‹
+          <svg
+            viewBox="0 0 24 24"
+            className="h-7 w-7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
         </button>
 
         <button
@@ -677,11 +795,22 @@ export default function ConversationMediaViewer({
             goNext();
           }}
           disabled={!hasNext}
-          aria-label="Próxima mídia"
-          title="Próxima mídia"
+          aria-label={"Pr\u00f3xima m\u00eddia"}
+          title={"Pr\u00f3xima m\u00eddia"}
           className="absolute right-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-3xl text-white/90 backdrop-blur transition hover:bg-black/55 disabled:pointer-events-none disabled:opacity-0 sm:right-5"
         >
-          ›
+          <svg
+            viewBox="0 0 24 24"
+            className="h-7 w-7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
         </button>
 
           <MediaContent

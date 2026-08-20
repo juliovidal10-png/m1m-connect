@@ -1038,6 +1038,8 @@ export const incomingMessagePipelineService = {
           normalizedMessage.remoteJid,
         text:
           aiResponse.text,
+      sourceMessageId:
+          storedMessage.id,
       });
 
       return {

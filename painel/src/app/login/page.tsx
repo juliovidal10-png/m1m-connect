@@ -4,6 +4,7 @@ import {
   FormEvent,
   useState,
 } from "react";
+import LegalFooter from "@/components/legal/LegalFooter";
 
 type LoginResponse = {
   authenticated: boolean;
@@ -133,22 +134,17 @@ export default function LoginPage() {
           <section className="hidden min-h-[640px] flex-col justify-between bg-[#171717] p-10 text-white lg:flex xl:p-12">
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#087B7B] text-lg font-black">
-                  M
-                </div>
 
-                <div>
-                  <p className="text-lg font-black tracking-tight">
-                    M1M Connect
-                  </p>
-                  <p className="text-xs text-white/45">
-                    Marketing1Minuto
-                  </p>
-                </div>
+
+                <div className="flex w-full items-center justify-start"><img
+                src="/m1m-connect-login-logo.png"
+                alt="M1M Connect"
+                className="block h-auto w-[320px] max-w-full object-contain object-left sm:w-[345px]"
+              /></div>
               </div>
 
               <div className="mt-20 max-w-md">
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#ff7043]">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#087B7B]">
                   Atendimento inteligente
                 </p>
 
@@ -295,6 +291,10 @@ export default function LoginPage() {
           </section>
         </div>
       </div>
-    </main>
+
+  <div className="absolute left-1/2 top-[calc(50%+315px)] w-full max-w-[1050px] -translate-x-1/2 px-4">
+    <LegalFooter />
+  </div>
+</main>
   );
 }

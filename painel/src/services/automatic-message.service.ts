@@ -26,6 +26,7 @@ type SendAutomaticMessageInput = {
   instanceName: string;
   remoteJid: string;
   text: string;
+  sourceMessageId?: string | null;
 };
 
 function isRecord(
@@ -111,6 +112,36 @@ export const automaticMessageService = {
   async sendText(
     input: SendAutomaticMessageInput,
   ) {
+    if (input.sourceMessageId) {
+      const alreadySent =
+        await messageService.listMessagesByAttendance(
+          input.attendanceId ?? "",
+        );
+
+      const duplicate =
+        alreadySent.some(
+          (message) =>
+            message.fromMe === true &&
+            message.authorType ===
+              M1MMessageAuthorType.AI &&
+            message.content === input.text &&
+            message.rawPayload &&
+            typeof message.rawPayload === "object" &&
+            !Array.isArray(message.rawPayload) &&
+            (message.rawPayload as Record<string, unknown>)
+              .m1mSourceMessageId ===
+              input.sourceMessageId,
+        );
+
+      if (duplicate) {
+        return {
+          response: null,
+          evolutionMessageId: null,
+          duplicatePrevented: true as const,
+        };
+      }
+    }
+
     const signature =
       automaticOutgoingRegistryService.registerPending(
         input.instanceName,
@@ -168,7 +199,15 @@ export const automaticMessageService = {
         content:
           input.text,
         rawPayload:
-          response as Prisma.InputJsonValue,
+          {
+            ...(response as Record<string, unknown>),
+            ...(input.sourceMessageId
+              ? {
+                  m1mSourceMessageId:
+                    input.sourceMessageId,
+                }
+              : {}),
+          } as Prisma.InputJsonValue,
         sentAt:
           getTimestamp(response),
         processedAt:
