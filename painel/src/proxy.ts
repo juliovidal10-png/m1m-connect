@@ -13,6 +13,8 @@ const SESSION_COOKIE_NAME =
 const PUBLIC_PATHS = new Set([
   "/login",
   "/primeiro-acesso",
+  "/esqueci-senha",
+  "/redefinir-senha",
   "/aceite",
   "/termos",
   "/privacidade",
