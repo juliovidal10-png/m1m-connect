@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+﻿import { useEffect, useRef } from "react";
 
 type AutoRefreshOptions = {
   callback: () => void | Promise<void>;
@@ -11,16 +11,35 @@ export default function useAutoRefresh({
   interval = 2000,
   enabled = true,
 }: AutoRefreshOptions) {
+  const isRunningRef = useRef(false);
+
   useEffect(() => {
     if (!enabled) {
       return;
     }
 
+    let cancelled = false;
+
+    const runCallback = async () => {
+      if (cancelled || isRunningRef.current) {
+        return;
+      }
+
+      isRunningRef.current = true;
+
+      try {
+        await callback();
+      } finally {
+        isRunningRef.current = false;
+      }
+    };
+
     const timer = setInterval(() => {
-      callback();
+      void runCallback();
     }, interval);
 
     return () => {
+      cancelled = true;
       clearInterval(timer);
     };
   }, [callback, interval, enabled]);

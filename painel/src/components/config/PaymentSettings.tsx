@@ -136,6 +136,22 @@ function toFormData(
   };
 }
 
+function formatCpfCnpjInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, "$1.$2")
+      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1-$2");
+  }
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
 export default function PaymentSettings({
   onBack,
 }: PaymentSettingsProps) {
@@ -338,7 +354,9 @@ export default function PaymentSettings({
           onChange={(event) =>
             updateField(
               field,
-              event.target.value as never,
+              (field === "pixHolderDocument"
+                ? formatCpfCnpjInput(event.target.value)
+                : event.target.value) as never,
             )
           }
           className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   FormEvent,
@@ -265,6 +265,15 @@ export default function LoginPage() {
                   </div>
                 </label>
 
+                <div className="mt-3 flex justify-end">
+                  <a
+                    href="/esqueci-senha"
+                    className="text-sm font-semibold text-[#087B7B] transition hover:underline"
+                  >
+                    Esqueci minha senha
+                  </a>
+                </div>
+
                 {error && (
                   <div className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                     {error}
@@ -298,3 +307,4 @@ export default function LoginPage() {
 </main>
   );
 }
+

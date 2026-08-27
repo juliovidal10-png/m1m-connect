@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 :root {
   --background: #ffffff;
@@ -226,7 +226,7 @@ main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="group
 
 .m1m-finance-received-hover:hover {
   border-color: rgba(16, 185, 129, 0.48) !important;
-  background-color: rgba(16, 185, 129, 0.04) !important;
+  background-color: #ffffff !important;
   box-shadow: 0 8px 22px rgba(16, 185, 129, 0.08) !important;
 }
 
@@ -239,6 +239,7 @@ main a[href="/agenda?filter=OVERDUE"][class*="border-red-"]:hover [class*="group
 
 .m1m-finance-receivable-hover:hover {
   border-color: rgba(245, 158, 11, 0.52) !important;
-  background-color: rgba(245, 158, 11, 0.05) !important;
+  background-color: #ffffff !important;
   box-shadow: 0 8px 22px rgba(245, 158, 11, 0.10) !important;
 }
+

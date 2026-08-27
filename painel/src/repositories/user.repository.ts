@@ -112,6 +112,28 @@ export const userRepository = {
     });
   },
 
+  async delete(
+    companyId: string,
+    userId: string,
+  ) {
+    const existingUser =
+      await this.findById(
+        companyId,
+        userId,
+      );
+
+    if (!existingUser) {
+      throw new Error(
+        "Usuário não encontrado.",
+      );
+    }
+
+    return prisma.m1MUser.delete({
+      where: {
+        id: userId,
+      },
+    });
+  },
   async update(
     companyId: string,
     userId: string,
@@ -197,3 +219,4 @@ export const userRepository = {
     });
   },
 };
+

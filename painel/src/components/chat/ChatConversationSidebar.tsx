@@ -15,6 +15,9 @@ type ChatConversationSidebarProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   isLoading: boolean;
+  isLoadingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
   items: ChatConversationSidebarItem[];
 };
 
@@ -22,10 +25,21 @@ export default function ChatConversationSidebar({
   searchQuery,
   onSearchChange,
   isLoading,
+  isLoadingMore,
+  hasMore,
+  onLoadMore,
   items,
 }: ChatConversationSidebarProps) {
   return (
-    <aside className="h-full w-full shrink-0 overflow-y-auto border-r border-black/5 bg-white">
+    <aside
+      className="h-full w-full shrink-0 overflow-y-auto border-r border-black/5 bg-white"
+      onScroll={(event) => {
+        if (searchQuery.trim() || isLoading || isLoadingMore || !hasMore) return;
+        const element = event.currentTarget;
+        const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+        if (distanceToBottom < 180) onLoadMore();
+      }}
+    >
       <div className="sticky top-0 z-10 border-b border-black/5 bg-white px-4 pb-4 pt-5">
         <h2 className="text-[18px] font-bold text-[#171717]">
           Conversas
@@ -107,6 +121,12 @@ export default function ChatConversationSidebar({
           </div>
         </button>
       ))}
+
+      {isLoadingMore && !searchQuery.trim() && (
+        <p className="p-4 text-center text-sm text-black/45">
+          Carregando mais conversas...
+        </p>
+      )}
     </aside>
   );
 }

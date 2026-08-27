@@ -1,14 +1,17 @@
-import {
+﻿import {
   M1MSubscriptionStatus,
   M1MUserRole,
 } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 import {
-  passwordService,
-} from "@/services/auth/password.service";
+  accessTokenService,
+} from "@/services/auth/access-token.service";
 
 const TRIAL_DURATION_MS =
   7 * 24 * 60 * 60 * 1000;
+
+const FIRST_ACCESS_PURPOSE =
+  "FIRST_ACCESS";
 
 export type ProvisionCompanyInput = {
   companyName: string;
@@ -23,7 +26,6 @@ export type ProvisionCompanyInput = {
   adminDisplayName?: string | null;
   adminEmail: string;
   adminPhone?: string | null;
-  adminPassword: string;
 };
 
 function requireText(
@@ -183,11 +185,6 @@ export const adminCompanyProvisioningService = {
       );
     }
 
-    const passwordHash =
-      await passwordService.hashPassword(
-        input.adminPassword,
-      );
-
     const now =
       new Date();
 
@@ -252,7 +249,8 @@ export const adminCompanyProvisioningService = {
                   ),
                 email:
                   adminEmail,
-                passwordHash,
+                passwordHash:
+                  null,
                 phone:
                   normalizeOptionalText(
                     input.adminPhone,
@@ -277,6 +275,12 @@ export const adminCompanyProvisioningService = {
             admin,
           };
         },
+      );
+
+    const firstAccess =
+      await accessTokenService.createToken(
+        result.admin.id,
+        FIRST_ACCESS_PURPOSE,
       );
 
     return {
@@ -334,6 +338,7 @@ export const adminCompanyProvisioningService = {
         createdAt:
           result.admin.createdAt,
       },
+      firstAccess,
     };
   },
 };

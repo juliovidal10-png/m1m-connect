@@ -1,36 +1,20 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+﻿import { NextRequest, NextResponse } from "next/server";
 
-import {
-  M1MUserPermission,
-} from "@/generated/prisma/enums";
+import { M1MUserPermission } from "@/generated/prisma/enums";
 
-import {
-  getAuthenticatedCompanyId,
-} from "@/lib/tenant";
+import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import {
   AuthorizationError,
   authorizationService,
 } from "@/services/auth/authorization.service";
 import { userService } from "@/services/user.service";
 
-function getErrorStatus(
-  error: unknown,
-) {
-  return error instanceof AuthorizationError
-    ? error.statusCode
-    : 500;
+function getErrorStatus(error: unknown) {
+  return error instanceof AuthorizationError ? error.statusCode : 500;
 }
 
-function getErrorMessage(
-  error: unknown,
-  fallbackMessage: string,
-) {
-  return error instanceof Error
-    ? error.message
-    : fallbackMessage;
+function getErrorMessage(error: unknown, fallbackMessage: string) {
+  return error instanceof Error ? error.message : fallbackMessage;
 }
 
 function toSafeUser<
@@ -40,6 +24,7 @@ function toSafeUser<
     name: string;
     displayName: string | null;
     email: string;
+    passwordHash: string | null;
     jobTitle: string | null;
     phone: string | null;
     role: unknown;
@@ -57,11 +42,11 @@ function toSafeUser<
     name: user.name,
     displayName: user.displayName,
     email: user.email,
+    hasPassword: Boolean(user.passwordHash),
     jobTitle: user.jobTitle,
     phone: user.phone,
     role: user.role,
-    useCustomPermissions:
-      user.useCustomPermissions,
+    useCustomPermissions: user.useCustomPermissions,
     permissions: user.permissions,
     active: user.active,
     isPrimary: user.isPrimary,
@@ -76,8 +61,46 @@ type RouteContext = {
   }>;
 };
 
-export async function PUT(
-  request: NextRequest,
+export async function PUT(request: NextRequest, context: RouteContext) {
+  try {
+    const authorizedUser = await authorizationService.requirePermission(
+      M1MUserPermission.MANAGE_USERS,
+    );
+
+    const companyId = authorizedUser.companyId;
+
+    const { userId } = await context.params;
+
+    const body = await request.json();
+
+    const user = await userService.updateUser(companyId, userId, {
+      name: body.name,
+      displayName: body.displayName,
+      email: body.email,
+      jobTitle: body.jobTitle,
+      phone: body.phone,
+      role: body.role,
+      useCustomPermissions: body.useCustomPermissions,
+      permissions: body.permissions,
+      active: body.active,
+    });
+
+    return NextResponse.json(toSafeUser(user));
+  } catch (error) {
+    console.error("ERRO USERS PUT:", error);
+
+    return NextResponse.json(
+      {
+        error: getErrorMessage(error, "Erro ao atualizar o usuário."),
+      },
+      {
+        status: getErrorStatus(error),
+      },
+    );
+  }
+}
+export async function DELETE(
+  _request: NextRequest,
   context: RouteContext,
 ) {
   try {
@@ -92,38 +115,19 @@ export async function PUT(
     const { userId } =
       await context.params;
 
-    const body = await request.json();
-
-    const user =
-      await userService.updateUser(
+    const deletedUser =
+      await userService.deleteUser(
         companyId,
         userId,
-        {
-          name: body.name,
-          displayName:
-            body.displayName,
-          email: body.email,
-          jobTitle:
-            body.jobTitle,
-          phone:
-            body.phone,
-          role:
-            body.role,
-          useCustomPermissions:
-            body.useCustomPermissions,
-          permissions:
-            body.permissions,
-          active:
-            body.active,
-        },
       );
 
-    return NextResponse.json(
-      toSafeUser(user),
-    );
+    return NextResponse.json({
+      success: true,
+      user: toSafeUser(deletedUser),
+    });
   } catch (error) {
     console.error(
-      "ERRO USERS PUT:",
+      "ERRO USERS DELETE:",
       error,
     );
 
@@ -131,7 +135,7 @@ export async function PUT(
       {
         error: getErrorMessage(
           error,
-          "Erro ao atualizar o usuário.",
+          "Erro ao excluir o usuário.",
         ),
       },
       {
@@ -140,3 +144,4 @@ export async function PUT(
     );
   }
 }
+

@@ -189,6 +189,11 @@ export default function ConversationMediaViewer({
         currentMessage,
     );
 
+  const activeThumbnailRef =
+    useRef<HTMLButtonElement | null>(
+      null,
+    );
+
   const activeIndex =
     gallery.findIndex(
       (item) =>
@@ -232,6 +237,37 @@ export default function ConversationMediaViewer({
   }, [
     activeIndex,
     gallery,
+  ]);
+
+  /*
+   * Miniatura ativa acompanha automaticamente a midia aberta.
+   * O requestAnimationFrame garante que o botao ativo ja esteja
+   * renderizado antes do deslocamento horizontal.
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const frame =
+      window.requestAnimationFrame(
+        () => {
+          activeThumbnailRef.current?.scrollIntoView({
+            behavior: "auto",
+            block: "nearest",
+            inline: "center",
+          });
+        },
+      );
+
+    return () => {
+      window.cancelAnimationFrame(
+        frame,
+      );
+    };
+  }, [
+    isOpen,
+    activeMessageId,
   ]);
 
   const isImage =
@@ -590,6 +626,11 @@ export default function ConversationMediaViewer({
 
     return (
       <button
+        ref={
+          isActive
+            ? activeThumbnailRef
+            : undefined
+        }
         type="button"
         onClick={() =>
           goToMedia(index)
@@ -613,9 +654,16 @@ export default function ConversationMediaViewer({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-white/70">
-              â–¶
-            </div>
+            <div className="flex h-full w-full items-center justify-center text-white/70">              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 5v14l11-7z"
+                  fill="currentColor"
+                />
+              </svg>            </div>
           )
         ) : loading ? (
           <div className="h-full w-full animate-pulse bg-white/10" />
@@ -633,11 +681,18 @@ export default function ConversationMediaViewer({
 
         {message.messageType ===
           "videoMessage" && (
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-[10px] text-white">
-              â–¶
-            </span>
-          </span>
+          <span className="absolute inset-0 flex items-center justify-center">            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-3 w-3"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 5v14l11-7z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>          </span>
         )}
       </button>
     );

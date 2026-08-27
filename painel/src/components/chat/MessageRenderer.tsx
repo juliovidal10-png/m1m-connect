@@ -754,6 +754,43 @@ function LinkPreviewCard({
   );
 }
 
+function WhatsappBoldText({
+  text,
+}: {
+  text: string;
+}) {
+  const parts = text.split(
+    /(\*[^*\n]+\*)/g,
+  );
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isBold =
+          part.length > 2 &&
+          part.startsWith("*") &&
+          part.endsWith("*");
+
+        if (isBold) {
+          return (
+            <strong
+              key={`${part}-${index}`}
+              className="font-semibold"
+            >
+              {part.slice(1, -1)}
+            </strong>
+          );
+        }
+
+        return (
+          <span key={`${part}-${index}`}>
+            {part}
+          </span>
+        );
+      })}
+    </>
+  );
+}
 function LinkifiedText({
   text,
   className = "",
@@ -779,7 +816,7 @@ function LinkifiedText({
 
         if (!isLink) {
           return (
-            <span key={`${part}-${index}`}>
+            <span key={`$<WhatsappBoldText text={part} />-${index}`}>
               {part}
             </span>
           );
@@ -815,7 +852,7 @@ function LinkifiedText({
 function UnsupportedMessage() {
   return (
     <p className="text-sm leading-6">
-      Mensagem ainda não suportada.
+      Essa mensagem não pode ser exibida aqui. Abra o WhatsApp para visualizá-la.
     </p>
   );
 }

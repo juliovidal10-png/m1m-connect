@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -6,7 +6,7 @@ import {
 } from "react";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import CentralPendencias from "./CentralPendencias";
 
@@ -283,6 +283,7 @@ function isItemActive(
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const [
     agendaSummary,
@@ -292,6 +293,16 @@ export default function Sidebar() {
     overdue: 0,
   });
 
+  async function handleLogout() {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "DELETE",
+      });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  }
   const handleAgendaSummaryChange =
     useCallback(
       (summary: {
@@ -419,9 +430,17 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="shrink-0 px-3 pb-3">
-        <Link
-          href="/ajuda"
+      <div className="shrink-0 space-y-1 px-3 pb-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (isItemActive(pathname, "/ajuda")) {
+              router.back();
+              return;
+            }
+
+            router.push("/ajuda");
+          }}
           className={
             isItemActive(pathname, "/ajuda")
               ? "flex w-full items-center gap-3 rounded-xl bg-black/[0.07] px-3 py-2.5 text-sm font-semibold text-black transition"
@@ -438,8 +457,38 @@ export default function Sidebar() {
             <path d="M9.8 9.2a2.35 2.35 0 1 1 3.55 2.02c-.9.55-1.35 1.05-1.35 2.03" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             <circle cx="12" cy="16.8" r=".9" fill="currentColor" />
           </svg>
-          <span className="min-w-0 flex-1">Ajuda</span>
-        </Link>
+
+          <span className="min-w-0 flex-1 text-left">Ajuda</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="h-[18px] w-[18px] shrink-0"
+          >
+            <path
+              d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+            <path
+              d="M13.5 8.5 17 12l-3.5 3.5M17 12H9"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+
+          <span className="min-w-0 flex-1 text-left">Sair</span>
+        </button>
       </div>
       <div className="border-t border-black/10">
         <CentralPendencias
@@ -451,3 +500,5 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+

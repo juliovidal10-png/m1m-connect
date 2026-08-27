@@ -52,6 +52,7 @@ import {
 import {
   paymentReceiptMediaService,
 } from "@/services/payment-receipt-media.service";
+import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 import {
   sectorAvailabilityService,
 } from "@/services/sector-availability.service";
@@ -343,9 +344,7 @@ export const incomingMessagePipelineService = {
         };
 
         if (
-          persistedMediaUrl?.startsWith(
-            "/payment-receipts/",
-          )
+          persistedMediaUrl && receiptStorageService.isManagedUrl(persistedMediaUrl)
         ) {
           try {
             receiptAnalysis =

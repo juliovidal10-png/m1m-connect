@@ -22,8 +22,7 @@ export async function GET() {
   try {
     const user = await authorizationService.getCurrentUser();
 
-    const required =
-      requiresLegalAcceptance(user);
+    const required = requiresLegalAcceptance(user);
 
     if (!required) {
       return NextResponse.json({
@@ -34,16 +33,14 @@ export async function GET() {
       });
     }
 
-    const acceptance =
-      await legalAcceptanceRepository.findAcceptance(
-        user.companyId,
-        user.userId,
-        LEGAL_DOCUMENT,
-        LEGAL_VERSION,
-      );
+    const acceptance = await legalAcceptanceRepository.findCompanyAcceptance(
+      user.companyId,
+      LEGAL_DOCUMENT,
+      LEGAL_VERSION,
+    );
 
     return NextResponse.json({
-      required: true,
+      required: !acceptance,
       accepted: Boolean(acceptance),
       document: LEGAL_DOCUMENT,
       version: LEGAL_VERSION,
@@ -54,8 +51,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
-        error:
-          "Não foi possível verificar o aceite eletrônico.",
+        error: "Não foi possível verificar o aceite eletrônico.",
       },
       {
         status: 401,
@@ -71,8 +67,7 @@ export async function POST() {
     if (!requiresLegalAcceptance(user)) {
       return NextResponse.json(
         {
-          error:
-            "Este usuário não possui aceite obrigatório pendente.",
+          error: "Este usuário não possui aceite obrigatório pendente.",
         },
         {
           status: 403,
@@ -80,13 +75,12 @@ export async function POST() {
       );
     }
 
-    const acceptance =
-      await legalAcceptanceRepository.saveAcceptance(
-        user.companyId,
-        user.userId,
-        LEGAL_DOCUMENT,
-        LEGAL_VERSION,
-      );
+    const acceptance = await legalAcceptanceRepository.saveAcceptance(
+      user.companyId,
+      user.userId,
+      LEGAL_DOCUMENT,
+      LEGAL_VERSION,
+    );
 
     return NextResponse.json({
       accepted: true,
@@ -99,8 +93,7 @@ export async function POST() {
 
     return NextResponse.json(
       {
-        error:
-          "Não foi possível registrar o aceite eletrônico.",
+        error: "Não foi possível registrar o aceite eletrônico.",
       },
       {
         status: 500,

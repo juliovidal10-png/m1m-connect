@@ -1,6 +1,22 @@
 import { prisma } from "@/lib/prisma";
 
 export const legalAcceptanceRepository = {
+  async findCompanyAcceptance(
+    companyId: string,
+    document: string,
+    version: string,
+  ) {
+    return prisma.m1MLegalAcceptance.findFirst({
+      where: {
+        companyId,
+        document,
+        version,
+      },
+      orderBy: {
+        acceptedAt: "asc",
+      },
+    });
+  },
   async findAcceptance(
     companyId: string,
     userId: string,

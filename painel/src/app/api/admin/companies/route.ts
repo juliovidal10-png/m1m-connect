@@ -1,4 +1,4 @@
-import {
+﻿import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -32,7 +32,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Acesso administrativo não autorizado.",
+          "Acesso administrativo nÃ£o autorizado.",
       },
       {
         status: 401,
@@ -460,7 +460,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Acesso administrativo não autorizado.",
+          "Acesso administrativo nÃ£o autorizado.",
       },
       {
         status: 401,
@@ -497,9 +497,7 @@ export async function POST(
           body.adminEmail,
         adminPhone:
           body.adminPhone,
-        adminPassword:
-          body.adminPassword,
-      });
+});
 
     return NextResponse.json(
       {
@@ -508,6 +506,7 @@ export async function POST(
           result.company,
         admin:
           result.admin,
+        firstAccess: result.firstAccess,
       },
       {
         status: 201,
@@ -526,7 +525,7 @@ export async function POST(
 
     const conflict =
       message.includes(
-        "Já existe",
+        "JÃ¡ existe",
       );
 
     return NextResponse.json(
@@ -543,3 +542,4 @@ export async function POST(
     );
   }
 }
+

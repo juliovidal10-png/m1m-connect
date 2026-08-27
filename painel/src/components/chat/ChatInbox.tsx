@@ -730,6 +730,15 @@ export default function ChatInbox() {
   const [searchQuery, setSearchQuery] =
     useState("");
 
+  const [searchResults, setSearchResults] =
+    useState<Chat[]>([]);
+
+  const [hasMoreChats, setHasMoreChats] =
+    useState(true);
+
+  const [isLoadingMoreChats, setIsLoadingMoreChats] =
+    useState(false);
+
   const [
     isConversationSearchOpen,
     setIsConversationSearchOpen,
@@ -904,46 +913,53 @@ export default function ChatInbox() {
 
   const filteredChats = useMemo(() => {
     const normalizedQuery =
-      normalizeSearchText(searchQuery);
+      normalizeSearchText(
+        searchQuery,
+      );
 
     if (!normalizedQuery) {
       return chats;
     }
 
-    return chats.filter((chat) => {
-      const name = normalizeSearchText(
-        getChatName(
-          chat,
-          contactsMap,
-        ),
-      );
+    /*
+     * Busca hibrida:
+     * - resultado LOCAL aparece imediatamente entre os chats ja carregados;
+     * - resultado GLOBAL continua chegando pela API e e mesclado depois.
+     *
+     * Assim, nomes que ja estao visiveis nao precisam esperar a Evolution,
+     * sem perder a busca independente da base carregada.
+     */
+    const localMatches =
+      chats.filter((chat) => {
+        const haystack =
+          normalizeSearchText(
+            [
+              getChatName(
+                chat,
+                contactsMap,
+              ),
+              chat.pushName,
+              chat.crmName,
+              chat.crmPhone,
+              chat.remoteJid,
+              chat.canonicalJid,
+            ].join(" "),
+          );
 
-      const phone =
-        normalizeSearchText(
-          getCustomerPhone(chat),
+        return haystack.includes(
+          normalizedQuery,
         );
+      });
 
-      const preview =
-        normalizeSearchText(
-          getChatPreview(chat),
-        );
-
-      return (
-        name.includes(
-          normalizedQuery,
-        ) ||
-        phone.includes(
-          normalizedQuery,
-        ) ||
-        preview.includes(
-          normalizedQuery,
-        )
-      );
-    });
+    return mergeDuplicateChats([
+      ...localMatches,
+      ...searchResults,
+    ]);
   }, [
     chats,
     contactsMap,
     searchQuery,
+    searchResults,
   ]);
 
   const conversationSidebarItems =
@@ -1244,94 +1260,116 @@ const loadContacts =
       activeConversationMatchIndex
     ] ?? null;
 
+  const loadChatsInFlightRef = useRef(false);
+  const chatsRef = useRef<Chat[]>([]);
+
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
+
   const loadChats = useCallback(
     async (
       showLoading = false,
+      mode: "replace" | "append" | "refresh" = "replace",
     ) => {
-      if (showLoading) {
-        setIsLoadingChats(true);
+      if (loadChatsInFlightRef.current) {
+        return;
       }
 
-      try {
-        const response = await fetch(
-          "/api/chat/list",
-          {
-            cache: "no-store",
-          },
-        );
+      loadChatsInFlightRef.current = true;
 
-        const data =
-          await response.json();
+      if (showLoading) setIsLoadingChats(true);
+      if (mode === "append") setIsLoadingMoreChats(true);
+
+      try {
+        const offset = mode === "append" ? chatsRef.current.length : 0;
+        const response = await fetch(
+          `/api/chat/list?limit=30&offset=${offset}`,
+          { cache: "no-store" },
+        );
+        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            data.error ||
-              "Erro ao carregar conversas.",
-          );
+          throw new Error(data.error || "Erro ao carregar conversas.");
         }
 
-        const receivedItems: Chat[] =
-          Array.isArray(data)
+        const receivedItems: Chat[] = Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
             ? data
-            : Array.isArray(
-                  data?.value,
-                )
+            : Array.isArray(data?.value)
               ? data.value
               : [];
+        const items = mergeDuplicateChats(receivedItems);
+        setHasMoreChats(Boolean(data?.hasMore));
 
-        const items =
-          mergeDuplicateChats(
-            receivedItems,
-          );
+        let nextItems = items;
+        if (mode === "append") {
+          nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
+        } else if (mode === "refresh") {
+          nextItems = mergeDuplicateChats([...items, ...chatsRef.current]);
+        }
 
-        setChats(items);
+        chatsRef.current = nextItems;
+        setChats(nextItems);
 
-        setSelectedChat(
-          (currentChat) => {
-            if (!currentChat) {
-              return (
-                items[0] ?? null
-              );
-            }
-
-            const currentIdentity =
-              currentChat.canonicalJid ||
-              getCanonicalJid(
-                currentChat,
-              );
-
-            const updatedChat =
-              items.find(
-                (chat) =>
-                  (chat.canonicalJid ||
-                    getCanonicalJid(
-                      chat,
-                    )) ===
-                  currentIdentity,
-              );
-
-            return (
-              updatedChat ??
-              currentChat
-            );
-          },
-        );
+        setSelectedChat((currentChat) => {
+          if (!currentChat) return nextItems[0] ?? null;
+          const currentIdentity = currentChat.canonicalJid || getCanonicalJid(currentChat);
+          return nextItems.find((chat) =>
+            (chat.canonicalJid || getCanonicalJid(chat)) === currentIdentity,
+          ) ?? currentChat;
+        });
       } catch (error) {
         if (showLoading) {
           setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Erro ao carregar conversas.",
+            error instanceof Error ? error.message : "Erro ao carregar conversas.",
           );
         }
       } finally {
-        if (showLoading) {
-          setIsLoadingChats(false);
-        }
+        loadChatsInFlightRef.current = false;
+        if (showLoading) setIsLoadingChats(false);
+        if (mode === "append") setIsLoadingMoreChats(false);
       }
     },
     [],
   );
+
+  const loadMoreChats = useCallback(async () => {
+    if (!hasMoreChats || searchQuery.trim()) return;
+    await loadChats(false, "append");
+  }, [hasMoreChats, loadChats, searchQuery]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/chat/list?search=${encodeURIComponent(query)}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        const data = await response.json();
+        if (!response.ok) return;
+        const items: Chat[] = Array.isArray(data?.items) ? data.items : [];
+        setSearchResults(mergeDuplicateChats(items));
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          console.error("Erro ao buscar conversas:", error);
+        }
+      }
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   const loadMessages = useCallback(
     async (
@@ -1433,6 +1471,22 @@ const loadContacts =
             ];
           },
         );
+        if (showLoading) {
+          /*
+           * Na troca de conversa, aguarda o React renderizar
+           * o novo historico antes de posicionar no fim.
+           */
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              messagesEndRef.current?.scrollIntoView({
+                behavior: "auto",
+                block: "end",
+              });
+
+              setShowScrollToBottomButton(false);
+            });
+          });
+        }
       } catch (error) {
         if (
           requestId !==
@@ -1903,7 +1957,7 @@ const loadContacts =
        * O historico da conversa deixa de ser
        * resincronizado inteiro a cada 2 segundos.
        */
-      await loadChats(false);
+      await loadChats(false, "refresh");
     }, [loadChats]);
 
   useAutoRefresh({
@@ -2288,7 +2342,7 @@ const loadContacts =
         );
       }
 
-      await loadChats(false);
+      await loadChats(false, "refresh");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -2544,7 +2598,7 @@ const loadContacts =
         )}.`,
       );
 
-      await loadChats(false);
+      await loadChats(false, "refresh");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -3542,6 +3596,9 @@ const loadContacts =
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         isLoading={isLoadingChats}
+        isLoadingMore={isLoadingMoreChats}
+        hasMore={hasMoreChats}
+        onLoadMore={loadMoreChats}
         items={conversationSidebarItems}
         />
       </div>
@@ -4961,7 +5018,7 @@ const loadContacts =
             !selectedChat.crmResponsibleId
           }
           onAssigned={async () => {
-            await loadChats(false);
+            await loadChats(false, "refresh");
           }}
           onClose={() =>
             setIsCustomerQuickPanelOpen(
@@ -4974,3 +5031,4 @@ const loadContacts =
     </div>
   );
 }
+

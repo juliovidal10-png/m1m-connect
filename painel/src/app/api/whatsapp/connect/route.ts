@@ -163,7 +163,7 @@ export async function POST() {
       return NextResponse.json(
         {
           error:
-            "Webhook seguro de producao nao configurado. Defina M1M_PUBLIC_URL e M1M_WEBHOOK_SECRET.",
+            "Webhook seguro de produção não configurado. Defina M1M_PUBLIC_URL e M1M_WEBHOOK_SECRET.",
         },
         { status: 500 },
       );
@@ -172,6 +172,7 @@ export async function POST() {
     await authorizationService.requirePermission(
       M1MUserPermission.ACCESS_SETTINGS,
     );
+
     const companyId =
       await getAuthenticatedCompanyId();
 
@@ -192,18 +193,44 @@ export async function POST() {
       );
     }
 
-    const instanceName =
-      company.whatsappInstanceName?.trim();
+    let instanceName =
+      company.whatsappInstanceName?.trim() || "";
 
     if (!instanceName) {
-      return NextResponse.json(
-        {
-          error:
-            "Instância do WhatsApp não configurada para esta empresa.",
-        },
-        {
-          status: 400,
-        },
+      const baseName =
+        (company.slug?.trim() || company.id)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+
+      instanceName =
+        `m1m-${baseName}-${company.id.slice(-6).toLowerCase()}`;
+
+      const instanceOwner =
+        await companyRepository.findByWhatsappInstanceName(
+          instanceName,
+        );
+
+      if (
+        instanceOwner &&
+        instanceOwner.id !== companyId
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível reservar uma conexão exclusiva do WhatsApp para esta empresa.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+
+      await companyRepository.updateWhatsappInstanceName(
+        companyId,
+        instanceName,
       );
     }
 

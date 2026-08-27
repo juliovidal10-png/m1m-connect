@@ -306,4 +306,45 @@ export const userService = {
       data,
     );
   },
+
+  async deleteUser(
+    companyId: string,
+    userId: string,
+  ) {
+    const normalizedCompanyId =
+      requireText(
+        companyId,
+        "Empresa",
+      );
+
+    const normalizedUserId =
+      requireText(
+        userId,
+        "Usuário",
+      );
+
+    const existingUser =
+      await userRepository.findById(
+        normalizedCompanyId,
+        normalizedUserId,
+      );
+
+    if (!existingUser) {
+      throw new Error(
+        "Usuário não encontrado.",
+      );
+    }
+
+    if (existingUser.isPrimary) {
+      throw new Error(
+        "O usuário principal não pode ser excluído.",
+      );
+    }
+
+    return userRepository.delete(
+      normalizedCompanyId,
+      normalizedUserId,
+    );
+  },
 };
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import Sidebar from "@/components/layout/Sidebar";
@@ -52,7 +52,7 @@ const categories: FaqCategory[] = [
       },
       {
         question: "Por que não estou vendo determinada conversa?",
-        answer: <>Isso pode acontecer por causa das permissões, do setor ou do responsável atribuído ao atendimento. Se você acredita que deveria visualizar a conversa, procure o gestor da sua empresa.</>,
+        answer: <>A visualização depende das permissões e dos setores aos quais seu usuário está vinculado. Sem acesso global às conversas, você verá apenas os atendimentos encaminhados aos seus setores. Se acredita que deveria visualizar uma conversa, procure o gestor da sua empresa.</>,
       },
     ],
   },
@@ -78,19 +78,38 @@ const categories: FaqCategory[] = [
     items: [
       {
         question: "Como cadastrar um colaborador?",
-        answer: <>O usuário com permissão de gestão pode acessar a área de usuários e utilizar a opção <strong>Novo Usuário</strong>. Preencha os dados solicitados e vincule o colaborador ao setor correto.</>,
+        answer: <>O usuário com permissão de gestão pode acessar <strong>Configurações → Usuários e Permissões</strong> e utilizar <strong>Novo Usuário</strong>. Após o cadastro, o colaborador fica disponível para ser vinculado aos setores da empresa.</>,
       },
       {
         question: "O colaborador precisa usar o WhatsApp pessoal?",
         answer: <>Não. O atendimento é realizado pelo M1M Connect utilizando o WhatsApp conectado da empresa.</>,
+      },      {
+        question: "Como funciona o primeiro acesso do colaborador?",
+        answer: <>Depois do cadastro, o gestor utiliza <strong>Gerar/Copiar convite</strong> para obter o link individual. O colaborador abre esse link, cria a própria senha, ativa a conta e depois acessa normalmente pela tela de login.</>,
+      },
+      {
+        question: "Onde encontro o convite de acesso do colaborador?",
+        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, o botão <strong>Gerar/Copiar convite</strong> aparece enquanto o colaborador ainda está pendente e não concluiu o primeiro acesso.</>,
+      },
+      {
+        question: "Como vincular um colaborador a um setor?",
+        answer: <>Acesse <strong>Configurações → Setores</strong>, abra o setor desejado e escolha <strong>Responsáveis</strong>. Selecione o colaborador e salve. Um novo colaborador não é vinculado automaticamente a nenhum setor.</>,
       },
       {
         question: "Como desativar um colaborador?",
-        answer: <>O gestor pode editar o cadastro do usuário e alterar seu status para <strong>Inativo</strong>.</>,
+        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, localize o colaborador e utilize <strong>Inativar</strong>. O acesso é bloqueado sem excluir o cadastro.</>,
+      },
+      {
+        question: "Posso excluir um colaborador?",
+        answer: <>Sim, exceto o usuário principal da empresa. Em <strong>Configurações → Usuários e Permissões</strong>, utilize <strong>Excluir</strong> e confirme a ação. Use essa opção somente quando realmente quiser remover o cadastro.</>,
       },
       {
         question: "Esqueci minha senha. O que faço?",
-        answer: <>Procure o gestor responsável pela sua empresa para orientação sobre o acesso. Se houver uma opção de recuperação disponível na sua tela de acesso, você também poderá utilizá-la.</>,
+        answer: <>Na tela de login, clique em <strong>Esqueci minha senha</strong>, informe o e-mail cadastrado no M1M Connect e selecione <strong>Enviar instruções</strong>. Você receberá por e-mail um link para criar uma nova senha. O link é válido por 60 minutos e pode ser utilizado apenas uma vez. Se o link expirar ou já tiver sido utilizado, solicite um novo.</>,
+      },
+      {
+        question: "Como redefino minha senha?",
+        answer: <>Abra o e-mail de recuperação enviado pelo M1M Connect e clique em <strong>Redefinir minha senha</strong>. Crie a nova senha e conclua a alteração. Depois, volte ao login e acesse normalmente com a nova senha.</>,
       },
     ],
   },
@@ -186,7 +205,7 @@ export default function HelpPage() {
             <div className="mt-6 space-y-6">
               {filtered.map((category) => (
                 <section key={category.title}>
-                  <h2 className="mb-2 px-1 text-xs font-bold uppercase tracking-[0.16em] text-black/40">
+                  <h2 className="mb-2 px-1 text-xs font-bold uppercase tracking-[0.16em] text-[#0A9090]">
                     {category.title}
                   </h2>
                   <div className="overflow-hidden rounded-xl border border-black/10 bg-white">
@@ -236,3 +255,4 @@ export default function HelpPage() {
     </main>
   );
 }
+

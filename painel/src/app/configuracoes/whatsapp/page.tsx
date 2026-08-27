@@ -128,6 +128,75 @@ export default function WhatsAppConnectionPage() {
     }
   }
 
+  const QR_AUTO_REFRESH_MS = 30000;
+
+  useEffect(() => {
+    if (
+      !qrCode ||
+      status?.state !== "CONNECTING"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    let refreshing = false;
+
+    async function refreshQrSilently() {
+      if (refreshing) {
+        return;
+      }
+
+      refreshing = true;
+
+      try {
+        const response = await fetch(
+          "/api/whatsapp/connect",
+          {
+            method: "POST",
+            cache: "no-store",
+          },
+        );
+
+        const data =
+          (await response.json()) as
+            ConnectResponse;
+
+        if (
+          cancelled ||
+          !response.ok
+        ) {
+          return;
+        }
+
+        const source =
+          normalizeQrSource(
+            data.base64 || null,
+          );
+
+        if (source) {
+          setQrCode(source);
+        }
+      } catch {
+        // A renovacao silenciosa nao deve derrubar a tela.
+        // O status continua sendo consultado separadamente.
+      } finally {
+        refreshing = false;
+      }
+    }
+
+    const timer =
+      window.setInterval(
+        () => {
+          void refreshQrSilently();
+        },
+        QR_AUTO_REFRESH_MS,
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [qrCode, status?.state]);
   async function disconnectWhatsApp() {
     const confirmed = window.confirm(
       "Deseja realmente desconectar este WhatsApp do M1M Connect?",

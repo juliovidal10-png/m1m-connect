@@ -55,7 +55,7 @@ export default function CompanyAccessGate({
   ] = useState(false);
 
   useEffect(() => {
-    if (pathname === "/login" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
+    if (pathname === "/login" || pathname === "/primeiro-acesso" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
       setLoading(false);
       return;
     }
@@ -133,7 +133,7 @@ export default function CompanyAccessGate({
     };
   }, [pathname]);
 
-  if (pathname === "/login" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
+  if (pathname === "/login" || pathname === "/primeiro-acesso" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
     return children;
   }
 

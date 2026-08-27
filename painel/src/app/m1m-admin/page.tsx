@@ -419,6 +419,20 @@ function getStatusClasses(
   }
 }
 
+function formatBrazilianPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (!digits) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 export default function M1MAdminPage() {
   const [
     loading,
@@ -571,13 +585,7 @@ export default function M1MAdminPage() {
     adminPhone,
     setAdminPhone,
   ] = useState("");
-
-  const [
-    adminPassword,
-    setAdminPassword,
-  ] = useState("");
-
-  const [
+const [
     selectedCompanyId,
     setSelectedCompanyId,
   ] = useState<
@@ -2328,7 +2336,6 @@ export default function M1MAdminPage() {
     setAdminDisplayName("");
     setAdminEmail("");
     setAdminPhone("");
-    setAdminPassword("");
     setCreateCompanyError(null);
   }
 
@@ -2336,6 +2343,8 @@ export default function M1MAdminPage() {
     if (creatingCompany) {
       return;
     }
+
+
 
     resetCreateCompanyForm();
     setShowCreateCompany(false);
@@ -2354,26 +2363,14 @@ export default function M1MAdminPage() {
     if (
       !companyName.trim() ||
       !adminName.trim() ||
-      !adminEmail.trim() ||
-      !adminPassword.trim()
+      !adminEmail.trim()
     ) {
       setCreateCompanyError(
         "Preencha os campos obrigatórios.",
       );
       return;
     }
-
-    if (
-      adminPassword.length <
-      8
-    ) {
-      setCreateCompanyError(
-        "A senha inicial deve ter pelo menos 8 caracteres.",
-      );
-      return;
-    }
-
-    setCreatingCompany(
+setCreatingCompany(
       true,
     );
 
@@ -2417,8 +2414,7 @@ export default function M1MAdminPage() {
                 adminPhone:
                   adminPhone.trim() ||
                   undefined,
-                adminPassword,
-              }),
+}),
           },
         );
 
@@ -2429,6 +2425,25 @@ export default function M1MAdminPage() {
         throw new Error(
           data?.error ||
             "Não foi possível criar a empresa.",
+        );
+      }
+
+      const firstAccessToken =
+        typeof data?.firstAccess?.token === "string"
+          ? data.firstAccess.token
+          : "";
+
+      if (firstAccessToken) {
+        const firstAccessUrl =
+          `${window.location.origin}/primeiro-acesso?token=${encodeURIComponent(firstAccessToken)}`;
+
+        window.prompt(
+          "Empresa criada com sucesso. Copie o link de primeiro acesso do administrador:",
+          firstAccessUrl,
+        );
+      } else {
+        window.alert(
+          "Empresa criada, mas o link de primeiro acesso nao foi retornado. Nao cadastre a empresa novamente.",
         );
       }
 
@@ -3119,7 +3134,7 @@ export default function M1MAdminPage() {
                                   event,
                                 ) =>
                                   setEditCompanyPhone(
-                                    event.target.value,
+                                    formatBrazilianPhoneInput(event.target.value),
                                   )
                                 }
                                 className="mt-2 h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
@@ -4316,7 +4331,7 @@ export default function M1MAdminPage() {
                                           event,
                                         ) =>
                                           setAdminEditPhone(
-                                            event.target.value,
+                                            formatBrazilianPhoneInput(event.target.value),
                                           )
                                         }
                                         className="mt-2 h-10 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
@@ -4935,7 +4950,7 @@ export default function M1MAdminPage() {
                             event,
                           ) =>
                             setCompanyPhone(
-                              event.target.value,
+                              formatBrazilianPhoneInput(event.target.value),
                             )
                           }
                           placeholder="(65) 99999-9999"
@@ -5139,36 +5154,10 @@ export default function M1MAdminPage() {
                             event,
                           ) =>
                             setAdminPhone(
-                              event.target.value,
+                              formatBrazilianPhoneInput(event.target.value),
                             )
                           }
                           placeholder="(65) 99999-9999"
-                          className="mt-2 h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="admin-password"
-                          className="text-xs font-bold text-black/50"
-                        >
-                          Senha inicial *
-                        </label>
-                        <input
-                          id="admin-password"
-                          type="password"
-                          autoComplete="new-password"
-                          value={
-                            adminPassword
-                          }
-                          onChange={(
-                            event,
-                          ) =>
-                            setAdminPassword(
-                              event.target.value,
-                            )
-                          }
-                          placeholder="Mínimo de 8 caracteres"
                           className="mt-2 h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
                         />
                       </div>

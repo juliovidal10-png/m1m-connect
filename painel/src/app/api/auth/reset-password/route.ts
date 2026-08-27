@@ -6,19 +6,20 @@
 import {
   authService,
 } from "@/services/auth/auth.service";
+
 import {
   accessTokenService,
 } from "@/services/auth/access-token.service";
 
-const FIRST_ACCESS_PURPOSE =
-  "FIRST_ACCESS";
+const PASSWORD_RESET_PURPOSE =
+  "PASSWORD_RESET";
 
 function getErrorMessage(
   error: unknown,
 ) {
   return error instanceof Error
     ? error.message
-    : "Não foi possível definir a senha.";
+    : "Não foi possível redefinir a senha.";
 }
 
 export async function POST(
@@ -29,18 +30,18 @@ export async function POST(
       await request.json();
 
     const token =
-      typeof body.token === "string"
+      typeof body?.token === "string"
         ? body.token.trim()
         : "";
 
     const password =
-      typeof body.password === "string"
+      typeof body?.password === "string"
         ? body.password
         : "";
 
     if (!token) {
       throw new Error(
-        "Token de primeiro acesso não informado.",
+        "Link de recuperação inválido.",
       );
     }
 
@@ -53,15 +54,18 @@ export async function POST(
     const tokenRecord =
       await accessTokenService.validateToken(
         token,
-        FIRST_ACCESS_PURPOSE,
+        PASSWORD_RESET_PURPOSE,
       );
 
-    if (!tokenRecord) {
+    if (
+      !tokenRecord ||
+      !tokenRecord.user.passwordHash
+    ) {
       return NextResponse.json(
         {
-          passwordConfigured: false,
+          passwordReset: false,
           error:
-            "Link de primeiro acesso inválido, expirado ou já utilizado.",
+            "Link de recuperação inválido, expirado ou já utilizado.",
         },
         {
           status: 400,
@@ -69,15 +73,21 @@ export async function POST(
       );
     }
 
-    if (tokenRecord.user.passwordHash) {
+    const consumed =
+      await accessTokenService.consumeToken(
+        token,
+        PASSWORD_RESET_PURPOSE,
+      );
+
+    if (!consumed) {
       return NextResponse.json(
         {
-          passwordConfigured: false,
+          passwordReset: false,
           error:
-            "Este usuário já possui senha definida.",
+            "Link de recuperação inválido, expirado ou já utilizado.",
         },
         {
-          status: 409,
+          status: 400,
         },
       );
     }
@@ -87,32 +97,18 @@ export async function POST(
       password,
     );
 
-    const consumed =
-      await accessTokenService.consumeToken(
-        token,
-        FIRST_ACCESS_PURPOSE,
-      );
-
-    if (!consumed) {
-      throw new Error(
-        "Não foi possível concluir o primeiro acesso.",
-      );
-    }
-
     return NextResponse.json({
-      passwordConfigured: true,
-      email:
-        tokenRecord.user.email,
+      passwordReset: true,
     });
   } catch (error) {
     console.error(
-      "ERRO AUTH SETUP PASSWORD:",
+      "ERRO AUTH RESET PASSWORD:",
       error,
     );
 
     return NextResponse.json(
       {
-        passwordConfigured: false,
+        passwordReset: false,
         error:
           getErrorMessage(
             error,

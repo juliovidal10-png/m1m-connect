@@ -346,9 +346,27 @@ model M1MUser {
   paymentReceipts      M1MPaymentReceipt[]      @relation("PaymentReceiptResponsible")
   paymentReceiptEvents M1MPaymentReceiptEvent[] @relation("PaymentReceiptEventActor")
   legalAcceptances     M1MLegalAcceptance[]
+  accessTokens         M1MAccessToken[]
 
   @@index([companyId])
   @@map("m1m_users")
+}
+
+model M1MAccessToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  purpose   String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user M1MUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([expiresAt])
+  @@map("m1m_access_tokens")
 }
 
 model M1MSectorUser {
@@ -370,7 +388,7 @@ model M1MCustomer {
   id            String    @id @default(cuid())
   companyId     String
   customerCode  Int?
-  remoteJid     String    @unique
+  remoteJid     String
   name          String?
   phone         String?
   company       String?
@@ -392,6 +410,7 @@ model M1MCustomer {
   paymentReceipts M1MPaymentReceipt[]
 
   @@unique([companyId, customerCode])
+  @@unique([companyId, remoteJid])
   @@index([companyId])
   @@index([remoteJid])
   @@index([responsibleId])
