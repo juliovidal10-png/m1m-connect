@@ -1076,6 +1076,21 @@ export const conversationSyncService = {
         customer.id,
       );
 
+    const historyDiagnosticTargetId =
+      "ACFBBBA60B7253DAF50F5DEC5D9D016C";
+
+    console.info("[M1M-HISTORY-DIAG] stored", {
+      companyId: resolvedCompanyId,
+      customerId: customer.id,
+      remoteJid: canonicalRemoteJid,
+      storedMessagesLength: storedMessages.length,
+      targetInStoredMessages: storedMessages.some(
+        (storedMessage) =>
+          storedMessage.evolutionMessageId ===
+          historyDiagnosticTargetId,
+      ),
+    });
+
     const revokedMessageIds =
       new Set(
         storedMessages
@@ -1172,7 +1187,28 @@ export const conversationSyncService = {
       );
     }
 
-    return mergedRawMessages
+    console.info("[M1M-HISTORY-DIAG] merged", {
+      mergedRawMessagesLength:
+        mergedRawMessages.length,
+      targetInMergedRawMessages:
+        mergedRawMessages.some(
+          (rawMessage) => {
+            const record =
+              getRecord(rawMessage);
+
+            const key =
+              getRecord(record?.key);
+
+            return (
+              getText(key?.id) ===
+              historyDiagnosticTargetId
+            );
+          },
+        ),
+    });
+
+    const finalMessages =
+      mergedRawMessages
       .filter(
         (rawMessage) => {
           const record =
@@ -1234,6 +1270,28 @@ export const conversationSyncService = {
           };
         },
       );
+
+    console.info("[M1M-HISTORY-DIAG] final", {
+      finalMessagesLength:
+        finalMessages.length,
+      targetInFinalMessages:
+        finalMessages.some(
+          (rawMessage) => {
+            const record =
+              getRecord(rawMessage);
+
+            const key =
+              getRecord(record?.key);
+
+            return (
+              getText(key?.id) ===
+              historyDiagnosticTargetId
+            );
+          },
+        ),
+    });
+
+    return finalMessages;
   },
 
   async syncIncomingMessage(
