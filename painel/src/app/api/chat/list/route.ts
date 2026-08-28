@@ -285,6 +285,14 @@ function normalizeSearch(value: unknown) {
 
 export async function GET(request: Request) {
   try {
+    const perfStartedAt = Date.now();
+    const perfLog = (stage: string, extra: Record<string, unknown> = {}) => {
+      console.log("[M1M CHAT PERF]", {
+        stage,
+        elapsedMs: Date.now() - perfStartedAt,
+        ...extra,
+      });
+    };
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
     }
@@ -297,6 +305,7 @@ export async function GET(request: Request) {
     const offset = Math.max(Number.isFinite(requestedOffset) ? requestedOffset : 0, 0);
 
     const authenticatedUser = await authorizationService.getCurrentUser();
+    perfLog("auth");
     const companyId = authenticatedUser.companyId;
     const canViewAllConversations = authorizationService.hasPermission(
       authenticatedUser,
@@ -330,6 +339,10 @@ export async function GET(request: Request) {
         orderBy: { startedAt: "desc" },
       }),
     ]);
+    perfLog("database", {
+      customers: customers.length,
+      activeAttendances: activeAttendances.length,
+    });
 
     const attendanceByCustomerId = new Map<string, (typeof activeAttendances)[number]>();
     for (const attendance of activeAttendances) {
@@ -761,18 +774,40 @@ export async function GET(request: Request) {
     const maxPages = 50;
 
     for (let page = 0; page < maxPages && collected.length < wanted; page += 1) {
+      const evolutionStartedAt = Date.now();
       const result = await fetchEvolutionChatRange(instanceName, scanSize, page * scanSize);
+      perfLog("evolution-page", {
+        page,
+        pageMs: Date.now() - evolutionStartedAt,
+        received: result.chats.length,
+        reachedEnd: result.reachedEnd,
+      });
       const uniqueRaw = result.chats.filter((chat) => {
         const id = getPrimaryRemoteJid(chat);
         if (id && seen.has(id)) return false;
         if (id) seen.add(id);
         return true;
       });
-      collected.push(...visible(await enrich(uniqueRaw)));
+      const enrichStartedAt = Date.now();
+      const enrichedVisible = visible(await enrich(uniqueRaw));
+      perfLog("enrich-page", {
+        page,
+        enrichMs: Date.now() - enrichStartedAt,
+        uniqueRaw: uniqueRaw.length,
+        visible: enrichedVisible.length,
+      });
+      collected.push(...enrichedVisible);
       if (result.reachedEnd) break;
     }
 
     const pageItems = collected.slice(offset, offset + limit);
+    perfLog("response", {
+      limit,
+      offset,
+      collected: collected.length,
+      returned: pageItems.length,
+      hasMore: collected.length > offset + limit,
+    });
     return NextResponse.json({ items: pageItems, hasMore: collected.length > offset + limit });
   } catch (error) {
     console.error("Erro ao buscar e unificar conversas:", error);
