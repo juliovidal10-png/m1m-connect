@@ -1100,7 +1100,79 @@ export const conversationSyncService = {
         ),
       );
 
-    return visibleRawMessages
+    const mergedRawMessages: unknown[] = [
+      ...visibleRawMessages,
+    ];
+
+    const mergedMessageIds =
+      new Set<string>();
+
+    for (const rawMessage of visibleRawMessages) {
+      const record =
+        getRecord(rawMessage);
+
+      const key =
+        getRecord(record?.key);
+
+      const messageId =
+        getText(key?.id);
+
+      if (messageId) {
+        mergedMessageIds.add(
+          messageId,
+        );
+      }
+    }
+
+    /*
+     * O webhook do M1M pode persistir mensagens que a consulta
+     * findMessages da Evolution nao devolve posteriormente.
+     *
+     * Como rawPayload guarda o payload original da Evolution,
+     * usamos essas mensagens persistidas como fonte complementar
+     * do historico, sem duplicar as que ja vieram da Evolution.
+     */
+    for (const storedMessage of storedMessages) {
+      if (
+        mergedMessageIds.has(
+          storedMessage.evolutionMessageId,
+        )
+      ) {
+        continue;
+      }
+
+      const storedRawMessage =
+        getRecord(
+          storedMessage.rawPayload,
+        );
+
+      const storedKey =
+        getRecord(
+          storedRawMessage?.key,
+        );
+
+      const storedMessageId =
+        getText(
+          storedKey?.id,
+        );
+
+      if (
+        !storedRawMessage ||
+        !storedMessageId
+      ) {
+        continue;
+      }
+
+      mergedRawMessages.push(
+        storedRawMessage,
+      );
+
+      mergedMessageIds.add(
+        storedMessageId,
+      );
+    }
+
+    return mergedRawMessages
       .filter(
         (rawMessage) => {
           const record =
