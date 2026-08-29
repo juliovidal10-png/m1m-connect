@@ -129,6 +129,51 @@ export const messageRepository = {
     });
   },
 
+  async listMessageIdsByCustomer(
+    companyId: string,
+    customerId: string,
+  ) {
+    return prisma.m1MMessage.findMany({
+      where: {
+        companyId,
+        customerId,
+      },
+      select: {
+        evolutionMessageId: true,
+      },
+    });
+  },
+
+  async listRecentMessagesByCustomer(
+    companyId: string,
+    customerId: string,
+    limit: number,
+  ) {
+    const safeLimit = Math.max(
+      1,
+      Math.min(Math.trunc(limit), 500),
+    );
+
+    const messages =
+      await prisma.m1MMessage.findMany({
+        where: {
+          companyId,
+          customerId,
+        },
+        orderBy: [
+          {
+            sentAt: "desc",
+          },
+          {
+            id: "desc",
+          },
+        ],
+        take: safeLimit,
+      });
+
+    return messages.reverse();
+  },
+
   async attachMessageToAttendance(
     messageId: string,
     attendanceId: string,

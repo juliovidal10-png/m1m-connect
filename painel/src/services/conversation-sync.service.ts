@@ -929,7 +929,7 @@ export const conversationSyncService = {
      * Agora a verificacao previa e O(1) em memoria.
      */
     const existingMessagesBeforeSync =
-      await messageService.listMessagesByCustomer(
+      await messageService.listMessageIdsByCustomer(
         resolvedCompanyId,
         customer.id,
       );
@@ -1070,10 +1070,20 @@ export const conversationSyncService = {
       }
     }
 
+    /*
+     * HISTORICO INICIAL:
+     * o banco continua preservando o historico completo, mas a abertura
+     * da conversa consulta somente as mensagens persistidas mais recentes.
+     *
+     * Isso evita carregar milhares de registros e rawPayloads do banco
+     * apenas para depois descarta-los em memoria.
+     */
+    const INITIAL_HISTORY_MESSAGE_LIMIT = 100;
     const storedMessages =
-      await messageService.listMessagesByCustomer(
+      await messageService.listRecentMessagesByCustomer(
         resolvedCompanyId,
         customer.id,
+        INITIAL_HISTORY_MESSAGE_LIMIT,
       );
 
     const historyDiagnosticTargetId =

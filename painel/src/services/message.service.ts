@@ -105,6 +105,28 @@ export const messageService = {
     );
   },
 
+  async listMessageIdsByCustomer(
+    companyId: string,
+    customerId: string,
+  ) {
+    return messageRepository.listMessageIdsByCustomer(
+      companyId,
+      customerId,
+    );
+  },
+
+  async listRecentMessagesByCustomer(
+    companyId: string,
+    customerId: string,
+    limit: number,
+  ) {
+    return messageRepository.listRecentMessagesByCustomer(
+      companyId,
+      customerId,
+      limit,
+    );
+  },
+
   async attachMessageToAttendance(
     messageId: string,
     attendanceId: string,
