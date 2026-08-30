@@ -403,13 +403,13 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
         await navigator.clipboard.writeText(inviteUrl);
 
         setSuccess(
-          `Convite de ${user.name} copiado. O link Ã© vÃ¡lido por 24 horas.`,
+          `Convite de ${user.name} copiado. O link é válido por 24 horas.`,
         );
       } catch {
         window.prompt(`Copie o convite de ${user.name}:`, inviteUrl);
 
         setSuccess(
-          `Novo convite de ${user.name} gerado. O link Ã© vÃ¡lido por 24 horas.`,
+          `Novo convite de ${user.name} gerado. O link é válido por 24 horas.`,
         );
       }
     } catch (inviteError) {
