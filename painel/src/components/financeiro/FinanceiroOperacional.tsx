@@ -846,9 +846,7 @@ export default function FinanceiroOperacional() {
                     <div className="mt-4 flex flex-wrap gap-2">
                       {receipt.mediaUrl && (
                         <a
-                          href={
-                            receipt.mediaUrl
-                          }
+                          href={`/api/payment-receipts/${receipt.id}/media`}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
