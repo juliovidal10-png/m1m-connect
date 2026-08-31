@@ -57,6 +57,21 @@ const emptyForm: UserFormData = {
   active: true,
 };
 
+function formatBrazilianPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (!digits) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  }
+
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 export default function UsersSettings() {
   const [users, setUsers] = useState<User[]>([]);
 
@@ -136,7 +151,7 @@ export default function UsersSettings() {
       displayName: user.displayName ?? "",
       email: user.email,
       jobTitle: user.jobTitle ?? "",
-      phone: user.phone ?? "",
+      phone: formatBrazilianPhoneInput(user.phone ?? ""),
       role: user.role,
       useCustomPermissions: user.useCustomPermissions,
       permissions: user.permissions ?? [],
@@ -557,7 +572,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
                 type="text"
                 value={form.phone}
                 placeholder="(65) 90000-0000"
-                onChange={(event) => updateField("phone", event.target.value)}
+                onChange={(event) => updateField("phone", formatBrazilianPhoneInput(event.target.value))}
                 className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition placeholder:text-black/30 focus:border-teal-400 focus:ring-4 focus:ring-teal-100"
               />
             </label>
