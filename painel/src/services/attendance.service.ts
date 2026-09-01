@@ -23,7 +23,31 @@ type TakeoverFromWhatsAppInput = {
   remoteJid: string;
   messageId: string;
 };
+type AIHandoffReason =
+  | "CUSTOMER_REQUEST"
+  | "INFORMATION_UNAVAILABLE"
+  | "HUMAN_ACTION_REQUIRED"
+  | "BUSINESS_RULE"
+  | "OTHER";
 
+type RequestHumanAttendanceByAIInput = {
+  companyId: string;
+  attendanceId: string;
+  sectorId: string;
+  handoffReason: AIHandoffReason;
+  subject?: string | null;
+  context?: string | null;
+};
+
+export class AttendanceConflictError extends Error {
+  constructor(
+    message =
+      "Este atendimento já foi assumido por outro atendente.",
+  ) {
+    super(message);
+    this.name = "AttendanceConflictError";
+  }
+}
 export const attendanceService = {
   async startAttendance(
     companyId: string,
@@ -166,6 +190,98 @@ export const attendanceService = {
     return updatedAttendance;
   },
 
+  async requestHumanAttendanceByAI(
+    input: RequestHumanAttendanceByAIInput,
+  ) {
+    const attendance =
+      await attendanceRepository.findAttendanceById(
+        input.companyId,
+        input.attendanceId,
+      );
+
+    if (!attendance) {
+      throw new Error(
+        "Atendimento não encontrado.",
+      );
+    }
+
+    if (
+      attendance.state ===
+      M1MAttendanceState.FINALIZADO
+    ) {
+      throw new Error(
+        "Não é possível encaminhar um atendimento finalizado.",
+      );
+    }
+
+    if (
+      attendance.state ===
+      M1MAttendanceState.HUMANO
+    ) {
+      return attendance;
+    }
+
+    const sector =
+      await attendanceRepository.findSector(
+        input.companyId,
+        input.sectorId,
+      );
+
+    if (!sector) {
+      throw new Error(
+        "Setor não encontrado ou inativo.",
+      );
+    }
+
+    const previousSectorId =
+      attendance.sectorId;
+
+    const updatedAttendance =
+      await attendanceRepository.transferToSector({
+        companyId:
+          input.companyId,
+        attendanceId:
+          attendance.id,
+        sectorId:
+          sector.id,
+      });
+
+    await customerRepository.releaseResponsible(
+      input.companyId,
+      attendance.customerId,
+    );
+
+    await customerRepository.markAsHuman(
+      input.companyId,
+      attendance.customerId,
+    );
+
+    await attendanceRepository.createEvent({
+      attendanceId:
+        attendance.id,
+      type:
+        M1MAttendanceEventType.TRANSFERRED_TO_SECTOR,
+      actorType:
+        M1MAttendanceActorType.AI,
+      metadata: {
+        source:
+          "AI_HANDOFF",
+        previousSectorId,
+        sectorId:
+          sector.id,
+        sectorName:
+          sector.name,
+        handoffReason:
+          input.handoffReason,
+        subject:
+          input.subject?.trim() || null,
+        context:
+          input.context?.trim() || null,
+      },
+    });
+
+    return updatedAttendance;
+  },
   async assumeAttendance(
     companyId: string,
     attendanceId: string,
@@ -201,12 +317,35 @@ export const attendanceService = {
       return attendance;
     }
 
+    if (attendance.responsibleId) {
+      throw new AttendanceConflictError();
+    }
+
     const updatedAttendance =
       await attendanceRepository.assignAttendance({
         companyId,
         attendanceId,
         responsibleId,
       });
+
+    if (!updatedAttendance) {
+      const currentAttendance =
+        await attendanceRepository.findAttendanceById(
+          companyId,
+          attendanceId,
+        );
+
+      if (
+        currentAttendance?.state ===
+          M1MAttendanceState.HUMANO &&
+        currentAttendance.responsibleId ===
+          responsibleId
+      ) {
+        return currentAttendance;
+      }
+
+      throw new AttendanceConflictError();
+    }
 
     await attendanceRepository.createEvent({
       attendanceId,

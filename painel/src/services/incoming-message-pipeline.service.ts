@@ -1040,6 +1040,21 @@ export const incomingMessagePipelineService = {
       sourceMessageId:
           storedMessage.id,
       });
+      if (aiResponse.needsHuman) {
+        await attendanceService.requestHumanAttendanceByAI({
+          companyId,
+          attendanceId:
+            router.attendanceId,
+          sectorId:
+            router.sectorId,
+          handoffReason:
+            aiResponse.handoffReason,
+          subject:
+            aiResponse.subject,
+          context:
+            aiResponse.context,
+        });
+      }
 
       return {
         processed: true,

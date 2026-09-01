@@ -153,24 +153,43 @@ export const attendanceRepository = {
   async assignAttendance(
     data: AssignAttendanceData,
   ) {
-    const attendance =
-      await requireAttendance(
-        data.companyId,
-        data.attendanceId,
-      );
+    const assignedAt =
+      data.assignedAt ?? new Date();
 
-    return prisma.m1MAttendance.update({
+    const result =
+      await prisma.m1MAttendance.updateMany({
+        where: {
+          id: data.attendanceId,
+          companyId: data.companyId,
+          state: {
+            not:
+              M1MAttendanceState.FINALIZADO,
+          },
+          responsibleId: null,
+          finishedAt: null,
+        },
+        data: {
+          state:
+            M1MAttendanceState.HUMANO,
+          responsibleId:
+            data.responsibleId,
+          assignedAt,
+          finishedAt: null,
+        },
+      });
+
+    if (result.count !== 1) {
+      return null;
+    }
+
+    return prisma.m1MAttendance.findFirst({
       where: {
-        id: attendance.id,
+        id: data.attendanceId,
+        companyId: data.companyId,
       },
-      data: {
-        state:
-          M1MAttendanceState.HUMANO,
-        responsibleId:
-          data.responsibleId,
-        assignedAt:
-          data.assignedAt ?? new Date(),
-        finishedAt: null,
+      include: {
+        responsible: true,
+        sector: true,
       },
     });
   },

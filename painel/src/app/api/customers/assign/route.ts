@@ -10,15 +10,24 @@ import {
   AuthorizationError,
   authorizationService,
 } from "@/services/auth/authorization.service";
-import { attendanceService } from "@/services/attendance.service";
+import {
+  AttendanceConflictError,
+  attendanceService,
+} from "@/services/attendance.service";
 import { customerService } from "@/services/customer.service";
 
 function getErrorStatus(
   error: unknown,
 ) {
-  return error instanceof AuthorizationError
-    ? error.statusCode
-    : 500;
+  if (error instanceof AuthorizationError) {
+    return error.statusCode;
+  }
+
+  if (error instanceof AttendanceConflictError) {
+    return 409;
+  }
+
+  return 500;
 }
 
 function getErrorMessage(
@@ -47,32 +56,32 @@ export async function POST(
 
     const body = await request.json();
 
+    const existingAttendance =
+      await attendanceService.getOpenAttendanceByCustomer(
+        companyId,
+        body.customerId,
+      );
+
+    const attendance =
+      existingAttendance ??
+      (await attendanceService.startAttendance(
+        companyId,
+        body.customerId,
+      ));
+
+    const assumedAttendance =
+      await attendanceService.assumeAttendance(
+        companyId,
+        attendance.id,
+        responsibleId,
+      );
+
     const customer =
       await customerService.assignResponsible({
         companyId,
         customerId: body.customerId,
         responsibleId,
       });
-
-    const existingAttendance =
-      await attendanceService.getOpenAttendanceByCustomer(
-        customer.companyId,
-        customer.id,
-      );
-
-    const attendance =
-      existingAttendance ??
-      (await attendanceService.startAttendance(
-        customer.companyId,
-        customer.id,
-      ));
-
-    const assumedAttendance =
-      await attendanceService.assumeAttendance(
-        customer.companyId,
-        attendance.id,
-        responsibleId,
-      );
 
     return NextResponse.json({
       customer,

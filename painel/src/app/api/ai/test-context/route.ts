@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { M1MUserPermission } from "@/generated/prisma/enums";
 import { authorizationService } from "@/services/auth/authorization.service";
 
 import {
@@ -58,9 +57,7 @@ export async function POST(
   }
 
   try {
-    await authorizationService.requirePermission(
-      M1MUserPermission.MANAGE_KNOWLEDGE,
-    );
+    await authorizationService.requireAdmin();
     const body =
       await request.json() as TestContextRequest;
 
@@ -121,6 +118,14 @@ export async function POST(
         ),
       response:
         result.text,
+      needsHuman:
+        result.needsHuman,
+      handoffReason:
+        result.handoffReason,
+      subject:
+        result.subject,
+      context:
+        result.context,
       model:
         result.model,
       usage: {

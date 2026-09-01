@@ -2,6 +2,9 @@ import {
   companyService,
 } from "@/services/company.service";
 import {
+  companyProfileService,
+} from "@/services/company-profile.service";
+import {
   sectorService,
 } from "@/services/sector.service";
 import {
@@ -39,6 +42,16 @@ export type SectorContext = {
       | "MANUAL";
     humanClosingMessage: string | null;
   };
+  knowledgeProfile: {
+    presentation: string | null;
+    differentials: string | null;
+    productsServices: string | null;
+    targetAudience: string | null;
+    serviceArea: string | null;
+    companyPolicies: string | null;
+    importantInformation: string | null;
+    frequentlyAskedQuestions: string | null;
+  } | null;
   sector: {
     id: string;
     name: string;
@@ -85,10 +98,14 @@ export const contextBuilderService = {
 
     const [
       company,
+      knowledgeProfile,
       sector,
       sectorUsers,
     ] = await Promise.all([
       companyService.getCompanyProfile(
+        normalizedCompanyId,
+      ),
+      companyProfileService.getCompanyProfile(
         normalizedCompanyId,
       ),
       sectorService.getSector(
@@ -154,6 +171,27 @@ export const contextBuilderService = {
         humanClosingMessage:
           company.humanClosingMessage,
       },
+      knowledgeProfile:
+        knowledgeProfile
+          ? {
+              presentation:
+                knowledgeProfile.presentation,
+              differentials:
+                knowledgeProfile.differentials,
+              productsServices:
+                knowledgeProfile.productsServices,
+              targetAudience:
+                knowledgeProfile.targetAudience,
+              serviceArea:
+                knowledgeProfile.serviceArea,
+              companyPolicies:
+                knowledgeProfile.companyPolicies,
+              importantInformation:
+                knowledgeProfile.importantInformation,
+              frequentlyAskedQuestions:
+                knowledgeProfile.frequentlyAskedQuestions,
+            }
+          : null,
       sector: {
         id: sector.id,
         name: sector.name,
