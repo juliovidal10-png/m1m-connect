@@ -9,6 +9,9 @@ import {
   sectorIdentificationService,
 } from "@/core/router/sector-identification.service";
 import {
+  semanticSectorInterpreterService,
+} from "@/core/router/semantic-sector-interpreter.service";
+import {
   attendanceService,
 } from "@/services/attendance.service";
 import {
@@ -221,6 +224,78 @@ export class RouterService {
         requiresSectorIdentification:
           false,
       };
+    }
+
+    if (
+      identification.status ===
+      "NOT_IDENTIFIED" &&
+      sectors.length > 0 &&
+      context.messageContent?.trim()
+    ) {
+      try {
+        const semanticIntent =
+          await semanticSectorInterpreterService.interpret({
+            message:
+              context.messageContent,
+            sectors:
+              sectors.map(
+                (sector) => ({
+                  id: sector.id,
+                  name: sector.name,
+                  description:
+                    sector.description,
+                }),
+              ),
+          });
+
+        if (semanticIntent.matched) {
+          const matchedSector =
+            sectors.find(
+              (sector) =>
+                sector.id ===
+                semanticIntent.sectorId,
+            );
+
+          if (matchedSector) {
+            const transferred =
+              await attendanceService.transferAttendanceToSector({
+                companyId:
+                  context.companyId,
+                attendanceId:
+                  attendance.id,
+                sectorId:
+                  matchedSector.id,
+                actorType:
+                  M1MAttendanceActorType.AI,
+              });
+
+            return {
+              processed: true,
+              action:
+                "ROUTED_TO_SECTOR",
+              attendanceId:
+                transferred.id,
+              attendanceNumber:
+                transferred.number,
+              sectorId:
+                matchedSector.id,
+              sectorName:
+                matchedSector.name,
+              responsibleId:
+                transferred.responsibleId,
+              state:
+                transferred.state,
+              requiresSectorIdentification:
+                false,
+            };
+          }
+        }
+      } catch (error) {
+        console.error(
+          "ERRO AO INTERPRETAR SETOR POR LINGUAGEM NATURAL:",
+          error,
+        );
+      }
     }
 
     const availableSectors =

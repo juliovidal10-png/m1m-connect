@@ -9,40 +9,39 @@ function normalizeCompanyName(
   return companyName?.trim() || null;
 }
 
-function formatSectorNames(
+function formatNumberedSectors(
   sectors: SectorMenuItem[],
 ) {
-  const names =
-    sectors
-      .map((sector) =>
-        sector.name.trim(),
-      )
-      .filter(Boolean);
+  return sectors
+    .map(
+      (sector, index) => {
+        const name =
+          sector.name.trim();
 
-  if (names.length === 0) {
-    return null;
-  }
-
-  if (names.length === 1) {
-    return names[0];
-  }
-
-  if (names.length === 2) {
-    return `${names[0]} ou ${names[1]}`;
-  }
-
-  return `${names
-    .slice(0, -1)
-    .join(", ")} ou ${names[names.length - 1]}`;
+        return name
+          ? `${index + 1} - ${name}`
+          : null;
+      },
+    )
+    .filter(
+      (item): item is string =>
+        Boolean(item),
+    );
 }
-
 export const sectorMenuService = {
   buildMessage(
     sectors: SectorMenuItem[],
     companyName?: string | null,
   ) {
-    if (sectors.length === 0) {
-      return "Oi! Recebemos sua mensagem. Nossa equipe vai dar continuidade ao atendimento assim que possível.";
+    const numberedSectors =
+      formatNumberedSectors(
+        sectors,
+      );
+
+    if (
+      numberedSectors.length === 0
+    ) {
+      return "Oi! Recebemos sua mensagem. Nossa equipe vai dar continuidade ao atendimento assim que poss\u00edvel.";
     }
 
     const normalizedCompanyName =
@@ -50,19 +49,15 @@ export const sectorMenuService = {
         companyName,
       );
 
-    const sectorNames =
-      formatSectorNames(
-        sectors,
-      );
-
     const greeting =
       normalizedCompanyName
-        ? `Oi! Você está falando com a ${normalizedCompanyName}.`
+        ? `Oi! Voc\u00ea est\u00e1 falando com a ${normalizedCompanyName}.`
         : "Oi!";
 
     return [
       greeting,
-      `Como podemos ajudar? Você precisa falar sobre ${sectorNames}?`,
-    ].join(" ");
+      "Como podemos ajudar? Voc\u00ea pode escolher uma op\u00e7\u00e3o ou simplesmente me dizer com suas palavras o que precisa:",
+      ...numberedSectors,
+    ].join("\n");
   },
 };
