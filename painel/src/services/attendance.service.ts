@@ -282,7 +282,7 @@ export const attendanceService = {
 
     return updatedAttendance;
   },
-  async assumeAttendance(
+  async assumeAttendanceWithAcquisitionResult(
     companyId: string,
     attendanceId: string,
     responsibleId: string,
@@ -314,7 +314,10 @@ export const attendanceService = {
       attendance.responsibleId ===
         responsibleId
     ) {
-      return attendance;
+      return {
+        attendance,
+        acquiredNow: false,
+      };
     }
 
     if (attendance.responsibleId) {
@@ -341,7 +344,11 @@ export const attendanceService = {
         currentAttendance.responsibleId ===
           responsibleId
       ) {
-        return currentAttendance;
+        return {
+          attendance:
+            currentAttendance,
+          acquiredNow: false,
+        };
       }
 
       throw new AttendanceConflictError();
@@ -357,7 +364,26 @@ export const attendanceService = {
         responsibleId,
     });
 
-    return updatedAttendance;
+    return {
+      attendance:
+        updatedAttendance,
+      acquiredNow: true,
+    };
+  },
+
+  async assumeAttendance(
+    companyId: string,
+    attendanceId: string,
+    responsibleId: string,
+  ) {
+    const result =
+      await this.assumeAttendanceWithAcquisitionResult(
+        companyId,
+        attendanceId,
+        responsibleId,
+      );
+
+    return result.attendance;
   },
 
   async takeoverFromWhatsApp(
