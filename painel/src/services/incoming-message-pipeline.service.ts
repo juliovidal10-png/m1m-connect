@@ -893,7 +893,7 @@ export const incomingMessagePipelineService = {
         router.sectorName
       ) {
         const sectorConfirmationMessage =
-          `Perfeito! Vamos seguir por aqui com o ${router.sectorName}. Me conta o que voc\u00ea precisa que eu te ajudo.`;
+          `Perfeito! Vamos seguir por aqui com o ${router.sectorName}. Me conta como posso te ajudar.`;
 
         if (options?.dryRun) {
           return {
