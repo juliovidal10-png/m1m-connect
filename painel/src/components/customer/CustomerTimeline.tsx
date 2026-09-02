@@ -158,6 +158,37 @@ function normalizeBrokenText(
   );
 }
 
+function readTextMetadata(
+  value: unknown,
+) {
+  return typeof value === "string"
+    ? value.trim() || null
+    : null;
+}
+
+function getAIHandoffDetails(
+  item: CustomerTimelineItem,
+) {
+  if (item.source !== "ATTENDANCE") return null;
+
+  const eventMetadata = item.metadata?.eventMetadata;
+  if (
+    !eventMetadata ||
+    typeof eventMetadata !== "object" ||
+    Array.isArray(eventMetadata)
+  ) return null;
+
+  const metadata =
+    eventMetadata as Record<string, unknown>;
+
+  if (metadata.source !== "AI_HANDOFF") return null;
+
+  return {
+    sector: readTextMetadata(metadata.sectorName),
+    subject: readTextMetadata(metadata.subject),
+    context: readTextMetadata(metadata.context),
+  };
+}
 function formatDayKey(
   value: string,
 ) {
@@ -423,13 +454,43 @@ export default function CustomerTimeline({
                           </time>
                         </div>
 
-                        {item.description && (
-                          <p className="mt-2 break-words text-xs leading-5 text-black/55">
-                            {normalizeBrokenText(
-                              item.description,
-                            )}
-                          </p>
-                        )}
+                        {(() => {
+                          const handoff =
+                            getAIHandoffDetails(item);
+
+                          if (handoff) {
+                            return (
+                              <div className="mt-2 rounded-xl border border-[#0A9090]/10 bg-[#F7FBFB] px-3 py-2.5">
+                                <div className="space-y-2">
+                                  {handoff.sector && (
+                                    <p className="text-xs leading-5 text-black/60">
+                                      <span className="font-bold text-black/70">Setor:</span>{" "}
+                                      {handoff.sector}
+                                    </p>
+                                  )}
+                                  {handoff.subject && (
+                                    <p className="text-xs leading-5 text-black/60">
+                                      <span className="font-bold text-black/70">Assunto:</span>{" "}
+                                      {handoff.subject}
+                                    </p>
+                                  )}
+                                  {handoff.context && (
+                                    <p className="break-words text-xs leading-5 text-black/60">
+                                      <span className="font-bold text-black/70">Contexto:</span>{" "}
+                                      {handoff.context}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return item.description ? (
+                            <p className="mt-2 break-words text-xs leading-5 text-black/55">
+                              {normalizeBrokenText(item.description)}
+                            </p>
+                          ) : null;
+                        })()}
 
                         {item.actor?.name && (
                           <p className="mt-2 text-[10px] font-medium text-black/35">
