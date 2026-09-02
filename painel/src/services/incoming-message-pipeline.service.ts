@@ -888,6 +888,52 @@ export const incomingMessagePipelineService = {
         };
       }
 
+      if (
+        router.sectorSelectionSource &&
+        router.sectorName
+      ) {
+        const sectorConfirmationMessage =
+          `Perfeito! Vamos seguir por aqui com o ${router.sectorName}. Me conta o que voc\u00ea precisa que eu te ajudo.`;
+
+        if (options?.dryRun) {
+          return {
+            processed: true,
+            action:
+              "SECTOR_CONFIRMATION_SIMULATED" as const,
+            messageId:
+              storedMessage.id,
+            router,
+            simulatedMessage:
+              sectorConfirmationMessage,
+          };
+        }
+
+        await automaticMessageService.sendText({
+          companyId,
+          customerId:
+            storedMessage.customerId,
+          attendanceId:
+            router.attendanceId,
+          instanceName:
+            normalizedInstanceName,
+          remoteJid:
+            normalizedMessage.remoteJid,
+          text:
+            sectorConfirmationMessage,
+          sourceMessageId:
+            storedMessage.id,
+        });
+
+        return {
+          processed: true,
+          action:
+            "SECTOR_CONFIRMATION_SENT" as const,
+          messageId:
+            storedMessage.id,
+          router,
+        };
+      }
+
       if (router.state === "HUMANO") {
         return {
           processed: true,

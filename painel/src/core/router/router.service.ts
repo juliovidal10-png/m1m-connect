@@ -38,6 +38,9 @@ export type RouterResult = {
   attendanceNumber: number;
   sectorId: string | null;
   sectorName: string | null;
+  sectorSelectionSource?:
+    | "NAME"
+    | "NUMBER";
   responsibleId: string | null;
   state:
     | "IA"
@@ -217,6 +220,8 @@ export class RouterService {
           identification.sector.id,
         sectorName:
           identification.sector.name,
+        sectorSelectionSource:
+          identification.identifiedBy,
         responsibleId:
           transferred.responsibleId,
         state:
