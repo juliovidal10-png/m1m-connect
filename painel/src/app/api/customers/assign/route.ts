@@ -134,7 +134,7 @@ async function sendHumanIntroduction(input: {
   }
 
   const text =
-    `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento por aqui. JÃ¡ recebi as informaÃ§Ãµes que vocÃª passou.`;
+    `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento por aqui. Já recebi as informações que você passou.`;
 
   const response =
     await fetch(
