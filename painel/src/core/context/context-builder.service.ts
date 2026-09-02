@@ -10,6 +10,44 @@ import {
 import {
   sectorUserService,
 } from "@/services/sector-user.service";
+import {
+  sectorScheduleService,
+} from "@/services/sector-schedule.service";
+import {
+  paymentSettingsService,
+} from "@/services/payment-settings.service";
+
+export type SectorContextSchedule = {
+  dayOfWeek: string;
+  enabled: boolean;
+  allDay: boolean;
+  openingTime: string | null;
+  closingTime: string | null;
+  secondOpeningTime: string | null;
+  secondClosingTime: string | null;
+};
+
+export type SectorContextPaymentSettings = {
+  acceptsPix: boolean;
+  acceptsCash: boolean;
+  acceptsCreditCard: boolean;
+  acceptsDebitCard: boolean;
+  acceptsBankSlip: boolean;
+  acceptsBankTransfer: boolean;
+  pixKeyType: string | null;
+  pixKey: string | null;
+  pixHolderName: string | null;
+  bankName: string | null;
+  bankAgency: string | null;
+  bankAccount: string | null;
+  bankAccountType: string | null;
+  maxInstallments: number | null;
+  installmentInterest: string | null;
+  paymentDeadline: string | null;
+  receiptInstructions: string | null;
+  billingRules: string | null;
+  additionalInformation: string | null;
+};
 
 export type SectorContextResponsible = {
   id: string;
@@ -61,6 +99,11 @@ export type SectorContext = {
     sortOrder: number;
   };
   responsibles: SectorContextResponsible[];
+  schedule: {
+    source: "COMPANY" | "SECTOR";
+    schedules: SectorContextSchedule[];
+  };
+  paymentSettings: SectorContextPaymentSettings | null;
 };
 
 function requireText(
@@ -101,6 +144,8 @@ export const contextBuilderService = {
       knowledgeProfile,
       sector,
       sectorUsers,
+      scheduleData,
+      paymentSettings,
     ] = await Promise.all([
       companyService.getCompanyProfile(
         normalizedCompanyId,
@@ -115,6 +160,13 @@ export const contextBuilderService = {
       sectorUserService.getSectorUsers(
         normalizedCompanyId,
         normalizedSectorId,
+      ),
+      sectorScheduleService.getSchedules(
+        normalizedCompanyId,
+        normalizedSectorId,
+      ),
+      paymentSettingsService.getPaymentSettings(
+        normalizedCompanyId,
       ),
     ]);
 
@@ -205,6 +257,48 @@ export const contextBuilderService = {
           sector.sortOrder,
       },
       responsibles,
+      schedule: {
+        source: scheduleData.scheduleSource,
+        schedules: scheduleData.schedules.flatMap(
+          (schedule) =>
+            schedule
+              ? [
+                  {
+                    dayOfWeek: schedule.dayOfWeek,
+                    enabled: schedule.enabled,
+                    allDay: schedule.allDay,
+                    openingTime: schedule.openingTime,
+                    closingTime: schedule.closingTime,
+                    secondOpeningTime: schedule.secondOpeningTime,
+                    secondClosingTime: schedule.secondClosingTime,
+                  },
+                ]
+              : [],
+        ),
+      },
+      paymentSettings: paymentSettings
+        ? {
+            acceptsPix: paymentSettings.acceptsPix,
+            acceptsCash: paymentSettings.acceptsCash,
+            acceptsCreditCard: paymentSettings.acceptsCreditCard,
+            acceptsDebitCard: paymentSettings.acceptsDebitCard,
+            acceptsBankSlip: paymentSettings.acceptsBankSlip,
+            acceptsBankTransfer: paymentSettings.acceptsBankTransfer,
+            pixKeyType: paymentSettings.pixKeyType,
+            pixKey: paymentSettings.pixKey,
+            pixHolderName: paymentSettings.pixHolderName,
+            bankName: paymentSettings.bankName,
+            bankAgency: paymentSettings.bankAgency,
+            bankAccount: paymentSettings.bankAccount,
+            bankAccountType: paymentSettings.bankAccountType,
+            maxInstallments: paymentSettings.maxInstallments,
+            installmentInterest: paymentSettings.installmentInterest,
+            paymentDeadline: paymentSettings.paymentDeadline,
+            receiptInstructions: paymentSettings.receiptInstructions,
+            billingRules: paymentSettings.billingRules,
+            additionalInformation: paymentSettings.additionalInformation,
+          }
+        : null,
     };
   },
 };
