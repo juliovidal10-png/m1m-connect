@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -23,6 +23,25 @@ function getRecord(
     : null;
 }
 
+function extractPhone(
+  remoteJid: string,
+): string | null {
+  if (
+    !remoteJid.endsWith(
+      "@s.whatsapp.net",
+    )
+  ) {
+    return null;
+  }
+
+  const phone = remoteJid.replace(
+    "@s.whatsapp.net",
+    "",
+  );
+
+  return phone || null;
+}
+
 export async function GET(
   request: NextRequest,
 ) {
@@ -40,16 +59,32 @@ export async function GET(
 
     if (!remoteJid) {
       return NextResponse.json(
-        { error: "remoteJid e obrigatorio." },
+        {
+          error:
+            "remoteJid e obrigatorio.",
+        },
         { status: 400 },
       );
     }
 
-    const customer =
+    let customer =
       await customerRepository.findByRemoteJid(
         companyId,
         remoteJid,
       );
+
+    if (!customer) {
+      const phone =
+        extractPhone(remoteJid);
+
+      if (phone) {
+        customer =
+          await customerRepository.findByPhone(
+            companyId,
+            phone,
+          );
+      }
+    }
 
     if (!customer) {
       return NextResponse.json([]);
@@ -66,7 +101,9 @@ export async function GET(
       storedMessages.flatMap(
         (storedMessage) => {
           const rawPayload =
-            getRecord(storedMessage.rawPayload);
+            getRecord(
+              storedMessage.rawPayload,
+            );
 
           if (!rawPayload) {
             return [];
@@ -80,9 +117,12 @@ export async function GET(
             {
               ...rawPayload,
               m1mAuthor: {
-                type: storedMessage.authorType,
-                id: storedMessage.authorId,
-                name: storedMessage.authorName,
+                type:
+                  storedMessage.authorType,
+                id:
+                  storedMessage.authorId,
+                name:
+                  storedMessage.authorName,
               },
             },
           ];

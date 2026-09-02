@@ -1979,6 +1979,10 @@ const loadContacts =
           return;
         }
 
+        if (data.length === 0) {
+          return;
+        }
+
         const recentMessages =
           (data as Message[]).sort(
             (
