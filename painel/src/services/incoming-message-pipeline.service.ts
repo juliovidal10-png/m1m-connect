@@ -954,50 +954,6 @@ export const incomingMessagePipelineService = {
           },
         );
 
-      if (!availability.isOpen) {
-        const outOfHoursMessage =
-          await outOfHoursService.getCompanyMessage(
-            companyId,
-          );
-
-        if (options?.dryRun) {
-          return {
-            processed: true,
-            action:
-              "OUT_OF_HOURS_SIMULATED" as const,
-            messageId:
-              storedMessage.id,
-            router,
-            availability,
-            simulatedMessage:
-              outOfHoursMessage,
-          };
-        }
-
-        await automaticMessageService.sendText({
-          companyId,
-          customerId:
-            storedMessage.customerId,
-          attendanceId:
-            router.attendanceId,
-      instanceName: normalizedInstanceName,
-          remoteJid:
-            normalizedMessage.remoteJid,
-          text:
-            outOfHoursMessage,
-        });
-
-        return {
-          processed: true,
-          action:
-            "OUT_OF_HOURS_SENT" as const,
-          messageId:
-            storedMessage.id,
-          router,
-          availability,
-        };
-      }
-
       const messageContent =
         normalizedMessage.content?.trim();
 
@@ -1046,6 +1002,23 @@ export const incomingMessagePipelineService = {
             prompt.userPrompt,
         });
 
+      let customerResponseText =
+        aiResponse.text;
+
+      if (
+        aiResponse.needsHuman &&
+        !availability.isOpen
+      ) {
+        const outOfHoursSettings =
+          await outOfHoursService.getSettings(
+            companyId,
+            router.sectorId,
+          );
+
+        customerResponseText =
+          `${aiResponse.text}\n\n${outOfHoursSettings.effectiveMessage}`;
+      }
+
       if (options?.dryRun) {
         return {
           processed: true,
@@ -1056,7 +1029,7 @@ export const incomingMessagePipelineService = {
           router,
           availability,
           simulatedMessage:
-            aiResponse.text,
+            customerResponseText,
           ai: {
             model:
               aiResponse.model,
@@ -1082,7 +1055,7 @@ export const incomingMessagePipelineService = {
         remoteJid:
           normalizedMessage.remoteJid,
         text:
-          aiResponse.text,
+          customerResponseText,
       sourceMessageId:
           storedMessage.id,
       });
