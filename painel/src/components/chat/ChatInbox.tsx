@@ -1949,6 +1949,105 @@ const loadContacts =
       );
     };
   }, [isEmojiPickerOpen]);
+  const selectedChatRemoteJid =
+    selectedChat?.remoteJid ?? null;
+
+  const refreshOpenChatMessages =
+    useCallback(async () => {
+      if (!selectedChatRemoteJid) {
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/chat/recent-messages?remoteJid=${encodeURIComponent(
+            selectedChatRemoteJid,
+          )}`,
+          {
+            cache: "no-store",
+          },
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (!Array.isArray(data)) {
+          return;
+        }
+
+        const recentMessages =
+          (data as Message[]).sort(
+            (
+              firstMessage,
+              secondMessage,
+            ) =>
+              Number(
+                firstMessage.messageTimestamp,
+              ) -
+              Number(
+                secondMessage.messageTimestamp,
+              ),
+          );
+
+        setMessages(
+          (currentMessages) => {
+            const localMessages =
+              currentMessages.filter(
+                (message) =>
+                  message.id.startsWith(
+                    "local-",
+                  ),
+              );
+
+            const confirmedTexts =
+              new Set(
+                recentMessages
+                  .filter(
+                    (message) =>
+                      message.key.fromMe,
+                  )
+                  .map((message) =>
+                    getMessageText(
+                      message,
+                    ).trim(),
+                  ),
+              );
+
+            const pendingLocalMessages =
+              localMessages.filter(
+                (message) =>
+                  !confirmedTexts.has(
+                    getMessageText(
+                      message,
+                    ).trim(),
+                  ),
+              );
+
+            return [
+              ...recentMessages,
+              ...pendingLocalMessages,
+            ];
+          },
+        );
+      } catch {
+        /*
+         * Refresh leve e nao bloqueante.
+         * A sincronizacao completa continua
+         * na abertura da conversa.
+         */
+      }
+    }, [selectedChatRemoteJid]);
+
+  useAutoRefresh({
+    callback:
+      refreshOpenChatMessages,
+    interval: 2000,
+    enabled: Boolean(selectedChatRemoteJid),
+  });
 
   const refreshChat =
     useCallback(async () => {
