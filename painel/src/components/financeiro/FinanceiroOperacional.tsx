@@ -843,7 +843,12 @@ export default function FinanceiroOperacional() {
                       </p>
                     )}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <details className="mt-4">
+                      <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]">
+                        Mais opções
+                      </summary>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
                       {receipt.mediaUrl && (
                         <a
                           href={`/api/payment-receipts/${receipt.id}/media`}
@@ -892,7 +897,8 @@ export default function FinanceiroOperacional() {
                           ? "Processando..."
                           : "Excluir"}
                       </button>
-                    </div>
+                      </div>
+                    </details>
 
                     {receipt.status !==
                       "FINISHED" && (

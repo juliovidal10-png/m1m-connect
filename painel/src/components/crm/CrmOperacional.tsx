@@ -568,18 +568,6 @@ export default function CrmOperacional() {
                     >
                       Conversa
                     </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCustomer(
-                          customer,
-                        );
-                      }}
-                      className="h-9 rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
-                    >
-                      Timeline
-                    </button>
                   </div>
                 </article>
               ),
@@ -627,7 +615,6 @@ export default function CrmOperacional() {
           conversationHref={`/?remoteJid=${encodeURIComponent(
             selectedCustomer.remoteJid,
           )}`}
-          initialTab="atividades"
         />
       )}
     </main>
