@@ -843,12 +843,7 @@ export default function FinanceiroOperacional() {
                       </p>
                     )}
 
-                    <details className="mt-4">
-                      <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]">
-                        Mais opções
-                      </summary>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-4 flex flex-wrap items-start gap-2">
                       {receipt.mediaUrl && (
                         <a
                           href={`/api/payment-receipts/${receipt.id}/media`}
@@ -860,69 +855,10 @@ export default function FinanceiroOperacional() {
                         </a>
                       )}
 
-                      <Link
-                        href={`/clientes?remoteJid=${encodeURIComponent(
-                          receipt
-                            .customer
-                            .remoteJid,
-                        )}&tab=arquivos`}
-                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
-                      >
-                        Cliente 360°
-                      </Link>
-
-                      <Link
-                        href={`/?remoteJid=${encodeURIComponent(
-                          receipt
-                            .customer
-                            .remoteJid,
-                        )}`}
-                        className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
-                      >
-                        Conversa
-                      </Link>
-
-                      <button
-                        type="button"
-                        disabled={actionId !== null}
-                        onClick={() =>
-                          void deleteReceipt(
-                            receipt,
-                          )
-                        }
-                        className="inline-flex h-9 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {actionId ===
-                        receipt.id
-                          ? "Processando..."
-                          : "Excluir"}
-                      </button>
-                      </div>
-                    </details>
-
-                    {receipt.status !==
-                      "FINISHED" && (
-                      <div className="mt-3 flex flex-wrap gap-2 border-t border-black/5 pt-3">
-                        {receipt.status ===
-                          "RECEIVED" && (
-                          <ActionButton
-                            label="Iniciar análise"
-                            disabled={actionId !== null}
-                            onClick={() =>
-                              void runAction(
-                                receipt,
-                                "START_REVIEW",
-                              )
-                            }
-                          />
-                        )}
-
-                        {(receipt.status ===
-                          "RECEIVED" ||
-                          receipt.status ===
-                            "CLASSIFIED" ||
-                          receipt.status ===
-                            "UNDER_REVIEW") && (
+                      {receipt.status !== "FINISHED" &&
+                        (receipt.status === "RECEIVED" ||
+                          receipt.status === "CLASSIFIED" ||
+                          receipt.status === "UNDER_REVIEW") && (
                           <ActionButton
                             label="Aprovar"
                             disabled={actionId !== null}
@@ -936,33 +872,11 @@ export default function FinanceiroOperacional() {
                           />
                         )}
 
-                        {(receipt.status ===
-                          "RECEIVED" ||
-                          receipt.status ===
-                            "CLASSIFIED" ||
-                          receipt.status ===
-                            "UNDER_REVIEW") && (
-                          <ActionButton
-                            label="Rejeitar"
-                            disabled={actionId !== null}
-                            onClick={() =>
-                              void runAction(
-                                receipt,
-                                "REJECT",
-                              )
-                            }
-                            danger
-                          />
-                        )}
-
-                        {(receipt.status ===
-                          "RECEIVED" ||
-                          receipt.status ===
-                            "CLASSIFIED" ||
-                          receipt.status ===
-                            "UNDER_REVIEW" ||
-                          receipt.status ===
-                            "REJECTED") && (
+                      {receipt.status !== "FINISHED" &&
+                        (receipt.status === "RECEIVED" ||
+                          receipt.status === "CLASSIFIED" ||
+                          receipt.status === "UNDER_REVIEW" ||
+                          receipt.status === "REJECTED") && (
                           <ActionButton
                             label="Solicitar novo"
                             disabled={actionId !== null}
@@ -975,18 +889,95 @@ export default function FinanceiroOperacional() {
                           />
                         )}
 
-                        <ActionButton
-                          label="Finalizar"
-                          disabled={actionId !== null}
-                          onClick={() =>
-                            void runAction(
-                              receipt,
-                              "FINISH",
-                            )
-                          }
-                        />
-                      </div>
-                    )}
+                      <details>
+                        <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]">
+                          Mais opções
+                        </summary>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {receipt.status !== "FINISHED" &&
+                            receipt.status === "RECEIVED" && (
+                              <ActionButton
+                                label="Iniciar análise"
+                                disabled={actionId !== null}
+                                onClick={() =>
+                                  void runAction(
+                                    receipt,
+                                    "START_REVIEW",
+                                  )
+                                }
+                              />
+                            )}
+
+                          {receipt.status !== "FINISHED" &&
+                            (receipt.status === "RECEIVED" ||
+                              receipt.status === "CLASSIFIED" ||
+                              receipt.status === "UNDER_REVIEW") && (
+                              <ActionButton
+                                label="Rejeitar"
+                                disabled={actionId !== null}
+                                onClick={() =>
+                                  void runAction(
+                                    receipt,
+                                    "REJECT",
+                                  )
+                                }
+                                danger
+                              />
+                            )}
+
+                          {receipt.status !== "FINISHED" && (
+                            <ActionButton
+                              label="Finalizar"
+                              disabled={actionId !== null}
+                              onClick={() =>
+                                void runAction(
+                                  receipt,
+                                  "FINISH",
+                                )
+                              }
+                            />
+                          )}
+
+                          <Link
+                            href={`/clientes?remoteJid=${encodeURIComponent(
+                              receipt
+                                .customer
+                                .remoteJid,
+                            )}&tab=arquivos`}
+                            className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
+                          >
+                            Cliente 360°
+                          </Link>
+
+                          <Link
+                            href={`/?remoteJid=${encodeURIComponent(
+                              receipt
+                                .customer
+                                .remoteJid,
+                            )}`}
+                            className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
+                          >
+                            Conversa
+                          </Link>
+
+                          <button
+                            type="button"
+                            disabled={actionId !== null}
+                            onClick={() =>
+                              void deleteReceipt(
+                                receipt,
+                              )
+                            }
+                            className="inline-flex h-9 items-center rounded-xl border border-red-200 bg-red-50 px-3 text-xs font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {actionId === receipt.id
+                              ? "Processando..."
+                              : "Excluir"}
+                          </button>
+                        </div>
+                      </details>
+                    </div>
                   </article>
                 ),
               )}
