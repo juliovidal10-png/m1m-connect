@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import AttendanceActions from "./AttendanceActions";
 
@@ -16,6 +16,7 @@ type ChatConversationHeaderProps = {
   attendanceId?: string | null;
   attendanceState?: string | null;
   attendanceSectorId?: string | null;
+  attendanceSectorName?: string | null;
   lastInteraction?: string | null;
   isSearchOpen: boolean;
   searchQuery: string;
@@ -92,6 +93,7 @@ export default function ChatConversationHeader({
   attendanceId,
   attendanceState,
   attendanceSectorId,
+  attendanceSectorName,
   lastInteraction,
   isSearchOpen,
   searchQuery,
@@ -231,7 +233,9 @@ export default function ChatConversationHeader({
                   }`}
                 />
                 {attendanceStatus === "HUMANO"
-                  ? "Humano"
+                  ? attendanceSectorName?.trim()
+                    ? `Humano · ${attendanceSectorName.trim()}`
+                    : "Humano"
                   : "IA"}
               </span>
 

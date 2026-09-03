@@ -1,4 +1,4 @@
-import { authorizationService } from "@/services/auth/authorization.service";
+﻿import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
 
@@ -35,6 +35,7 @@ type EnrichedChat = EvolutionChat & {
   attendanceId?: string | null;
   attendanceState?: string | null;
   attendanceSectorId?: string | null;
+  attendanceSectorName?: string | null;
   attendanceResponsibleId?: string | null;
   crmCustomerId?: string | null;
   crmName?: string | null;
@@ -480,6 +481,11 @@ export async function GET(request: Request) {
       prisma.m1MAttendance.findMany({
         where: { companyId, state: { in: ["IA", "HUMANO"] } },
         orderBy: { startedAt: "desc" },
+        include: {
+          sector: {
+            select: { name: true },
+          },
+        },
       }),
     ]);
     perfLog("database", {
@@ -537,6 +543,7 @@ export async function GET(request: Request) {
             attendanceId: null,
             attendanceState: null,
             attendanceSectorId: null,
+            attendanceSectorName: null,
             attendanceResponsibleId: null,
             crmCustomerId: null,
             crmName: null,
@@ -563,6 +570,7 @@ export async function GET(request: Request) {
           attendanceId: attendance?.id ?? null,
           attendanceState: attendance?.state ?? null,
           attendanceSectorId: attendance?.sectorId ?? null,
+          attendanceSectorName: attendance?.sector?.name ?? null,
           attendanceResponsibleId: attendance?.responsibleId ?? null,
           crmCustomerId: customer.id,
           crmName: groupSubject || customer.name,

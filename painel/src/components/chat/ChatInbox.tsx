@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   type ChangeEvent,
@@ -39,6 +39,7 @@ type Chat = {
   attendanceId?: string | null;
   attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
   attendanceSectorId?: string | null;
+  attendanceSectorName?: string | null;
 
   crmCustomerId?: string | null;
   crmName?: string | null;
@@ -3829,6 +3830,10 @@ const loadContacts =
               }
               attendanceSectorId={
                 selectedChat.attendanceSectorId ||
+                null
+              }
+              attendanceSectorName={
+                selectedChat.attendanceSectorName ||
                 null
               }
               lastInteraction={
