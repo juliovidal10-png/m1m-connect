@@ -379,6 +379,8 @@ export const incomingMessagePipelineService = {
               "[M1M COMPROVANTE] Não foi possível analisar automaticamente o comprovante. O registro será criado sem dados financeiros extraídos.",
               analysisError,
             );
+
+            throw analysisError;
           }
         }
 
