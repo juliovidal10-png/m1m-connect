@@ -1435,7 +1435,7 @@ const loadContacts =
             const localMessages =
               currentMessages.filter(
                 (message) =>
-                  message.id.startsWith(
+                  (message.id || message.key?.id || "").startsWith(
                     "local-",
                   ),
               );
@@ -2002,7 +2002,7 @@ const loadContacts =
             const localMessages =
               currentMessages.filter(
                 (message) =>
-                  message.id.startsWith(
+                  (message.id || message.key?.id || "").startsWith(
                     "local-",
                   ),
               );
