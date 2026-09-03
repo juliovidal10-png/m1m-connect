@@ -127,6 +127,149 @@ function getChatIdentities(chat: EvolutionChat) {
   return identities;
 }
 
+function getStableCanonicalJid(chat: EvolutionChat) {
+  const primaryRemoteJid = getPrimaryRemoteJid(chat);
+
+  if (isGroupJid(primaryRemoteJid)) {
+    return primaryRemoteJid;
+  }
+
+  const officialJid = [
+    chat.canonicalJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+    chat.lastMessage?.key?.remoteJid,
+    chat.remoteJid,
+  ]
+    .map((value) => normalizeJid(value))
+    .find((jid) => jid.endsWith("@s.whatsapp.net"));
+
+  return officialJid || primaryRemoteJid;
+}
+
+function getEnrichedChatKey(chat: EnrichedChat) {
+  const primaryRemoteJid = getPrimaryRemoteJid(chat);
+
+  if (isGroupJid(primaryRemoteJid)) {
+    return `jid:${primaryRemoteJid}`;
+  }
+
+  /*
+   * Para conversas individuais, o cliente CRM e a identidade mais estavel
+   * quando LID e JID oficial representam a mesma pessoa.
+   *
+   * Se houver associacoes CRM divergentes, elas permanecem separadas aqui:
+   * corrigir cadastro historico e uma etapa distinta e nao deve ser mascarada.
+   */
+  if (chat.crmCustomerId) {
+    return `crm:${chat.crmCustomerId}`;
+  }
+
+  const canonicalJid = getStableCanonicalJid(chat);
+
+  return canonicalJid ? `jid:${canonicalJid}` : "";
+}
+
+function getChatUpdatedTime(chat: EvolutionChat) {
+  const updatedAt = chat.updatedAt;
+
+  if (
+    typeof updatedAt !== "string" &&
+    typeof updatedAt !== "number" &&
+    !(updatedAt instanceof Date)
+  ) {
+    return 0;
+  }
+
+  const time = new Date(updatedAt).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function getChatUnreadCount(chat: EvolutionChat) {
+  return typeof chat.unreadCount === "number" ? chat.unreadCount : 0;
+}
+
+function mergeEnrichedChat(
+  current: EnrichedChat,
+  incoming: EnrichedChat,
+): EnrichedChat {
+  const incomingIsNewer =
+    getChatUpdatedTime(incoming) > getChatUpdatedTime(current);
+
+  const newer = incomingIsNewer ? incoming : current;
+  const older = incomingIsNewer ? current : incoming;
+
+  const currentRemoteJid = normalizeJid(current.remoteJid);
+  const incomingRemoteJid = normalizeJid(incoming.remoteJid);
+
+  const operationalRemoteJid =
+    (incomingRemoteJid.endsWith("@lid") && incomingRemoteJid) ||
+    (currentRemoteJid.endsWith("@lid") && currentRemoteJid) ||
+    normalizeJid(newer.remoteJid) ||
+    normalizeJid(older.remoteJid);
+
+  const canonicalJid =
+    getStableCanonicalJid(newer) ||
+    getStableCanonicalJid(older) ||
+    operationalRemoteJid;
+
+  return {
+    ...older,
+    ...newer,
+    remoteJid: operationalRemoteJid || newer.remoteJid || older.remoteJid,
+    canonicalJid,
+    pushName:
+      normalizeText(newer.pushName) ||
+      normalizeText(older.pushName),
+    profilePicUrl:
+      normalizeText(newer.profilePicUrl) ||
+      normalizeText(older.profilePicUrl),
+    unreadCount: Math.max(
+      getChatUnreadCount(current),
+      getChatUnreadCount(incoming),
+    ),
+  };
+}
+
+function mergeIntoEnrichedChatMap(
+  chatsMap: Map<string, EnrichedChat>,
+  chat: EnrichedChat,
+) {
+  const canonicalJid = getStableCanonicalJid(chat);
+  const normalizedChat: EnrichedChat = {
+    ...chat,
+    canonicalJid: canonicalJid || chat.canonicalJid || null,
+  };
+
+  const key = getEnrichedChatKey(normalizedChat);
+
+  if (!key) {
+    return;
+  }
+
+  const current = chatsMap.get(key);
+
+  if (!current) {
+    chatsMap.set(key, normalizedChat);
+    return;
+  }
+
+  chatsMap.set(key, mergeEnrichedChat(current, normalizedChat));
+}
+
+function dedupeEnrichedChats(items: EnrichedChat[]) {
+  const chatsMap = new Map<string, EnrichedChat>();
+
+  for (const chat of items) {
+    mergeIntoEnrichedChatMap(chatsMap, chat);
+  }
+
+  return Array.from(chatsMap.values()).sort(
+    (firstChat, secondChat) =>
+      getChatUpdatedTime(secondChat) - getChatUpdatedTime(firstChat),
+  );
+}
+
 async function getGroupSubject(groupJid: string, instanceName: string) {
   const normalizedGroupJid = normalizeJid(groupJid);
 
@@ -388,6 +531,7 @@ export async function GET(request: Request) {
         if (!customer) {
           return {
             ...chat,
+            canonicalJid: getStableCanonicalJid(chat) || chat.canonicalJid || null,
             pushName: groupSubject || normalizeText(chat.pushName),
             groupSubject,
             attendanceId: null,
@@ -413,6 +557,7 @@ export async function GET(request: Request) {
         const attendance = attendanceByCustomerId.get(customer.id);
         return {
           ...chat,
+          canonicalJid: getStableCanonicalJid(chat) || chat.canonicalJid || null,
           pushName: displayName,
           groupSubject,
           attendanceId: attendance?.id ?? null,
@@ -528,20 +673,8 @@ export async function GET(request: Request) {
         const directRaw = directResults.flat();
         const directVisible = visible(await enrich(directRaw));
 
-        const uniqueDirect = new Map<string, EnrichedChat>();
-
-        for (const chat of directVisible) {
-          const key =
-            chat.crmCustomerId ||
-            getPrimaryRemoteJid(chat);
-
-          if (key && !uniqueDirect.has(key)) {
-            uniqueDirect.set(key, chat);
-          }
-        }
-
-        const directMatches = Array.from(
-          uniqueDirect.values(),
+        const directMatches = dedupeEnrichedChats(
+          directVisible,
         ).filter((chat) => {
           const haystack = normalizeSearch([
             chat.pushName,
@@ -685,37 +818,9 @@ export async function GET(request: Request) {
               ),
             );
 
-          const uniqueGroups =
-            new Map<
-              string,
-              EnrichedChat
-            >();
-
-          for (
-            const chat of
-            groupDirectVisible
-          ) {
-            const key =
-              getPrimaryRemoteJid(
-                chat,
-              );
-
-            if (
-              key &&
-              !uniqueGroups.has(
-                key,
-              )
-            ) {
-              uniqueGroups.set(
-                key,
-                chat,
-              );
-            }
-          }
-
           const groupMatches =
-            Array.from(
-              uniqueGroups.values(),
+            dedupeEnrichedChats(
+              groupDirectVisible,
             ).filter((chat) =>
               normalizeSearch(
                 [
@@ -748,7 +853,7 @@ export async function GET(request: Request) {
 
       const allRaw = await fetchAllEvolutionChats(instanceName);
       const allVisible = visible(await enrich(allRaw));
-      const matches = allVisible.filter((chat) => {
+      const matches = dedupeEnrichedChats(allVisible).filter((chat) => {
         const haystack = normalizeSearch([
           chat.pushName,
           chat.groupSubject,
@@ -768,12 +873,12 @@ export async function GET(request: Request) {
     }
 
     const wanted = offset + limit + 1;
-    const collected: EnrichedChat[] = [];
-    const seen = new Set<string>();
+    const collectedMap = new Map<string, EnrichedChat>();
+    const seenRaw = new Set<string>();
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
 
-    for (let page = 0; page < maxPages && collected.length < wanted; page += 1) {
+    for (let page = 0; page < maxPages && collectedMap.size < wanted; page += 1) {
       const evolutionStartedAt = Date.now();
       const result = await fetchEvolutionChatRange(instanceName, scanSize, page * scanSize);
       perfLog("evolution-page", {
@@ -782,25 +887,38 @@ export async function GET(request: Request) {
         received: result.chats.length,
         reachedEnd: result.reachedEnd,
       });
+
       const uniqueRaw = result.chats.filter((chat) => {
         const id = getPrimaryRemoteJid(chat);
-        if (id && seen.has(id)) return false;
-        if (id) seen.add(id);
+        if (id && seenRaw.has(id)) return false;
+        if (id) seenRaw.add(id);
         return true;
       });
+
       const enrichStartedAt = Date.now();
       const enrichedVisible = visible(await enrich(uniqueRaw));
+
+      for (const chat of enrichedVisible) {
+        mergeIntoEnrichedChatMap(collectedMap, chat);
+      }
+
       perfLog("enrich-page", {
         page,
         enrichMs: Date.now() - enrichStartedAt,
         uniqueRaw: uniqueRaw.length,
         visible: enrichedVisible.length,
+        canonical: collectedMap.size,
       });
-      collected.push(...enrichedVisible);
+
       if (result.reachedEnd) break;
     }
 
+    const collected = Array.from(collectedMap.values()).sort(
+      (firstChat, secondChat) =>
+        getChatUpdatedTime(secondChat) - getChatUpdatedTime(firstChat),
+    );
     const pageItems = collected.slice(offset, offset + limit);
+
     perfLog("response", {
       limit,
       offset,
@@ -808,7 +926,11 @@ export async function GET(request: Request) {
       returned: pageItems.length,
       hasMore: collected.length > offset + limit,
     });
-    return NextResponse.json({ items: pageItems, hasMore: collected.length > offset + limit });
+
+    return NextResponse.json({
+      items: pageItems,
+      hasMore: collected.length > offset + limit,
+    });
   } catch (error) {
     console.error("Erro ao buscar e unificar conversas:", error);
     return NextResponse.json({ error: "Erro interno ao buscar as conversas." }, { status: 500 });
