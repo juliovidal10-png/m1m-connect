@@ -458,6 +458,37 @@ function mergeDuplicateChats(items: Chat[]) {
   );
 }
 
+function findChatByRequestedJid(
+  items: Chat[],
+  requestedRemoteJid: string,
+) {
+  const normalizedRequestedJid =
+    cleanJid(requestedRemoteJid);
+
+  return (
+    items.find((chat) => {
+      const possibleJids = [
+        chat.remoteJid,
+        chat.canonicalJid,
+        chat.lastMessage?.key
+          ?.remoteJid,
+        chat.lastMessage?.key
+          ?.remoteJidAlt,
+      ].filter(
+        (jid): jid is string =>
+          typeof jid === "string" &&
+          jid.length > 0,
+      );
+
+      return possibleJids.some(
+        (jid) =>
+          jid === requestedRemoteJid ||
+          cleanJid(jid) ===
+            normalizedRequestedJid,
+      );
+    }) ?? null
+  );
+}
 function buildContactsMap(contacts: Contact[]) {
   const contactsMap = new Map<string, Contact>();
 
@@ -1561,16 +1592,82 @@ const loadContacts =
     loadMessages,
   ]);
 
+  const resolveChatByRemoteJid = useCallback(
+    async (requestedRemoteJid: string) => {
+      const localMatch =
+        findChatByRequestedJid(
+          chatsRef.current,
+          requestedRemoteJid,
+        );
+
+      if (localMatch) {
+        return localMatch;
+      }
+
+      const response = await fetch(
+        `/api/chat/list?search=${encodeURIComponent(
+          requestedRemoteJid,
+        )}`,
+        { cache: "no-store" },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Erro ao localizar conversa.",
+        );
+      }
+
+      const receivedItems: Chat[] =
+        Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+            ? data
+            : Array.isArray(data?.value)
+              ? data.value
+              : [];
+
+      const resolvedItems =
+        mergeDuplicateChats(receivedItems);
+
+      const remoteMatch =
+        findChatByRequestedJid(
+          resolvedItems,
+          requestedRemoteJid,
+        );
+
+      if (!remoteMatch) {
+        return null;
+      }
+
+      const nextItems =
+        mergeDuplicateChats([
+          ...chatsRef.current,
+          ...resolvedItems,
+        ]);
+
+      chatsRef.current = nextItems;
+      setChats(nextItems);
+
+      return (
+        findChatByRequestedJid(
+          nextItems,
+          requestedRemoteJid,
+        ) ?? remoteMatch
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     const requestedRemoteJid =
       searchParams.get(
         "remoteJid",
       );
 
-    if (
-      !requestedRemoteJid ||
-      chats.length === 0
-    ) {
+    if (!requestedRemoteJid) {
       return;
     }
 
@@ -1584,61 +1681,64 @@ const loadContacts =
       return;
     }
 
-    const normalizedRequestedJid =
-      cleanJid(
-        requestedRemoteJid,
-      );
-
-    const matchingChat =
-      chats.find((chat) => {
-        const possibleJids = [
-          chat.remoteJid,
-          chat.canonicalJid,
-          chat.lastMessage?.key
-            ?.remoteJid,
-          chat.lastMessage?.key
-            ?.remoteJidAlt,
-        ].filter(
-          (jid): jid is string =>
-            typeof jid ===
-              "string" &&
-            jid.length > 0,
-        );
-
-        return possibleJids.some(
-          (jid) =>
-            jid ===
-              requestedRemoteJid ||
-            cleanJid(jid) ===
-              normalizedRequestedJid,
-        );
-      });
-
     handledNavigationRef.current =
       navigationKey;
 
-    if (!matchingChat) {
-      setErrorMessage(
-        "Não foi possível localizar a conversa deste cliente.",
-      );
+    let cancelled = false;
 
-      router.replace("/");
-      return;
-    }
+    void (async () => {
+      try {
+        const matchingChat =
+          await resolveChatByRemoteJid(
+            requestedRemoteJid,
+          );
 
-    setSelectedChat(
-      matchingChat,
-    );
+        if (cancelled) {
+          return;
+        }
 
-    router.replace("/");
+        if (!matchingChat) {
+          setErrorMessage(
+            "Não foi possível localizar a conversa deste cliente.",
+          );
+
+          router.replace("/");
+          return;
+        }
+
+        setSelectedChat(
+          matchingChat,
+        );
+
+        router.replace("/");
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        handledNavigationRef.current =
+          null;
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Erro ao localizar conversa.",
+        );
+
+        router.replace("/");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
-    chats,
+    resolveChatByRemoteJid,
     router,
     searchParams,
   ]);
-
   useEffect(() => {
-    function handleOpenChat(
+    async function handleOpenChat(
       event: Event,
     ) {
       const customEvent =
@@ -1654,47 +1754,30 @@ const loadContacts =
         return;
       }
 
-      const normalizedRequestedJid =
-        cleanJid(
-          requestedRemoteJid,
+      try {
+        const matchingChat =
+          await resolveChatByRemoteJid(
+            requestedRemoteJid,
+          );
+
+        if (!matchingChat) {
+          setErrorMessage(
+            "Não foi possível localizar a conversa deste cliente.",
+          );
+
+          return;
+        }
+
+        setSelectedChat(
+          matchingChat,
         );
-
-      const matchingChat =
-        chats.find((chat) => {
-          const possibleJids = [
-            chat.remoteJid,
-            chat.canonicalJid,
-            chat.lastMessage?.key
-              ?.remoteJid,
-            chat.lastMessage?.key
-              ?.remoteJidAlt,
-          ].filter(
-            (jid): jid is string =>
-              typeof jid ===
-                "string" &&
-              jid.length > 0,
-          );
-
-          return possibleJids.some(
-            (jid) =>
-              jid ===
-                requestedRemoteJid ||
-              cleanJid(jid) ===
-                normalizedRequestedJid,
-          );
-        });
-
-      if (!matchingChat) {
+      } catch (error) {
         setErrorMessage(
-          "Não foi possível localizar a conversa deste cliente.",
+          error instanceof Error
+            ? error.message
+            : "Erro ao localizar conversa.",
         );
-
-        return;
       }
-
-      setSelectedChat(
-        matchingChat,
-      );
     }
 
     window.addEventListener(
@@ -1708,7 +1791,7 @@ const loadContacts =
         handleOpenChat,
       );
     };
-  }, [chats]);
+  }, [resolveChatByRemoteJid]);
 
   useEffect(() => {
     setActiveConversationMatchIndex(
@@ -5134,4 +5217,5 @@ const loadContacts =
     </div>
   );
 }
+
 
