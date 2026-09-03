@@ -45,6 +45,11 @@ export default function MessageContextMenu({
   onReact,
   onOpenReactionPicker,
 }: MessageContextMenuProps) {
+  const messageId =
+    message.key?.id || message.id || "";
+  const isLocalMessage =
+    messageId.startsWith("local-");
+
   const [isOpen, setIsOpen] =
     useState(false);
 
@@ -266,7 +271,7 @@ export default function MessageContextMenu({
   async function handleEdit() {
     if (
       !message.key.fromMe ||
-      message.id.startsWith("local-") ||
+      isLocalMessage ||
       !text.trim()
     ) {
       return;
@@ -314,7 +319,7 @@ export default function MessageContextMenu({
 
       setIsOpen(false);
       onEdited(
-        message.id,
+        messageId,
         newText.trim(),
       );
       onNotice("Mensagem editada.");
@@ -334,7 +339,7 @@ export default function MessageContextMenu({
   async function handleDelete() {
     if (
       !message.key.fromMe ||
-      message.id.startsWith("local-") ||
+      isLocalMessage ||
       isDeleting
     ) {
       return;
@@ -386,7 +391,7 @@ export default function MessageContextMenu({
       }
 
       setIsOpen(false);
-      onDeleted(message.id);
+      onDeleted(messageId);
       onNotice(
         "Mensagem apagada para o cliente.",
       );
@@ -719,9 +724,7 @@ export default function MessageContextMenu({
           </button>
 
           {message.key.fromMe &&
-            !message.id.startsWith(
-              "local-",
-            ) && (
+            !isLocalMessage && (
               <>
                 <div className="my-2 border-t border-black/10" />
 
