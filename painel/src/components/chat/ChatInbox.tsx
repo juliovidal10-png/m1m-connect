@@ -404,10 +404,14 @@ function mergeDuplicateChats(items: Chat[]) {
 
   for (const chat of items) {
     const canonicalJid = getCanonicalJid(chat);
-    const current = chatsMap.get(canonicalJid);
+    const chatIdentity =
+      !isGroupChat(chat) && chat.crmCustomerId
+        ? `crm:${chat.crmCustomerId}`
+        : `jid:${canonicalJid}`;
+    const current = chatsMap.get(chatIdentity);
 
     if (!current) {
-      chatsMap.set(canonicalJid, {
+      chatsMap.set(chatIdentity, {
         ...chat,
         canonicalJid,
         pushName: getNameCandidate(chat),
@@ -429,7 +433,7 @@ function mergeDuplicateChats(items: Chat[]) {
             ? chat.remoteJid
             : current.remoteJid;
 
-    chatsMap.set(canonicalJid, {
+    chatsMap.set(chatIdentity, {
       ...current,
       ...chat,
       id: chatIsNewer
