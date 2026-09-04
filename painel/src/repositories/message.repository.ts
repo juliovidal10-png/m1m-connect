@@ -174,6 +174,26 @@ export const messageRepository = {
     return messages.reverse();
   },
 
+  async hasAIMessageWithContentByAttendance(
+    attendanceId: string,
+    content: string,
+  ) {
+    const message =
+      await prisma.m1MMessage.findFirst({
+        where: {
+          attendanceId,
+          fromMe: true,
+          authorType:
+            M1MMessageAuthorType.AI,
+          content,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    return Boolean(message);
+  },
   async attachMessageToAttendance(
     messageId: string,
     attendanceId: string,

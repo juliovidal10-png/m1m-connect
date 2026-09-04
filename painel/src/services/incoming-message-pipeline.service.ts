@@ -854,6 +854,19 @@ export const incomingMessagePipelineService = {
             company?.name,
           );
 
+        const menuAlreadyShownInCurrentCycle =
+          router.attendanceId
+            ? await messageService.hasAIMessageWithContentByAttendance(
+                router.attendanceId,
+                sectorMenuMessage,
+              )
+            : false;
+
+        const responseMessage =
+          menuAlreadyShownInCurrentCycle
+            ? "Não consegui identificar exatamente o que você precisa. Pode me explicar brevemente?"
+            : sectorMenuMessage;
+
         if (options?.dryRun) {
           return {
             processed: true,
@@ -863,7 +876,7 @@ export const incomingMessagePipelineService = {
               storedMessage.id,
             router,
             simulatedMessage:
-              sectorMenuMessage,
+              responseMessage,
           };
         }
 
@@ -877,7 +890,9 @@ export const incomingMessagePipelineService = {
           remoteJid:
             normalizedMessage.remoteJid,
           text:
-            sectorMenuMessage,
+            responseMessage,
+          sourceMessageId:
+            storedMessage.id,
         });
 
         return {

@@ -127,6 +127,15 @@ export const messageService = {
     );
   },
 
+  async hasAIMessageWithContentByAttendance(
+    attendanceId: string,
+    content: string,
+  ) {
+    return messageRepository.hasAIMessageWithContentByAttendance(
+      attendanceId,
+      content,
+    );
+  },
   async attachMessageToAttendance(
     messageId: string,
     attendanceId: string,
