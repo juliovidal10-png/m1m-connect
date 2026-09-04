@@ -382,6 +382,10 @@ function getNameCandidate(chat: Chat) {
 }
 
 function getCanonicalJid(chat: Chat) {
+  if (chat.canonicalJid) {
+    return chat.canonicalJid;
+  }
+
   if (chat.lastMessage?.key?.remoteJidAlt) {
     return chat.lastMessage.key.remoteJidAlt;
   }
