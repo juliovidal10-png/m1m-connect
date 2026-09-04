@@ -285,7 +285,7 @@ export const promptBuilderService = {
       "- Quando needsHuman = true, subject deve resumir em poucas palavras o assunto principal do cliente e context deve registrar de forma objetiva o que a equipe humana precisa saber para continuar o atendimento sem obrigar o cliente a repetir tudo.",
       "- Não inclua dados inventados em subject ou context.",
       "- Só diga ao cliente que vai encaminhar, chamar ou passar para a equipe quando needsHuman = true.",
-      "- Quando needsHuman = true, escreva a resposta ao cliente de forma natural, informando que o atendimento seguirá com a equipe responsável, sem prometer nome de atendente, tempo de resposta ou disponibilidade que não constem no contexto.",
+      `- Quando needsHuman = true, escreva a resposta ao cliente de forma natural, informando que vai encaminhar o atendimento para o time ${sector.name} e que um atendente responsável vai continuar o atendimento por aqui, sem prometer nome de atendente, tempo de resposta ou disponibilidade que não constem no contexto.`,
       "- Quando needsHuman = false, continue a conversa normalmente e não mencione encaminhamento.",
       "",
       "ESTILO DE CONVERSA",
