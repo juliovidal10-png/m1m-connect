@@ -4,6 +4,8 @@ import {
 } from "next/server";
 
 import {
+  M1MAttendanceActorType,
+  M1MAttendanceEventType,
   M1MMessageAuthorType,
   M1MUserPermission,
 } from "@/generated/prisma/enums";
@@ -16,6 +18,9 @@ import {
   attendanceService,
 } from "@/services/attendance.service";
 import { prisma } from "@/lib/prisma";
+import {
+  attendanceRepository,
+} from "@/repositories/attendance.repository";
 import {
   companyRepository,
 } from "@/repositories/company.repository";
@@ -56,6 +61,28 @@ function getEvolutionMessageId(
     : "";
 }
 
+function asRecord(
+  value: unknown,
+): Record<string, unknown> | null {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function getTrimmedString(
+  value: unknown,
+): string | null {
+  return typeof value === "string"
+    ? value.trim() || null
+    : null;
+}
+
 const API_URL =
   process.env.EVOLUTION_API_URL;
 
@@ -87,6 +114,7 @@ function getErrorMessage(
 
 async function sendHumanIntroduction(input: {
   companyId: string;
+  attendanceId: string;
   responsibleId: string;
   remoteJid: string;
 }) {
@@ -133,8 +161,69 @@ async function sendHumanIntroduction(input: {
     );
   }
 
+  const [
+    currentAttendance,
+    attendanceEvents,
+  ] = await Promise.all([
+    attendanceRepository.findAttendanceById(
+      input.companyId,
+      input.attendanceId,
+    ),
+    attendanceRepository.listEvents(
+      input.attendanceId,
+    ),
+  ]);
+
+  const sectorName =
+    currentAttendance?.sector?.name?.trim() ||
+    null;
+
+  let aiHandoffMetadata:
+    Record<string, unknown> | null = null;
+
+  for (
+    let index = attendanceEvents.length - 1;
+    index >= 0;
+    index -= 1
+  ) {
+    const event =
+      attendanceEvents[index];
+
+    const metadata =
+      asRecord(event.metadata);
+
+    if (
+      event.type ===
+        M1MAttendanceEventType.TRANSFERRED_TO_SECTOR &&
+      event.actorType ===
+        M1MAttendanceActorType.AI &&
+      metadata?.source ===
+        "AI_HANDOFF"
+    ) {
+      aiHandoffMetadata = metadata;
+      break;
+    }
+  }
+
+  const subject =
+    getTrimmedString(
+      aiHandoffMetadata?.subject,
+    );
+
+  const context =
+    getTrimmedString(
+      aiHandoffMetadata?.context,
+    );
+
+  const hasRelevantContext =
+    Boolean(subject || context);
+
   const text =
-    `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento por aqui. Já recebi as informações que você passou.`;
+    hasRelevantContext
+      ? `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento por aqui. Já recebi as informações que você passou e vou dar continuidade ao atendimento.`
+      : sectorName
+        ? `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento pelo ${sectorName}. Como posso te ajudar?`
+        : `Olá! Meu nome é ${messageAuthorName} e vou continuar seu atendimento por aqui. Como posso te ajudar?`;
 
   const response =
     await fetch(
@@ -267,6 +356,8 @@ export async function POST(
       try {
         await sendHumanIntroduction({
           companyId,
+          attendanceId:
+            assumedAttendance.id,
           responsibleId,
           remoteJid:
             customer.remoteJid,
