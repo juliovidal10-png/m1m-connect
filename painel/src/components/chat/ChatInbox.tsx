@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   type ChangeEvent,
@@ -3844,6 +3844,17 @@ const loadContacts =
                 selectedChat.attendanceSectorName ||
                 null
               }
+              customerId={
+                selectedChat.crmCustomerId ||
+                null
+              }
+              responsibleId={
+                selectedChat.crmResponsibleId ||
+                null
+              }
+              onAttendanceChanged={async () => {
+                await loadChats(false, "refresh");
+              }}
               lastInteraction={
                 selectedChat.updatedAt ||
                 null

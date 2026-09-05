@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import AttendanceActions from "./AttendanceActions";
 
@@ -17,6 +17,9 @@ type ChatConversationHeaderProps = {
   attendanceState?: string | null;
   attendanceSectorId?: string | null;
   attendanceSectorName?: string | null;
+  customerId?: string | null;
+  responsibleId?: string | null;
+  onAttendanceChanged?: () => Promise<void> | void;
   lastInteraction?: string | null;
   isSearchOpen: boolean;
   searchQuery: string;
@@ -94,6 +97,9 @@ export default function ChatConversationHeader({
   attendanceState,
   attendanceSectorId,
   attendanceSectorName,
+  customerId,
+  responsibleId,
+  onAttendanceChanged,
   lastInteraction,
   isSearchOpen,
   searchQuery,
@@ -280,6 +286,9 @@ export default function ChatConversationHeader({
               attendanceId={attendanceId}
               attendanceState={attendanceState}
               currentSectorId={attendanceSectorId}
+              customerId={customerId}
+              responsibleId={responsibleId}
+              onChanged={onAttendanceChanged}
             />
 
             <button

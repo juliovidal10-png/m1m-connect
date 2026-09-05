@@ -20,6 +20,9 @@ type Props = {
   attendanceId?: string | null;
   attendanceState?: string | null;
   currentSectorId?: string | null;
+  customerId?: string | null;
+  responsibleId?: string | null;
+  onChanged?: () => Promise<void> | void;
 };
 
 function hasPermission(
@@ -36,6 +39,9 @@ export default function AttendanceActions({
   attendanceId,
   attendanceState,
   currentSectorId,
+  customerId,
+  responsibleId,
+  onChanged,
 }: Props) {
   const [user, setUser] =
     useState<AuthUser | null>(null);
@@ -83,6 +89,23 @@ export default function AttendanceActions({
     };
   }, []);
 
+  const canAssume = useMemo(
+    () =>
+      Boolean(customerId) &&
+      attendanceState !== "FINALIZADO" &&
+      !responsibleId &&
+      hasPermission(
+        user,
+        "ASSUME_ATTENDANCE",
+      ),
+    [
+      attendanceState,
+      customerId,
+      responsibleId,
+      user,
+    ],
+  );
+
   const canTransfer = useMemo(
     () =>
       hasPermission(
@@ -114,9 +137,55 @@ export default function AttendanceActions({
   if (
     !attendanceId ||
     attendanceState === "FINALIZADO" ||
-    (!canTransfer && !canFinish)
+    (!canAssume && !canTransfer && !canFinish)
   ) {
     return null;
+  }
+
+  async function assume() {
+    if (!customerId || busy) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        "/api/customers/assign",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            customerId,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Não foi possível assumir o atendimento.",
+        );
+      }
+
+      if (onChanged) {
+        await onChanged();
+      } else {
+        window.location.reload();
+      }
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "Erro ao assumir atendimento.",
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function transferTo(
@@ -215,6 +284,17 @@ export default function AttendanceActions({
 
   return (
     <div className="relative flex items-center gap-2">
+      {canAssume && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={assume}
+          className="inline-flex h-10 items-center justify-center rounded-xl bg-[#0A9090] px-3 text-xs font-bold text-white transition hover:bg-[#087B7B] disabled:opacity-50"
+        >
+          {busy ? "Aguarde..." : "Assumir atendimento"}
+        </button>
+      )}
+
       {canTransfer && (
         <div className="relative">
           <button
