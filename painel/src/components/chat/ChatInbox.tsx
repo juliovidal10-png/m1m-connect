@@ -1612,6 +1612,117 @@ const loadContacts =
           console.groupEnd();
         }
         // M1M-DIAG-MERGE-STATE-END
+        // M1M-DIAG-CANONICAL-STATE-BEGIN
+        {
+          const getDiagCanonical =
+            (chat: Chat) =>
+              chat.canonicalJid ||
+              getCanonicalJid(chat);
+
+          const repeatedCanonical = (
+            source: Chat[],
+          ) => {
+            const values =
+              source
+                .filter(
+                  (chat) =>
+                    !isGroupChat(chat),
+                )
+                .map(getDiagCanonical)
+                .filter(Boolean);
+
+            return Array.from(
+              new Set(
+                values.filter(
+                  (value, index) =>
+                    values.indexOf(value) !==
+                    index,
+                ),
+              ),
+            );
+          };
+
+          const beforeCanonicalDuplicates =
+            repeatedCanonical(
+              chatsRef.current,
+            );
+
+          const payloadCanonicalDuplicates =
+            repeatedCanonical(
+              receivedItems,
+            );
+
+          const afterCanonicalDuplicates =
+            repeatedCanonical(
+              nextItems,
+            );
+
+          if (
+            beforeCanonicalDuplicates.length ||
+            payloadCanonicalDuplicates.length ||
+            afterCanonicalDuplicates.length
+          ) {
+            console.group(
+              `[M1M-CANONICAL-DIAG] mode=${mode} | offset=${offset} | beforeDup=${beforeCanonicalDuplicates.length} | payloadDup=${payloadCanonicalDuplicates.length} | afterDup=${afterCanonicalDuplicates.length}`,
+            );
+
+            console.log(
+              "[M1M-CANONICAL-DIAG] RESUMO",
+              {
+                mode,
+                offset,
+                beforeTotal:
+                  chatsRef.current.length,
+                payloadTotal:
+                  receivedItems.length,
+                afterTotal:
+                  nextItems.length,
+                beforeCanonicalDuplicates,
+                payloadCanonicalDuplicates,
+                afterCanonicalDuplicates,
+              },
+            );
+
+            const duplicatedCanonicals =
+              new Set([
+                ...beforeCanonicalDuplicates,
+                ...payloadCanonicalDuplicates,
+                ...afterCanonicalDuplicates,
+              ]);
+
+            console.table(
+              nextItems
+                .filter(
+                  (chat) =>
+                    duplicatedCanonicals.has(
+                      getDiagCanonical(chat),
+                    ),
+                )
+                .map(
+                  (chat, index) => ({
+                    index,
+                    conversationId:
+                      chat.id || null,
+                    remoteJid:
+                      chat.remoteJid || null,
+                    canonicalJid:
+                      getDiagCanonical(chat),
+                    crmCustomerId:
+                      chat.crmCustomerId ||
+                      null,
+                    name:
+                      getChatName(
+                        chat,
+                        contactsMap,
+                      ),
+                  }),
+                ),
+            );
+
+            console.groupEnd();
+          }
+        }
+        // M1M-DIAG-CANONICAL-STATE-END
         chatsRef.current = nextItems;
         setChats(nextItems);
 
