@@ -1032,6 +1032,17 @@ export default function ChatInbox() {
             (chat.canonicalJid ||
               chat.remoteJid),
           onSelect: () => {
+            const currentIdentity =
+              selectedChat?.canonicalJid ||
+              selectedChat?.remoteJid;
+            const nextIdentity =
+              chat.canonicalJid ||
+              chat.remoteJid;
+
+            if (currentIdentity === nextIdentity) {
+              return;
+            }
+
             activeChatJidRef.current =
               chat.remoteJid;
             messagesRequestIdRef.current += 1;
