@@ -1323,9 +1323,13 @@ const loadContacts =
       if (mode === "append") setIsLoadingMoreChats(true);
 
       try {
+        const requestLimit =
+          mode === "refresh"
+            ? Math.min(Math.max(chatsRef.current.length, 30), 100)
+            : 30;
         const offset = mode === "append" ? chatsRef.current.length : 0;
         const response = await fetch(
-          `/api/chat/list?limit=30&offset=${offset}`,
+          `/api/chat/list?limit=${requestLimit}&offset=${offset}`,
           { cache: "no-store" },
         );
         const data = await response.json();
@@ -1348,7 +1352,11 @@ const loadContacts =
         if (mode === "append") {
           nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
         } else if (mode === "refresh") {
-          nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
+          const preservedTail =
+            chatsRef.current.length > requestLimit
+              ? chatsRef.current.slice(requestLimit)
+              : [];
+          nextItems = mergeDuplicateChats([...items, ...preservedTail]);
         }
 
         chatsRef.current = nextItems;
