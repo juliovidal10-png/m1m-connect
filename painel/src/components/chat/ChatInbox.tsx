@@ -1356,6 +1356,111 @@ const loadContacts =
             : Array.isArray(data?.value)
               ? data.value
               : [];
+        // M1M-DIAG-DUPLICACAO-PAYLOAD-BEGIN
+        {
+          const conversationIds =
+            receivedItems.map(
+              (chat) => chat.id || "",
+            );
+
+          const repeatedConversationIds =
+            Array.from(
+              new Set(
+                conversationIds.filter(
+                  (conversationId, index) =>
+                    Boolean(conversationId) &&
+                    conversationIds.indexOf(
+                      conversationId,
+                    ) !== index,
+                ),
+              ),
+            );
+
+          const remoteJids =
+            receivedItems.map(
+              (chat) =>
+                chat.remoteJid || "",
+            );
+
+          const repeatedRemoteJids =
+            Array.from(
+              new Set(
+                remoteJids.filter(
+                  (remoteJid, index) =>
+                    Boolean(remoteJid) &&
+                    remoteJids.indexOf(
+                      remoteJid,
+                    ) !== index,
+                ),
+              ),
+            );
+
+          const canonicalJids =
+            receivedItems.map(
+              (chat) =>
+                chat.canonicalJid || "",
+            );
+
+          const repeatedCanonicalJids =
+            Array.from(
+              new Set(
+                canonicalJids.filter(
+                  (canonicalJid, index) =>
+                    Boolean(canonicalJid) &&
+                    canonicalJids.indexOf(
+                      canonicalJid,
+                    ) !== index,
+                ),
+              ),
+            );
+
+          console.groupCollapsed(
+            `[M1M-DUP-DIAG] payload API | mode=${mode} | offset=${offset} | total=${receivedItems.length} | IDs repetidos=${repeatedConversationIds.length}`,
+          );
+
+          console.log(
+            "[M1M-DUP-DIAG] RESUMO PAYLOAD ORIGINAL",
+            {
+              mode,
+              offset,
+              totalRecebido:
+                receivedItems.length,
+              conversationIdsRepetidos:
+                repeatedConversationIds,
+              remoteJidsRepetidos:
+                repeatedRemoteJids,
+              canonicalJidsRepetidos:
+                repeatedCanonicalJids,
+            },
+          );
+
+          console.table(
+            receivedItems.map(
+              (chat, index) => ({
+                index,
+                conversationId:
+                  chat.id || null,
+                remoteJid:
+                  chat.remoteJid ||
+                  null,
+                canonicalJid:
+                  chat.canonicalJid ||
+                  null,
+                crmCustomerId:
+                  chat.crmCustomerId ||
+                  null,
+              }),
+            ),
+          );
+
+          console.log(
+            "[M1M-DUP-DIAG] IDs REPETIDOS NO PAYLOAD ORIGINAL",
+            repeatedConversationIds,
+          );
+
+          console.groupEnd();
+        }
+        // M1M-DIAG-DUPLICACAO-PAYLOAD-END
         const items = mergeDuplicateChats(receivedItems);
         setHasMoreChats(Boolean(data?.hasMore));
 
