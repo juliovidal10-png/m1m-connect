@@ -912,15 +912,95 @@ export default function AgendaOperacional() {
           article {
             break-inside: avoid;
           }
+            .agenda-print-report {
+              margin: 0 0 3mm !important;
+            }
+
+            .agenda-print-report > div {
+              padding-bottom: 2mm !important;
+            }
+
+            .agenda-print-report h1 {
+              margin-top: 1mm !important;
+              font-size: 14pt !important;
+              line-height: 1.15 !important;
+            }
+
+            .agenda-print-report p {
+              margin-top: 1mm !important;
+              font-size: 8pt !important;
+              line-height: 1.15 !important;
+            }
+
+            .agenda-print-shell {
+              padding-top: 2mm !important;
+              padding-bottom: 0 !important;
+            }
+
+            .agenda-print-list {
+              display: flex !important;
+              flex-direction: column !important;
+              gap: 1.5mm !important;
+            }
+
+            .agenda-print-card {
+              display: grid !important;
+              grid-template-columns: 18mm minmax(0, 1fr) !important;
+              align-items: center !important;
+              gap: 2mm !important;
+              padding: 2mm 2.5mm !important;
+              border-radius: 2mm !important;
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+
+            .agenda-print-time {
+              padding: 1.5mm 1mm !important;
+              border-radius: 1.5mm !important;
+            }
+
+            .agenda-print-time > p:first-child {
+              font-size: 11pt !important;
+              line-height: 1 !important;
+            }
+
+            .agenda-print-time > p:last-child {
+              margin-top: 1mm !important;
+              font-size: 6.5pt !important;
+              line-height: 1 !important;
+            }
+
+            .agenda-print-content > div {
+              gap: 1mm !important;
+            }
+
+            .agenda-print-content span {
+              padding: 0.5mm 1mm !important;
+              border-radius: 1mm !important;
+              font-size: 6.5pt !important;
+              line-height: 1 !important;
+            }
+
+            .agenda-print-content h3 {
+              margin-top: 1mm !important;
+              font-size: 9pt !important;
+              line-height: 1.1 !important;
+            }
+
+            .agenda-print-content p {
+              margin-top: 0.8mm !important;
+              font-size: 7.5pt !important;
+              line-height: 1.2 !important;
+            }
 
           @page {
             size: A4 portrait;
-            margin: 14mm;
+            margin: 8mm;
           }
         }
       `}</style>
 
-      <div className="mx-auto hidden w-full max-w-[1500px] print:block">
+      <div className="agenda-print-report mx-auto hidden w-full max-w-[1500px] print:block">
         <div className="border-b border-black pb-4">
           <p className="text-xs font-bold uppercase tracking-[0.14em]">
             M1M Connect
@@ -940,7 +1020,7 @@ export default function AgendaOperacional() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8 print:px-0 print:py-5">
+      <div className="agenda-print-shell mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8 print:px-0 print:py-5">
         <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
           <div>
             <Link
@@ -1248,7 +1328,7 @@ export default function AgendaOperacional() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="agenda-print-list space-y-3">
                 {filteredReminders.map(
                   (reminder) => {
                     const remindAt =
@@ -1265,13 +1345,13 @@ export default function AgendaOperacional() {
                         key={
                           reminder.id
                         }
-                        className={`grid gap-4 rounded-2xl border p-4 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center ${
+                        className={`agenda-print-card grid gap-4 rounded-2xl border p-4 sm:grid-cols-[80px_minmax(0,1fr)_auto] sm:items-center ${
                           overdue
                             ? "border-red-200 bg-red-50/55"
                             : "border-black/5 bg-white"
                         }`}
                       >
-                        <div className="rounded-xl bg-black/[0.035] px-3 py-2 text-center">
+                        <div className="agenda-print-time rounded-xl bg-black/[0.035] px-3 py-2 text-center">
                           <p className="text-lg font-bold text-[#171717]">
                             {formatTime(
                               reminder.remindAt,
@@ -1285,7 +1365,7 @@ export default function AgendaOperacional() {
                           </p>
                         </div>
 
-                        <div className="min-w-0">
+                        <div className="agenda-print-content min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-lg bg-[#F0F9F9] px-2 py-1 text-[10px] font-bold text-[#087B7B]">
                               {formatCustomerCode(
