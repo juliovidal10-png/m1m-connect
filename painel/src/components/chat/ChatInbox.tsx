@@ -40,6 +40,7 @@ type Chat = {
   attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
   attendanceSectorId?: string | null;
   attendanceSectorName?: string | null;
+  attendanceResponsibleId?: string | null;
 
   crmCustomerId?: string | null;
   crmName?: string | null;
@@ -3849,7 +3850,7 @@ const loadContacts =
                 null
               }
               responsibleId={
-                selectedChat.crmResponsibleId ||
+                selectedChat.attendanceResponsibleId ||
                 null
               }
               onAttendanceChanged={async () => {
