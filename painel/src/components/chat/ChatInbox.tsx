@@ -1348,7 +1348,7 @@ const loadContacts =
         if (mode === "append") {
           nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
         } else if (mode === "refresh") {
-          nextItems = mergeDuplicateChats([...items, ...chatsRef.current]);
+          nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
         }
 
         chatsRef.current = nextItems;
