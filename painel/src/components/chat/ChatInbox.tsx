@@ -1475,6 +1475,143 @@ const loadContacts =
           nextItems = mergeDuplicateChats([...items, ...preservedTail]);
         }
 
+        // M1M-DIAG-MERGE-STATE-BEGIN
+        {
+          const getDiagIdentity = (chat: Chat) =>
+            !isGroupChat(chat) &&
+            chat.crmCustomerId
+              ? `crm:${chat.crmCustomerId}`
+              : `jid:${
+                  chat.canonicalJid ||
+                  getCanonicalJid(chat)
+                }`;
+
+          const summarize = (
+            source: Chat[],
+          ) =>
+            source.map(
+              (chat, index) => ({
+                index,
+                conversationId:
+                  chat.id || null,
+                remoteJid:
+                  chat.remoteJid || null,
+                canonicalJid:
+                  chat.canonicalJid || null,
+                crmCustomerId:
+                  chat.crmCustomerId || null,
+                identity:
+                  getDiagIdentity(chat),
+              }),
+            );
+
+          const findRepeated = (
+            source: Chat[],
+            selector: (chat: Chat) => string,
+          ) => {
+            const values =
+              source
+                .map(selector)
+                .filter(Boolean);
+
+            return Array.from(
+              new Set(
+                values.filter(
+                  (value, index) =>
+                    values.indexOf(value) !==
+                    index,
+                ),
+              ),
+            );
+          };
+
+          const before =
+            chatsRef.current;
+
+          const beforeRepeatedIds =
+            findRepeated(
+              before,
+              (chat) => chat.id || "",
+            );
+
+          const beforeRepeatedIdentities =
+            findRepeated(
+              before,
+              getDiagIdentity,
+            );
+
+          const payloadRepeatedIds =
+            findRepeated(
+              receivedItems,
+              (chat) => chat.id || "",
+            );
+
+          const payloadRepeatedIdentities =
+            findRepeated(
+              receivedItems,
+              getDiagIdentity,
+            );
+
+          const afterRepeatedIds =
+            findRepeated(
+              nextItems,
+              (chat) => chat.id || "",
+            );
+
+          const afterRepeatedIdentities =
+            findRepeated(
+              nextItems,
+              getDiagIdentity,
+            );
+
+          console.groupCollapsed(
+            `[M1M-MERGE-DIAG] mode=${mode} | offset=${offset} | before=${before.length} | payload=${receivedItems.length} | after=${nextItems.length} | dupIdsAfter=${afterRepeatedIds.length} | dupIdentityAfter=${afterRepeatedIdentities.length}`,
+          );
+
+          console.log(
+            "[M1M-MERGE-DIAG] RESUMO",
+            {
+              mode,
+              offset,
+              beforeTotal:
+                before.length,
+              payloadTotal:
+                receivedItems.length,
+              afterTotal:
+                nextItems.length,
+              beforeRepeatedIds,
+              beforeRepeatedIdentities,
+              payloadRepeatedIds,
+              payloadRepeatedIdentities,
+              afterRepeatedIds,
+              afterRepeatedIdentities,
+            },
+          );
+
+          console.log(
+            "[M1M-MERGE-DIAG] BEFORE",
+          );
+          console.table(
+            summarize(before),
+          );
+
+          console.log(
+            "[M1M-MERGE-DIAG] PAYLOAD",
+          );
+          console.table(
+            summarize(receivedItems),
+          );
+
+          console.log(
+            "[M1M-MERGE-DIAG] AFTER",
+          );
+          console.table(
+            summarize(nextItems),
+          );
+
+          console.groupEnd();
+        }
+        // M1M-DIAG-MERGE-STATE-END
         chatsRef.current = nextItems;
         setChats(nextItems);
 
