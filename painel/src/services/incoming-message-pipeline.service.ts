@@ -910,11 +910,9 @@ export const incomingMessagePipelineService = {
             });
 
           const recentCompanyMessages =
-            await messageService.listRecentMessagesByCustomer(
-              companyId,
-              storedMessage.customerId,
-              AI_CONVERSATION_HISTORY_LIMIT,
-            );
+            (await messageService.listMessagesByAttendance(
+              router.attendanceId,
+            )).slice(-AI_CONVERSATION_HISTORY_LIMIT);
 
           const companyConversationHistory =
             buildAIConversationHistory(
@@ -1203,11 +1201,9 @@ const menuAlreadyShownInCurrentCycle =
         });
 
       const recentSectorMessages =
-        await messageService.listRecentMessagesByCustomer(
-          companyId,
-          storedMessage.customerId,
-          AI_CONVERSATION_HISTORY_LIMIT,
-        );
+        (await messageService.listMessagesByAttendance(
+              router.attendanceId,
+            )).slice(-AI_CONVERSATION_HISTORY_LIMIT);
 
       const sectorConversationHistory =
         buildAIConversationHistory(
