@@ -133,64 +133,6 @@ function appendConversationHistoryToUserPrompt(
   ].join("\n");
 }
 
-function isFinanceSectorName(
-  sectorName: string | null | undefined,
-) {
-  const normalized =
-    normalizeSearchText(sectorName);
-
-  return (
-    normalized.includes("financeiro") ||
-    normalized.includes("financeira") ||
-    normalized.includes("finance")
-  );
-}
-
-const paymentReceiptHints = [
-  "comprovante",
-  "recibo",
-  "pagamento",
-  "pix",
-  "transferencia",
-  "deposito",
-  "boleto pago",
-];
-
-function hasPaymentReceiptHint(
-  content: string | null | undefined,
-) {
-  const normalized =
-    normalizeSearchText(content);
-
-  if (!normalized) {
-    return false;
-  }
-
-  return paymentReceiptHints.some(
-    (hint) =>
-      normalized.includes(hint),
-  );
-}
-
-function hasPaymentReceiptHintInPayload(
-  payload: unknown,
-) {
-  try {
-    const serialized =
-      JSON.stringify(payload);
-
-    if (!serialized) {
-      return false;
-    }
-
-    return hasPaymentReceiptHint(
-      serialized,
-    );
-  } catch {
-    return false;
-  }
-}
-
 function isReceiptMediaType(
   type: M1MMessageType,
 ) {
@@ -322,17 +264,6 @@ export const incomingMessagePipelineService = {
           return null;
         }
 
-        const hasTrustedReceiptSignal =
-          isFinanceSectorName(
-            input.sectorName,
-          ) ||
-          hasPaymentReceiptHint(
-            normalizedMessage.content,
-          ) ||
-          hasPaymentReceiptHintInPayload(
-            rawMessage,
-          );
-
         let persistedMediaUrl =
           storedMessage.mediaUrl;
 
@@ -432,10 +363,7 @@ export const incomingMessagePipelineService = {
           }
         }
 
-        if (
-          !hasTrustedReceiptSignal &&
-          !receiptAnalysis.isPaymentReceipt
-        ) {
+        if (!receiptAnalysis.isPaymentReceipt) {
           console.log(
             "[M1M COMPROVANTE] Midia recebida analisada e descartada como comprovante:",
             {
