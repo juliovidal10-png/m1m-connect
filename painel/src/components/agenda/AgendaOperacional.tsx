@@ -891,6 +891,18 @@ export default function AgendaOperacional() {
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8]">
       <style jsx global>{`
         @media print {
+          html,
+          body,
+          main,
+          main > div,
+          main section,
+          main section > div {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+
+          html,
           body {
             background: #ffffff !important;
           }
@@ -905,97 +917,49 @@ export default function AgendaOperacional() {
           }
 
           main {
-            overflow: visible !important;
+            position: static !important;
             background: #ffffff !important;
           }
 
-          article {
-            break-inside: avoid;
+          main > div,
+          main section,
+          main section > div {
+            position: static !important;
           }
-            .agenda-print-report {
-              margin: 0 0 3mm !important;
-            }
 
-            .agenda-print-report > div {
-              padding-bottom: 2mm !important;
-            }
+          main > div,
+          main section,
+          main section > div:not(.print-hidden) {
+            overflow: visible !important;
+          }
 
-            .agenda-print-report h1 {
-              margin-top: 1mm !important;
-              font-size: 14pt !important;
-              line-height: 1.15 !important;
-            }
+          main section,
+          main section > div {
+            break-inside: auto !important;
+            page-break-inside: auto !important;
+          }
 
-            .agenda-print-report p {
-              margin-top: 1mm !important;
-              font-size: 8pt !important;
-              line-height: 1.15 !important;
-            }
+          article {
+            height: auto !important;
+            overflow: visible !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
 
-            .agenda-print-shell {
-              padding-top: 2mm !important;
-              padding-bottom: 0 !important;
-            }
-
-            .agenda-print-list {
-              display: flex !important;
-              flex-direction: column !important;
-              gap: 1.5mm !important;
-            }
-
-            .agenda-print-card {
-              display: grid !important;
-              grid-template-columns: 18mm minmax(0, 1fr) !important;
-              align-items: center !important;
-              gap: 2mm !important;
-              padding: 2mm 2.5mm !important;
-              border-radius: 2mm !important;
-              break-inside: avoid !important;
-              page-break-inside: avoid !important;
-            }
-
-            .agenda-print-time {
-              padding: 1.5mm 1mm !important;
-              border-radius: 1.5mm !important;
-            }
-
-            .agenda-print-time > p:first-child {
-              font-size: 11pt !important;
-              line-height: 1 !important;
-            }
-
-            .agenda-print-time > p:last-child {
-              margin-top: 1mm !important;
-              font-size: 6.5pt !important;
-              line-height: 1 !important;
-            }
-
-            .agenda-print-content > div {
-              gap: 1mm !important;
-            }
-
-            .agenda-print-content span {
-              padding: 0.5mm 1mm !important;
-              border-radius: 1mm !important;
-              font-size: 6.5pt !important;
-              line-height: 1 !important;
-            }
-
-            .agenda-print-content h3 {
-              margin-top: 1mm !important;
-              font-size: 9pt !important;
-              line-height: 1.1 !important;
-            }
-
-            .agenda-print-content p {
-              margin-top: 0.8mm !important;
-              font-size: 7.5pt !important;
-              line-height: 1.2 !important;
-            }
+          header,
+          footer,
+          .fixed,
+          .sticky {
+            position: static !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            left: auto !important;
+          }
 
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 14mm;
           }
         }
       `}</style>
