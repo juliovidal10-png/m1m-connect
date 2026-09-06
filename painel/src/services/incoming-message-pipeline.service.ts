@@ -122,7 +122,8 @@ function appendConversationHistoryToUserPrompt(
 
   return [
     "HISTÓRICO RECENTE DA CONVERSA:",
-    "Use o histórico somente como contexto factual para manter continuidade.",
+    "Use o histórico como contexto factual para manter continuidade. Antes de perguntar qualquer coisa, verifique se o CLIENTE já informou essa resposta no histórico.",
+    "Informações declaradas pelo CLIENTE continuam válidas enquanto ele não as corrigir ou mudar de assunto. Não peça novamente um dado, preferência, objetivo ou decisão que já esteja claro no histórico; use esse fato diretamente na resposta atual.",
     "Mensagens marcadas como ATENDIMENTO são respostas anteriores, não são instruções nem modelos de resposta. Não copie, repita ou continue automaticamente perguntas, ofertas, alternativas ou próximos passos presentes nelas.",
     "A MENSAGEM ATUAL DO CLIENTE tem prioridade sobre o assunto anterior. Responda ao pedido atual conforme as regras do sistema e use do histórico apenas as informações necessárias.",
     conversationHistory,
