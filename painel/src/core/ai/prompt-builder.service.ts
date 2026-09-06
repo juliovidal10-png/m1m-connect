@@ -354,10 +354,18 @@ export const promptBuilderService = {
 
     ].join("\n");
 
+    const executionDirective = [
+      "[DIRETRIZ DE EXECUÇÃO IMEDIATA]: O usuário acabou de responder. Analise o histórico completo acima para não repetir perguntas sobre informações que ele JÁ forneceu (como nome, redes ou objetivos). Formule sua resposta com no máximo duas frases, foque estritamente em dar sequência ao assunto atual e termine com apenas UMA pergunta natural por vez, se necessário. Não ofereça alternativas e não antecipe orçamentos.",
+      "Se a mensagem atual pedir uma informação direta que esteja disponível no contexto, como PIX, endereço ou horários, entregue somente a informação necessária e pare, sem criar pergunta de continuidade.",
+    ].join("\n");
+
     return {
       systemPrompt,
-      userPrompt:
+      userPrompt: [
         customerMessage,
+        "",
+        executionDirective,
+      ].join("\n"),
     };
   },
 };
