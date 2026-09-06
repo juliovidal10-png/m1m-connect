@@ -108,6 +108,7 @@ model M1MCompany {
   city                   String?
   state                  String?
   zipCode                String?
+  locationLink           String?
   phone                  String?
   whatsapp               String?
   email                  String?

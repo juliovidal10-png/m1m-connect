@@ -59,6 +59,7 @@ export async function GET(
           city: true,
           state: true,
           zipCode: true,
+          locationLink: true,
           phone: true,
           whatsapp: true,
           email: true,

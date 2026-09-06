@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   CompanyInformationContext,
 } from "@/services/company-context-builder.service";
 
@@ -217,6 +217,7 @@ export const companyPromptBuilderService = {
       `Segmento: ${normalizeText(company.segment) || "Não informado."}`,
       `Apresentação: ${normalizeText(company.presentation) || "Não informada."}`,
       `Localização: ${buildCompanyLocation(input.context)}`,
+      `Link da localização: ${normalizeText(company.locationLink) || "Não informado."}`,
       `Telefone: ${normalizeText(company.phone) || "Não informado."}`,
       `WhatsApp: ${normalizeText(company.whatsapp) || "Não informado."}`,
       `E-mail: ${normalizeText(company.email) || "Não informado."}`,

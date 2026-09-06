@@ -22,6 +22,7 @@ type CompanyProfile = {
   city: string | null;
   state: string | null;
   zipCode: string | null;
+  locationLink: string | null;
   phone: string | null;
   whatsapp: string | null;
   email: string | null;
@@ -38,6 +39,7 @@ type CompanyFormData = {
   city: string;
   state: string;
   zipCode: string;
+  locationLink: string;
   phone: string;
   whatsapp: string;
   email: string;
@@ -53,6 +55,7 @@ const emptyForm: CompanyFormData = {
   city: "",
   state: "",
   zipCode: "",
+  locationLink: "",
   phone: "",
   whatsapp: "",
   email: "",
@@ -306,6 +309,7 @@ function toFormData(
     city: company.city ?? "",
     state: company.state ?? "",
     zipCode: company.zipCode ?? "",
+    locationLink: company.locationLink ?? "",
     phone: company.phone ?? "",
     whatsapp: company.whatsapp ?? "",
     email: company.email ?? "",
@@ -784,6 +788,17 @@ export default function ConfiguracoesPage() {
                                   "00000-000",
                               },
                             )}
+
+                            <div className="md:col-span-2">
+                              {renderField(
+                                "Link da localização",
+                                "locationLink",
+                                {
+                                  placeholder:
+                                    "Cole o link oficial do Google Maps",
+                                },
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

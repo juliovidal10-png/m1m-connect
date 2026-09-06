@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -72,6 +72,7 @@ export async function PUT(
           city: body.city,
           state: body.state,
           zipCode: body.zipCode,
+          locationLink: body.locationLink,
           phone: body.phone,
           whatsapp: body.whatsapp,
           email: body.email,
@@ -106,5 +107,3 @@ export async function PUT(
     );
   }
 }
-
-

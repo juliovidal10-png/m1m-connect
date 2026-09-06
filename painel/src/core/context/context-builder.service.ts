@@ -68,6 +68,7 @@ export type SectorContext = {
     city: string | null;
     state: string | null;
     zipCode: string | null;
+    locationLink: string | null;
     phone: string | null;
     whatsapp: string | null;
     email: string | null;
@@ -208,6 +209,8 @@ export const contextBuilderService = {
         state: company.state,
         zipCode:
           company.zipCode,
+        locationLink:
+          company.locationLink,
         phone: company.phone,
         whatsapp:
           company.whatsapp,

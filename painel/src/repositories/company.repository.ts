@@ -8,6 +8,7 @@ export type CompanyProfileData = {
   city?: string | null;
   state?: string | null;
   zipCode?: string | null;
+  locationLink?: string | null;
   phone?: string | null;
   whatsapp?: string | null;
   email?: string | null;
@@ -112,6 +113,10 @@ export const companyRepository = {
     if (data.zipCode !== undefined) {
       updateData.zipCode =
         normalizeOptionalText(data.zipCode);
+    }
+
+    if (data.locationLink !== undefined) {
+      updateData.locationLink = normalizeOptionalText(data.locationLink);
     }
 
     if (data.phone !== undefined) {
