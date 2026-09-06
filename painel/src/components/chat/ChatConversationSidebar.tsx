@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 export type ChatConversationSidebarItem = {
   key: string;
   name: string;
@@ -8,6 +13,7 @@ export type ChatConversationSidebarItem = {
   updatedAt: string;
   unreadCount: number;
   isSelected: boolean;
+  queueCategory: "WAITING" | "IN_SERVICE" | "OTHER";
   onSelect: () => void;
 };
 
@@ -30,6 +36,34 @@ export default function ChatConversationSidebar({
   onLoadMore,
   items,
 }: ChatConversationSidebarProps) {
+  const waitingCount = items.filter(
+    (item) => item.queueCategory === "WAITING",
+  ).length;
+  const inServiceCount = items.filter(
+    (item) => item.queueCategory === "IN_SERVICE",
+  ).length;
+
+  const [activeQueue, setActiveQueue] = useState<
+    "WAITING" | "IN_SERVICE"
+  >(waitingCount > 0 ? "WAITING" : "IN_SERVICE");
+  const manualQueueSelectionRef = useRef(false);
+  const initialQueueResolvedRef = useRef(false);
+
+  useEffect(() => {
+    if (manualQueueSelectionRef.current) return;
+    if (initialQueueResolvedRef.current) return;
+
+    setActiveQueue(
+      waitingCount > 0 ? "WAITING" : "IN_SERVICE",
+    );
+    initialQueueResolvedRef.current = true;
+  }, [waitingCount]);
+
+  const visibleItems = items.filter((item) => {
+    if (item.queueCategory === "OTHER") return true;
+    return item.queueCategory === activeQueue;
+  });
+
   return (
     <aside
       className="h-full w-full shrink-0 overflow-y-auto border-r border-black/5 bg-white"
@@ -45,7 +79,39 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
 
-        <input
+          <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-[#f7f7f8] p-1">
+            <button
+              type="button"
+              onClick={() => {
+                manualQueueSelectionRef.current = true;
+                setActiveQueue("WAITING");
+              }}
+              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+                activeQueue === "WAITING"
+                  ? "bg-white text-[#0A9090] shadow-sm"
+                  : "text-black/45 hover:text-black/70"
+              }`}
+            >
+              Aguardando ({waitingCount})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                manualQueueSelectionRef.current = true;
+                setActiveQueue("IN_SERVICE");
+              }}
+              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+                activeQueue === "IN_SERVICE"
+                  ? "bg-white text-[#0A9090] shadow-sm"
+                  : "text-black/45 hover:text-black/70"
+              }`}
+            >
+              Em atendimento ({inServiceCount})
+            </button>
+          </div>
+
+          <input
           type="search"
           value={searchQuery}
           onChange={(event) =>
@@ -67,13 +133,13 @@ export default function ChatConversationSidebar({
 
       {!isLoading &&
         searchQuery.trim() &&
-        items.length === 0 && (
+        visibleItems.length === 0 && (
           <p className="p-4 text-sm text-black/45">
             Nenhuma conversa encontrada.
           </p>
         )}
 
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <button
           key={item.key}
           type="button"

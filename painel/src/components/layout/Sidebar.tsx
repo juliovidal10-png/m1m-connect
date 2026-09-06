@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
   useState,
-} from "react";
+  useEffect,} from "react";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -292,6 +292,35 @@ export default function Sidebar() {
     today: 0,
     overdue: 0,
   });
+  const [
+    conversationsWaitingCount,
+    setConversationsWaitingCount,
+  ] = useState(0);
+
+  useEffect(() => {
+    const handleWaitingCount = (event: Event) => {
+      const customEvent = event as CustomEvent<number>;
+      const nextCount = Number(customEvent.detail);
+
+      setConversationsWaitingCount(
+        Number.isFinite(nextCount) && nextCount > 0
+          ? nextCount
+          : 0,
+      );
+    };
+
+    window.addEventListener(
+      "m1m:conversations-waiting-count",
+      handleWaitingCount,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "m1m:conversations-waiting-count",
+        handleWaitingCount,
+      );
+    };
+  }, []);
 
   async function handleLogout() {
     try {
@@ -387,6 +416,22 @@ export default function Sidebar() {
                       <span className="min-w-0 flex-1">
                         {item.label}
                       </span>
+
+                      {item.href === "/" &&
+                        conversationsWaitingCount > 0 && (
+                          <span
+                            title={`${conversationsWaitingCount} atendimento${
+                              conversationsWaitingCount === 1
+                                ? ""
+                                : "s"
+                            } aguardando`}
+                            className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white"
+                          >
+                            {conversationsWaitingCount > 99
+                              ? "99+"
+                              : conversationsWaitingCount}
+                          </span>
+                        )}
 
                       {item.href ===
                         "/agenda" &&

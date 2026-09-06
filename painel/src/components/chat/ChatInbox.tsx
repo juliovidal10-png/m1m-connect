@@ -1038,7 +1038,13 @@ export default function ChatInbox() {
               selectedChat?.remoteJid) ===
             (chat.canonicalJid ||
               chat.remoteJid),
-          onSelect: () => {
+          queueCategory:
+              chat.attendanceState === "HUMANO"
+                ? chat.attendanceResponsibleId
+                  ? "IN_SERVICE"
+                  : "WAITING"
+                : "OTHER",
+            onSelect: () => {
             const currentIdentity =
               selectedChat?.canonicalJid ||
               selectedChat?.remoteJid;
@@ -1319,6 +1325,20 @@ const loadContacts =
       activeConversationMatchIndex
     ] ?? null;
 
+  useEffect(() => {
+    const waitingCount = chats.filter(
+      (chat) =>
+        chat.attendanceState === "HUMANO" &&
+        !chat.attendanceResponsibleId,
+    ).length;
+
+    window.dispatchEvent(
+      new CustomEvent(
+        "m1m:conversations-waiting-count",
+        { detail: waitingCount },
+      ),
+    );
+  }, [chats]);
   const loadChatsInFlightRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
 
