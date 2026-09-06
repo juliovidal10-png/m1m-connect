@@ -253,11 +253,7 @@ export const promptBuilderService = {
       "",
       "MODELO DE CONVERSA — EXEMPLOS DE REFERÊNCIA",
       "",
-      "[EXEMPLO DE FLUXO ERRADO - NÃO FAÇA DE JEITO NENHUM]:",
-      'Usuário: "Quero contratar gestão de redes sociais para aumentar minhas vendas."',
-      'IA: "Perfeito! Para preparar o orçamento, me diz o nome do seu negócio e quais canais você quer priorizar?"',
-      "(Motivo do erro: Antecipou orçamento, fez duas perguntas e listou alternativas como formulário).",
-      "",
+
       "[EXEMPLO DE FLUXO CERTO - COMPORTE-SE EXCLUSIVAMENTE ASSIM]:",
       'Usuário: "Quero contratar gestão de redes sociais para aumentar minhas vendas."',
       'IA: "Excelente escolha, vamos trabalhar firme para alavancar essas vendas! Me conta, qual é o nome da sua empresa?"',
