@@ -1,0 +1,248 @@
+﻿import type {
+  CompanyInformationContext,
+} from "@/services/company-context-builder.service";
+
+function normalizeText(
+  value: string | null | undefined,
+) {
+  return value?.trim() ?? "";
+}
+
+function buildCompanyLocation(
+  context: CompanyInformationContext,
+) {
+  const parts = [
+    normalizeText(
+      context.company.address,
+    ),
+    normalizeText(
+      context.company.city,
+    ),
+    normalizeText(
+      context.company.state,
+    ),
+    normalizeText(
+      context.company.zipCode,
+    ),
+  ].filter(Boolean);
+
+  return parts.length > 0
+    ? parts.join(", ")
+    : "Não informado.";
+}
+
+function buildKnowledge(
+  context: CompanyInformationContext,
+) {
+  const profile =
+    context.knowledgeProfile;
+
+  if (!profile) {
+    return "Nenhuma informação complementar cadastrada.";
+  }
+
+  const lines = [
+    ["Apresentação", profile.presentation],
+    ["Diferenciais", profile.differentials],
+    ["Produtos e serviços", profile.productsServices],
+    ["Público-alvo", profile.targetAudience],
+    ["Área de atendimento", profile.serviceArea],
+    ["Políticas da empresa", profile.companyPolicies],
+    ["Informações importantes", profile.importantInformation],
+    ["Perguntas frequentes", profile.frequentlyAskedQuestions],
+  ]
+    .filter(
+      ([, value]) =>
+        normalizeText(
+          value,
+        ),
+    )
+    .map(
+      ([label, value]) =>
+        `${label}: ${normalizeText(value)}`,
+    );
+
+  return lines.length > 0
+    ? lines.join("\n")
+    : "Nenhuma informação complementar cadastrada.";
+}
+
+function buildSchedules(
+  context: CompanyInformationContext,
+) {
+  const weekdayNames: Record<
+    string,
+    string
+  > = {
+    MONDAY: "Segunda-feira",
+    TUESDAY: "Terça-feira",
+    WEDNESDAY: "Quarta-feira",
+    THURSDAY: "Quinta-feira",
+    FRIDAY: "Sexta-feira",
+    SATURDAY: "Sábado",
+    SUNDAY: "Domingo",
+  };
+
+  const lines =
+    context.schedules.map(
+      (schedule) => {
+        const day =
+          weekdayNames[
+            schedule.dayOfWeek
+          ] ??
+          schedule.dayOfWeek;
+
+        if (!schedule.enabled) {
+          return `${day}: fechado.`;
+        }
+
+        if (schedule.allDay) {
+          return `${day}: aberto 24 horas.`;
+        }
+
+        const firstPeriod =
+          schedule.openingTime &&
+          schedule.closingTime
+            ? `${schedule.openingTime} às ${schedule.closingTime}`
+            : "horário não informado";
+
+        const secondPeriod =
+          schedule.secondOpeningTime &&
+          schedule.secondClosingTime
+            ? ` e ${schedule.secondOpeningTime} às ${schedule.secondClosingTime}`
+            : "";
+
+        return `${day}: ${firstPeriod}${secondPeriod}.`;
+      },
+    );
+
+  return lines.length > 0
+    ? lines.join("\n")
+    : "Nenhum horário geral cadastrado.";
+}
+
+function buildPaymentSettings(
+  context: CompanyInformationContext,
+) {
+  const settings =
+    context.paymentSettings;
+
+  if (!settings) {
+    return "Nenhuma configuração de pagamento cadastrada.";
+  }
+
+  const accepted = [
+    settings.acceptsPix
+      ? "PIX"
+      : null,
+    settings.acceptsCash
+      ? "Dinheiro"
+      : null,
+    settings.acceptsCreditCard
+      ? "Cartão de crédito"
+      : null,
+    settings.acceptsDebitCard
+      ? "Cartão de débito"
+      : null,
+    settings.acceptsBankSlip
+      ? "Boleto"
+      : null,
+    settings.acceptsBankTransfer
+      ? "Transferência bancária"
+      : null,
+  ].filter(Boolean);
+
+  const lines = [
+    `Formas aceitas: ${
+      accepted.length > 0
+        ? accepted.join(", ")
+        : "Nenhuma forma marcada como aceita."
+    }`,
+    settings.acceptsPix &&
+    settings.pixKey
+      ? `PIX: tipo ${normalizeText(settings.pixKeyType) || "não informado"}; chave ${settings.pixKey}; favorecido ${normalizeText(settings.pixHolderName) || "não informado"}.`
+      : null,
+    settings.acceptsBankTransfer
+      ? `Banco: ${normalizeText(settings.bankName) || "não informado"}; agência ${normalizeText(settings.bankAgency) || "não informada"}; conta ${normalizeText(settings.bankAccount) || "não informada"}; tipo ${normalizeText(settings.bankAccountType) || "não informado"}.`
+      : null,
+    settings.maxInstallments
+      ? `Parcelamento máximo: ${settings.maxInstallments}x.`
+      : null,
+    settings.installmentInterest
+      ? `Juros de parcelamento: ${settings.installmentInterest}.`
+      : null,
+    settings.paymentDeadline
+      ? `Prazo de pagamento: ${settings.paymentDeadline}.`
+      : null,
+    settings.receiptInstructions
+      ? `Comprovante: ${settings.receiptInstructions}`
+      : null,
+    settings.billingRules
+      ? `Regras de cobrança: ${settings.billingRules}`
+      : null,
+    settings.additionalInformation
+      ? `Informações adicionais: ${settings.additionalInformation}`
+      : null,
+  ].filter(Boolean);
+
+  return lines.join("\n");
+}
+
+export const companyPromptBuilderService = {
+  build(input: {
+    context: CompanyInformationContext;
+    customerMessage: string;
+  }) {
+    const {
+      company,
+    } = input.context;
+
+    const systemPrompt = [
+      `Você é o atendimento oficial da ${company.name}.`,
+      "Você está respondendo uma pergunta institucional da empresa, sem vincular o atendimento a um setor específico.",
+      "",
+      "REGRAS OBRIGATÓRIAS",
+      "- Responda apenas ao que o cliente perguntou.",
+      "- Use somente as informações fornecidas neste contexto.",
+      "- Não invente endereço, CEP, localização, telefone, horário, pagamento, produto, serviço, política ou qualquer outro dado.",
+      "- Se a informação pedida não estiver cadastrada, diga de forma objetiva que ela não está disponível no momento.",
+      "- Não invente link de localização.",
+      "- Não encaminhe para um setor apenas porque a pergunta é institucional.",
+      "- Para perguntas institucionais que possam ser respondidas com este contexto, use needsHuman = false.",
+      "- Se a solicitação exigir efetivamente atendimento humano ou conhecimento setorial não disponível neste contexto, use needsHuman = true.",
+      "- Quando needsHuman = true, não invente nome de setor; apenas informe de forma natural que precisa direcionar o atendimento.",
+      "",
+      "DADOS ESTRUTURADOS DA EMPRESA",
+      `Nome: ${company.name}`,
+      `Segmento: ${normalizeText(company.segment) || "Não informado."}`,
+      `Apresentação: ${normalizeText(company.presentation) || "Não informada."}`,
+      `Localização: ${buildCompanyLocation(input.context)}`,
+      `Telefone: ${normalizeText(company.phone) || "Não informado."}`,
+      `WhatsApp: ${normalizeText(company.whatsapp) || "Não informado."}`,
+      `E-mail: ${normalizeText(company.email) || "Não informado."}`,
+      `Site: ${normalizeText(company.website) || "Não informado."}`,
+      `Instagram: ${normalizeText(company.instagram) || "Não informado."}`,
+      "",
+      "HORÁRIOS GERAIS DA EMPRESA",
+      buildSchedules(
+        input.context,
+      ),
+      "",
+      "PAGAMENTO",
+      buildPaymentSettings(
+        input.context,
+      ),
+      "",
+      "BASE DE CONHECIMENTO DA EMPRESA",
+      buildKnowledge(
+        input.context,
+      ),
+    ].join("\n");
+
+    return {
+      systemPrompt,
+      userPrompt:
+        input.customerMessage,
+    };
+  },
+};

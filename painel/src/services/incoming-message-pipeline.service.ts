@@ -1,3 +1,6 @@
+﻿import { companyInformationIntentService } from "@/services/company-information-intent.service";
+import { companyContextBuilderService } from "@/services/company-context-builder.service";
+import { companyPromptBuilderService } from "@/services/company-prompt-builder.service";
 import { attendanceService } from "@/services/attendance.service";
 import {
   openAIProviderService,
@@ -835,6 +838,107 @@ export const incomingMessagePipelineService = {
           resolvedSectorName,
       });
 
+      if (
+        router.requiresSectorIdentification &&
+        normalizedMessage.type ===
+          M1MMessageType.TEXT
+      ) {
+        const institutionalMessage =
+          normalizedMessage.content?.trim() ?? "";
+
+        if (
+          companyInformationIntentService.isCompanyInformationQuestion(
+            institutionalMessage,
+          )
+        ) {
+          const companyContext =
+            await companyContextBuilderService.buildCompanyContext(
+              companyId,
+            );
+
+          const companyPrompt =
+            companyPromptBuilderService.build({
+              context:
+                companyContext,
+              customerMessage:
+                institutionalMessage,
+            });
+
+          const companyAiResponse =
+            await openAIProviderService.generateResponse({
+              systemPrompt:
+                companyPrompt.systemPrompt,
+              userPrompt:
+                companyPrompt.userPrompt,
+            });
+
+          if (
+            !companyAiResponse.needsHuman
+          ) {
+            if (options?.dryRun) {
+              return {
+                processed: true,
+                action:
+                  "COMPANY_INFORMATION_RESPONSE_SIMULATED" as const,
+                messageId:
+                  storedMessage.id,
+                router,
+                simulatedMessage:
+                  companyAiResponse.text,
+                ai: {
+                  model:
+                    companyAiResponse.model,
+                  responseId:
+                    companyAiResponse.responseId,
+                  inputTokens:
+                    companyAiResponse.inputTokens,
+                  outputTokens:
+                    companyAiResponse.outputTokens,
+                  totalTokens:
+                    companyAiResponse.totalTokens,
+                },
+              };
+            }
+
+            await automaticMessageService.sendText({
+              companyId,
+              customerId:
+                storedMessage.customerId,
+              attendanceId:
+                router.attendanceId,
+              instanceName:
+                normalizedInstanceName,
+              remoteJid:
+                normalizedMessage.remoteJid,
+              text:
+                companyAiResponse.text,
+              sourceMessageId:
+                storedMessage.id,
+            });
+
+            return {
+              processed: true,
+              action:
+                "COMPANY_INFORMATION_RESPONSE_SENT" as const,
+              messageId:
+                storedMessage.id,
+              router,
+              ai: {
+                model:
+                  companyAiResponse.model,
+                responseId:
+                  companyAiResponse.responseId,
+                inputTokens:
+                  companyAiResponse.inputTokens,
+                outputTokens:
+                  companyAiResponse.outputTokens,
+                totalTokens:
+                  companyAiResponse.totalTokens,
+              },
+            };
+          }
+        }
+      }
       if (
         router.requiresSectorIdentification
       ) {
