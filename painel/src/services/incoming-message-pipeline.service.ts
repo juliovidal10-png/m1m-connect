@@ -1012,14 +1012,40 @@ export const incomingMessagePipelineService = {
               name: true,
             },
           });
+        const menuCustomer =
+          await prisma.m1MCustomer.findFirst({
+            where: {
+              id: storedMessage.customerId,
+              companyId,
+            },
+            select: {
+              name: true,
+            },
+          });
+
+        const rawMessageRecord =
+          rawMessage &&
+          typeof rawMessage === "object"
+            ? (rawMessage as Record<string, unknown>)
+            : null;
+
+        const rawPushName =
+          typeof rawMessageRecord?.pushName === "string"
+            ? rawMessageRecord.pushName.trim()
+            : "";
+
+        const menuCustomerName =
+          menuCustomer?.name?.trim() ||
+          rawPushName ||
+          null;
 
         const sectorMenuMessage =
           sectorMenuService.buildMessage(
             router.availableSectors ?? [],
             company?.name,
+            menuCustomerName,
           );
-
-        const menuAlreadyShownInCurrentCycle =
+const menuAlreadyShownInCurrentCycle =
           router.attendanceId
             ? await messageService.hasAIMessageWithContentByAttendance(
                 router.attendanceId,

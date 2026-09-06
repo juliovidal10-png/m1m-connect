@@ -32,32 +32,30 @@ export const sectorMenuService = {
   buildMessage(
     sectors: SectorMenuItem[],
     companyName?: string | null,
+    customerName?: string | null,
   ) {
-    const numberedSectors =
-      formatNumberedSectors(
-        sectors,
-      );
+    const company =
+      companyName?.trim() || "nossa equipe";
+    const name =
+      customerName?.trim() || null;
 
-    if (
-      numberedSectors.length === 0
-    ) {
-      return "Oi! Recebemos sua mensagem. Nossa equipe vai dar continuidade ao atendimento assim que poss\u00edvel.";
-    }
+    const greeting = name
+      ? `Opa, ${name}! Que bom receber o seu contato aqui na ${company}! 🚀`
+      : `Opa, tudo bem? Que bom receber o seu contato aqui na ${company}! 🚀`;
 
-    const normalizedCompanyName =
-      normalizeCompanyName(
-        companyName,
-      );
-
-    const greeting =
-      normalizedCompanyName
-        ? `Oi! Voc\u00ea est\u00e1 falando com a ${normalizedCompanyName}.`
-        : "Oi!";
+    const sectorLines = sectors.map(
+      (sector, index) =>
+        `${index + 1} • ${sector.name}`,
+    );
 
     return [
       greeting,
-      "Como podemos ajudar? Voc\u00ea pode escolher uma op\u00e7\u00e3o ou simplesmente me dizer com suas palavras o que precisa:",
-      ...numberedSectors,
+      "",
+      "Para eu te direcionar pro pessoal certo agora mesmo, me conta: seu assunto de hoje é sobre:",
+      "",
+      ...sectorLines,
+      "",
+      "Se preferir, pode só digitar o número ou me explicar com suas palavras o que precisa!",
     ].join("\n");
   },
 };
