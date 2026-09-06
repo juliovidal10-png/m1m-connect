@@ -1,4 +1,4 @@
-import { companyInformationIntentService } from "@/services/company-information-intent.service";
+﻿import { companyInformationIntentService } from "@/services/company-information-intent.service";
 import { companyContextBuilderService } from "@/services/company-context-builder.service";
 import { companyPromptBuilderService } from "@/services/company-prompt-builder.service";
 import { attendanceService } from "@/services/attendance.service";
@@ -133,6 +133,18 @@ function appendConversationHistoryToUserPrompt(
   ].join("\n");
 }
 
+function isControlledHumanHandoffCourtesy(
+  value: string | null | undefined,
+) {
+  const normalized = normalizeSearchText(value)
+    .replace(/[!.,;:?()[\]{}"'`~*_+=<>|\\/–—-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return /^(obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa])$/.test(
+    normalized,
+  );
+}
 function isReceiptMediaType(
   type: M1MMessageType,
 ) {
@@ -1069,6 +1081,109 @@ const menuAlreadyShownInCurrentCycle =
       }
 
       if (router.state === "HUMANO") {
+        const courtesyWindowMs = 5 * 60 * 1000;
+        const isPureCourtesy =
+          normalizedMessage.type === M1MMessageType.TEXT &&
+          isControlledHumanHandoffCourtesy(
+            normalizedMessage.content,
+          );
+
+        if (
+          isPureCourtesy &&
+          router.attendanceId &&
+          !router.responsibleId
+        ) {
+          const humanAttendance =
+            await prisma.m1MAttendance.findUnique({
+              where: {
+                id: router.attendanceId,
+              },
+              select: {
+                updatedAt: true,
+                responsibleId: true,
+              },
+            });
+
+          const elapsedSinceHumanTransitionMs =
+            humanAttendance
+              ? storedMessage.sentAt.getTime() -
+                humanAttendance.updatedAt.getTime()
+              : Number.POSITIVE_INFINITY;
+
+          const previousInboundAfterHumanTransition =
+            humanAttendance &&
+            !humanAttendance.responsibleId &&
+            elapsedSinceHumanTransitionMs >= 0 &&
+            elapsedSinceHumanTransitionMs <= courtesyWindowMs
+              ? await prisma.m1MMessage.count({
+                  where: {
+                    companyId,
+                    customerId:
+                      storedMessage.customerId,
+                    attendanceId:
+                      router.attendanceId,
+                    fromMe: false,
+                    id: {
+                      not: storedMessage.id,
+                    },
+                    sentAt: {
+                      gte: humanAttendance.updatedAt,
+                      lt: storedMessage.sentAt,
+                    },
+                  },
+                })
+              : 1;
+
+          if (
+            humanAttendance &&
+            !humanAttendance.responsibleId &&
+            elapsedSinceHumanTransitionMs >= 0 &&
+            elapsedSinceHumanTransitionMs <= courtesyWindowMs &&
+            previousInboundAfterHumanTransition === 0
+          ) {
+            const courtesyMessage =
+              "Por nada! 😊 Já encaminhei seu atendimento e nossa equipe dará continuidade por aqui.";
+
+            if (options?.dryRun) {
+              return {
+                processed: true,
+                action:
+                  "HUMAN_HANDOFF_COURTESY_SIMULATED" as const,
+                messageId:
+                  storedMessage.id,
+                router,
+                simulatedMessage:
+                  courtesyMessage,
+              };
+            }
+
+            await automaticMessageService.sendText({
+              companyId,
+              customerId:
+                storedMessage.customerId,
+              attendanceId:
+                router.attendanceId,
+              instanceName:
+                normalizedInstanceName,
+              remoteJid:
+                normalizedMessage.remoteJid,
+              text:
+                courtesyMessage,
+              sourceMessageId:
+                storedMessage.id,
+            });
+
+            return {
+              processed: true,
+              action:
+                "HUMAN_HANDOFF_COURTESY_SENT" as const,
+              messageId:
+                storedMessage.id,
+              router,
+            };
+          }
+        }
+
         return {
           processed: true,
           action:
@@ -1277,3 +1392,4 @@ const menuAlreadyShownInCurrentCycle =
     }
   },
 };
+
