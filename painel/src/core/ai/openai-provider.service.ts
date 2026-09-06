@@ -233,7 +233,7 @@ export const openAIProviderService = {
         input:
           userPrompt,
         reasoning: {
-          effort: "minimal",
+          effort: "low",
         },
         max_output_tokens: 300,
         text: {
