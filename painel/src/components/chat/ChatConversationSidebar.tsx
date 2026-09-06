@@ -52,12 +52,13 @@ export default function ChatConversationSidebar({
   useEffect(() => {
     if (manualQueueSelectionRef.current) return;
     if (initialQueueResolvedRef.current) return;
+    if (isLoading) return;
 
     setActiveQueue(
       waitingCount > 0 ? "WAITING" : "IN_SERVICE",
     );
     initialQueueResolvedRef.current = true;
-  }, [waitingCount]);
+  }, [isLoading, waitingCount]);
 
   const visibleItems = items.filter((item) => {
     if (item.queueCategory === "OTHER") return true;
