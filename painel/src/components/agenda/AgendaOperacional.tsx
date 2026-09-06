@@ -927,23 +927,104 @@ export default function AgendaOperacional() {
             position: static !important;
           }
 
-          main > div,
-          main section,
-          main section > div:not(.print-hidden) {
-            overflow: visible !important;
-          }
-
           main section,
           main section > div {
             break-inside: auto !important;
             page-break-inside: auto !important;
           }
 
+          main > div.print\:block {
+            margin: 0 !important;
+          }
+
+          main > div.print\:block > div {
+            padding-bottom: 6px !important;
+          }
+
+          main > div.print\:block p {
+            margin-top: 1px !important;
+            line-height: 1.15 !important;
+          }
+
+          main > div.print\:block h1 {
+            margin-top: 2px !important;
+            font-size: 18px !important;
+            line-height: 1.1 !important;
+          }
+
+          main > div:not(.print\:block) {
+            padding-top: 8px !important;
+            padding-bottom: 0 !important;
+          }
+
+          main section:last-of-type {
+            border: 0 !important;
+            box-shadow: none !important;
+          }
+
+          main section:last-of-type > div:last-child {
+            padding: 0 !important;
+          }
+
+          main section:last-of-type > div:last-child > div:first-child {
+            margin-bottom: 6px !important;
+          }
+
+          main section:last-of-type > div:last-child > div:last-child {
+            gap: 6px !important;
+          }
+
           article {
             height: auto !important;
+            min-height: 0 !important;
             overflow: visible !important;
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+            padding: 8px 10px !important;
+            gap: 8px !important;
+            border-radius: 8px !important;
+          }
+
+          article > div:first-child {
+            padding: 4px 6px !important;
+            border-radius: 6px !important;
+          }
+
+          article > div:first-child p:first-child {
+            font-size: 13px !important;
+            line-height: 1 !important;
+          }
+
+          article > div:first-child p:last-child {
+            margin-top: 2px !important;
+            font-size: 8px !important;
+            line-height: 1 !important;
+          }
+
+          article h3 {
+            margin-top: 3px !important;
+            font-size: 12px !important;
+            line-height: 1.05 !important;
+          }
+
+          article p {
+            line-height: 1.1 !important;
+          }
+
+          article h3 + p {
+            margin-top: 2px !important;
+            font-size: 10px !important;
+          }
+
+          article p:last-child {
+            margin-top: 3px !important;
+            font-size: 9px !important;
+          }
+
+          article span {
+            padding-top: 2px !important;
+            padding-bottom: 2px !important;
+            font-size: 8px !important;
           }
 
           header,
@@ -959,7 +1040,7 @@ export default function AgendaOperacional() {
 
           @page {
             size: A4 portrait;
-            margin: 14mm;
+            margin: 12mm;
           }
         }
       `}</style>
