@@ -1,4 +1,4 @@
-﻿import { companyInformationIntentService } from "@/services/company-information-intent.service";
+import { companyInformationIntentService } from "@/services/company-information-intent.service";
 import { companyContextBuilderService } from "@/services/company-context-builder.service";
 import { companyPromptBuilderService } from "@/services/company-prompt-builder.service";
 import { attendanceService } from "@/services/attendance.service";
@@ -86,6 +86,47 @@ function normalizeSearchText(
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase();
+}
+
+const AI_CONVERSATION_HISTORY_LIMIT = 12;
+
+function buildAIConversationHistory(
+  messages: Awaited<
+    ReturnType<
+      typeof messageService.listRecentMessagesByCustomer
+    >
+  >,
+  currentMessageId: string,
+) {
+  return messages
+    .filter(
+      (message) =>
+        message.id !== currentMessageId &&
+        message.type === M1MMessageType.TEXT &&
+        Boolean(message.content?.trim()),
+    )
+    .map((message) => {
+      const role = message.fromMe ? "ATENDIMENTO" : "CLIENTE";
+      return `${role}: ${message.content!.trim()}`;
+    })
+    .join("\n");
+}
+
+function appendConversationHistoryToUserPrompt(
+  userPrompt: string,
+  conversationHistory: string,
+) {
+  if (!conversationHistory) {
+    return userPrompt;
+  }
+
+  return [
+    "HISTÓRICO RECENTE DA CONVERSA (use apenas para manter continuidade; não repita informações já conhecidas):",
+    conversationHistory,
+    "",
+    "MENSAGEM ATUAL DO CLIENTE:",
+    userPrompt,
+  ].join("\n");
 }
 
 function isFinanceSectorName(
@@ -864,12 +905,28 @@ export const incomingMessagePipelineService = {
                 institutionalMessage,
             });
 
+          const recentCompanyMessages =
+            await messageService.listRecentMessagesByCustomer(
+              companyId,
+              storedMessage.customerId,
+              AI_CONVERSATION_HISTORY_LIMIT,
+            );
+
+          const companyConversationHistory =
+            buildAIConversationHistory(
+              recentCompanyMessages,
+              storedMessage.id,
+            );
+
           const companyAiResponse =
             await openAIProviderService.generateResponse({
               systemPrompt:
                 companyPrompt.systemPrompt,
               userPrompt:
-                companyPrompt.userPrompt,
+                appendConversationHistoryToUserPrompt(
+                  companyPrompt.userPrompt,
+                  companyConversationHistory,
+                ),
             });
 
           if (
@@ -1115,12 +1172,28 @@ export const incomingMessagePipelineService = {
             messageContent,
         });
 
+      const recentSectorMessages =
+        await messageService.listRecentMessagesByCustomer(
+          companyId,
+          storedMessage.customerId,
+          AI_CONVERSATION_HISTORY_LIMIT,
+        );
+
+      const sectorConversationHistory =
+        buildAIConversationHistory(
+          recentSectorMessages,
+          storedMessage.id,
+        );
+
       const aiResponse =
         await openAIProviderService.generateResponse({
           systemPrompt:
             prompt.systemPrompt,
           userPrompt:
-            prompt.userPrompt,
+            appendConversationHistoryToUserPrompt(
+              prompt.userPrompt,
+              sectorConversationHistory,
+            ),
         });
 
       let customerResponseText =
