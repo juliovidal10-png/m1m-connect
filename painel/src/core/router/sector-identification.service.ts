@@ -1,4 +1,4 @@
-﻿type SectorCandidate = {
+type SectorCandidate = {
   id: string;
   name: string;
   description: string | null;
@@ -42,20 +42,6 @@ function normalizeText(
     .trim();
 }
 
-function containsExpression(
-  text: string,
-  expression: string,
-) {
-  if (!expression) {
-    return false;
-  }
-
-  return (
-    ` ${text} `
-  ).includes(
-    ` ${expression} `,
-  );
-}
 
 function identifyByNumber(
   normalizedMessage: string,
@@ -126,11 +112,9 @@ export const sectorIdentificationService = {
     const exactMatches =
       sectors.filter(
         (sector) =>
-          containsExpression(
-            normalizedMessage,
-            normalizeText(
-              sector.name,
-            ),
+          normalizedMessage ===
+          normalizeText(
+            sector.name,
           ),
       );
 
