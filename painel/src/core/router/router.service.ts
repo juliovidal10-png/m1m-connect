@@ -1,4 +1,4 @@
-﻿import {
+import {
   M1MAttendanceActorType,
   M1MAttendanceState,
 } from "@/generated/prisma/enums";
@@ -141,51 +141,6 @@ export class RouterService {
       };
     }
 
-    if (
-      intent.matched &&
-      intent.sectorId
-    ) {
-      const matchedSector =
-        sectors.find(
-          (sector) =>
-            sector.id ===
-            intent.sectorId,
-        );
-
-      if (matchedSector) {
-        const transferred =
-          await attendanceService.transferAttendanceToSector({
-            companyId:
-              context.companyId,
-            attendanceId:
-              attendance.id,
-            sectorId:
-              matchedSector.id,
-            actorType:
-              M1MAttendanceActorType.AI,
-          });
-
-        return {
-          processed: true,
-          action:
-            "ROUTED_TO_SECTOR",
-          attendanceId:
-            transferred.id,
-          attendanceNumber:
-            transferred.number,
-          sectorId:
-            matchedSector.id,
-          sectorName:
-            matchedSector.name,
-          responsibleId:
-            transferred.responsibleId,
-          state:
-            transferred.state,
-          requiresSectorIdentification:
-            false,
-        };
-      }
-    }
 
     const identification =
       sectorIdentificationService.identify(
@@ -343,6 +298,52 @@ export class RouterService {
           "ERRO AO INTERPRETAR SETOR POR LINGUAGEM NATURAL:",
           error,
         );
+      }
+    }
+
+    if (
+      intent.matched &&
+      intent.sectorId
+    ) {
+      const matchedSector =
+        sectors.find(
+          (sector) =>
+            sector.id ===
+            intent.sectorId,
+        );
+
+      if (matchedSector) {
+        const transferred =
+          await attendanceService.transferAttendanceToSector({
+            companyId:
+              context.companyId,
+            attendanceId:
+              attendance.id,
+            sectorId:
+              matchedSector.id,
+            actorType:
+              M1MAttendanceActorType.AI,
+          });
+
+        return {
+          processed: true,
+          action:
+            "ROUTED_TO_SECTOR",
+          attendanceId:
+            transferred.id,
+          attendanceNumber:
+            transferred.number,
+          sectorId:
+            matchedSector.id,
+          sectorName:
+            matchedSector.name,
+          responsibleId:
+            transferred.responsibleId,
+          state:
+            transferred.state,
+          requiresSectorIdentification:
+            false,
+        };
       }
     }
 
