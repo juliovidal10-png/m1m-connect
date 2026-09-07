@@ -117,7 +117,6 @@ export const semanticSectorInterpreterService = {
                   items: {
                     type: "string",
                   },
-                  uniqueItems: true,
                 },
                 prioritySectorId: {
                   type: [
