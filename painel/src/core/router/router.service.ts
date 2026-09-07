@@ -1,4 +1,4 @@
-import {
+﻿import {
   M1MAttendanceActorType,
   M1MAttendanceState,
 } from "@/generated/prisma/enums";
@@ -51,6 +51,7 @@ export type RouterResult = {
     id: string;
     name: string;
   }>;
+  multipleIntentSelectionRequired?: boolean;
 };
 
 export class RouterService {
@@ -253,6 +254,48 @@ export class RouterService {
               ),
           });
 
+        if (
+          semanticIntent.candidateSectorIds.length > 1
+        ) {
+          const multipleIntentSectors =
+            sectors
+              .filter(
+                (sector) =>
+                  semanticIntent.candidateSectorIds.includes(
+                    sector.id,
+                  ),
+              )
+              .map(
+                (sector) => ({
+                  id: sector.id,
+                  name: sector.name,
+                }),
+              );
+
+          if (multipleIntentSectors.length > 1) {
+            return {
+              processed: true,
+              action: "SECTOR_AMBIGUOUS",
+              attendanceId:
+                attendance.id,
+              attendanceNumber:
+                attendance.number,
+              sectorId: null,
+              sectorName: null,
+              responsibleId:
+                attendance.responsibleId,
+              state:
+                attendance.state,
+              requiresSectorIdentification:
+                true,
+              availableSectors:
+                multipleIntentSectors,
+              multipleIntentSelectionRequired:
+                true,
+            };
+          }
+        }
+
         if (semanticIntent.matched) {
           const matchedSector =
             sectors.find(
@@ -344,3 +387,4 @@ export class RouterService {
 
 export const routerService =
   new RouterService();
+

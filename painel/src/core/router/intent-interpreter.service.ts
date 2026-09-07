@@ -107,32 +107,22 @@ export const intentInterpreterService = {
       return createEmptyIntent();
     }
 
-    const bestMatch =
-      matches[0];
-
-    const bestLength =
-      bestMatch.normalizedKeyword.length;
-
-    const strongestMatches =
-      matches.filter(
-        (match) =>
-          match.normalizedKeyword.length ===
-          bestLength,
-      );
-
-    const strongestSectorIds =
+    const matchedSectorIds =
       new Set(
-        strongestMatches.map(
+        matches.map(
           (match) =>
             match.candidate.sectorId,
         ),
       );
 
     if (
-      strongestSectorIds.size > 1
+      matchedSectorIds.size > 1
     ) {
       return createEmptyIntent(0.5);
     }
+
+    const bestMatch =
+      matches[0];
 
     return {
       matched: true,
@@ -146,3 +136,4 @@ export const intentInterpreterService = {
     };
   },
 };
+

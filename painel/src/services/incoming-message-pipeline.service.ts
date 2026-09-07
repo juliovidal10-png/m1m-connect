@@ -991,10 +991,36 @@ const menuAlreadyShownInCurrentCycle =
               )
             : false;
 
+        const multipleIntentSectorNames =
+          router.multipleIntentSelectionRequired
+            ? (router.availableSectors ?? [])
+                .map(
+                  (sector) =>
+                    sector.name.trim(),
+                )
+                .filter(Boolean)
+            : [];
+
+        const formattedMultipleIntentSectors =
+          multipleIntentSectorNames.length === 2
+            ? `${multipleIntentSectorNames[0]} e ${multipleIntentSectorNames[1]}`
+            : multipleIntentSectorNames.length > 2
+              ? `${multipleIntentSectorNames
+                  .slice(0, -1)
+                  .join(", ")} e ${
+                  multipleIntentSectorNames[
+                    multipleIntentSectorNames.length - 1
+                  ]
+                }`
+              : multipleIntentSectorNames[0] ?? "";
+
         const responseMessage =
-          menuAlreadyShownInCurrentCycle
-            ? "Não consegui identificar exatamente o que você precisa. Pode me explicar brevemente?"
-            : sectorMenuMessage;
+          router.multipleIntentSelectionRequired &&
+          multipleIntentSectorNames.length > 1
+            ? `Entendi que você quer tratar de ${formattedMultipleIntentSectors}. Qual desses assuntos você prefere resolver primeiro?`
+            : menuAlreadyShownInCurrentCycle
+              ? "Não consegui identificar exatamente o que você precisa. Pode me explicar brevemente?"
+              : sectorMenuMessage;
 
         if (options?.dryRun) {
           return {
@@ -1392,4 +1418,5 @@ const menuAlreadyShownInCurrentCycle =
     }
   },
 };
+
 
