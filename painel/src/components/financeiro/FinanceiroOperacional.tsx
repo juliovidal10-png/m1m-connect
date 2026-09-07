@@ -614,7 +614,7 @@ export default function FinanceiroOperacional() {
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8]">
-      <div className="mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8">
+      <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-black/35">
             Operação financeira
@@ -629,7 +629,7 @@ export default function FinanceiroOperacional() {
           </p>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           {filters
             .filter(
               (filter) =>
@@ -681,7 +681,7 @@ export default function FinanceiroOperacional() {
         </section>
 
         <section className="mt-5 rounded-2xl border border-black/10 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-black/5 p-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 border-b border-black/5 p-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex flex-wrap gap-2">
               {filters.map(
                 (filter) => {
@@ -727,7 +727,7 @@ export default function FinanceiroOperacional() {
                 )
               }
               placeholder="Buscar por cliente, código, banco ou pagamento"
-              className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 lg:max-w-md"
+              className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 xl:max-w-md"
             />
           </div>
 
@@ -753,7 +753,7 @@ export default function FinanceiroOperacional() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-4 p-4 xl:grid-cols-2">
+            <div className="grid gap-4 p-4 2xl:grid-cols-2">
               {filteredReceipts.map(
                 (receipt) => (
                   <article

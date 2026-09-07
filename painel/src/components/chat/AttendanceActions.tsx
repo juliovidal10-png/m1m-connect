@@ -283,13 +283,13 @@ export default function AttendanceActions({
   }
 
   return (
-    <div className="relative flex items-center gap-2">
+    <div className="relative flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
       {canAssume && (
         <button
           type="button"
           disabled={busy}
           onClick={assume}
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-[#0A9090] px-3 text-xs font-bold text-white transition hover:bg-[#087B7B] disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-xl bg-[#0A9090] px-2.5 text-[11px] font-bold text-white transition hover:bg-[#087B7B] disabled:opacity-50 xl:h-10 xl:px-3 xl:text-xs"
         >
           {busy ? "Aguarde..." : "Assumir atendimento"}
         </button>
@@ -303,7 +303,7 @@ export default function AttendanceActions({
             onClick={() =>
               setOpen((value) => !value)
             }
-            className="inline-flex h-10 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] disabled:opacity-50"
+            className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-xl border border-black/10 bg-white px-2.5 text-[11px] font-bold text-black/60 transition hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] disabled:opacity-50 xl:h-10 xl:px-3 xl:text-xs"
           >
             Transferir
           </button>
@@ -345,7 +345,7 @@ export default function AttendanceActions({
           type="button"
           disabled={busy}
           onClick={finish}
-          className="inline-flex h-10 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-bold text-black/60 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-xl border border-black/10 bg-white px-2.5 text-[11px] font-bold text-black/60 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50 xl:h-10 xl:px-3 xl:text-xs"
         >
           {busy ? "Aguarde..." : "Finalizar"}
         </button>

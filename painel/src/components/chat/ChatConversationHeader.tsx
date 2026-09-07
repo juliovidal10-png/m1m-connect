@@ -116,7 +116,7 @@ export default function ChatConversationHeader({
   onToggleCustomerPanel,
 }: ChatConversationHeaderProps) {
   return (
-    <header className="flex min-h-20 shrink-0 items-center justify-between gap-4 border-b border-black/5 bg-white px-6 py-3">
+    <header className="flex min-h-20 shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-black/5 bg-white px-4 py-3 sm:px-5 xl:px-6">
       {isSearchOpen ? (
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-black/10 bg-[#f7f7f8] px-3">
@@ -218,7 +218,7 @@ export default function ChatConversationHeader({
         </div>
       ) : (
         <>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[220px] flex-1 basis-[320px]">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="truncate text-base font-bold text-[#171717]">
                 {customerName}
@@ -281,7 +281,7 @@ export default function ChatConversationHeader({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
             <AttendanceActions
               attendanceId={attendanceId}
               attendanceState={attendanceState}
@@ -304,7 +304,7 @@ export default function ChatConversationHeader({
                   ? "Fechar Cliente 360"
                   : "Abrir Cliente 360"
               }
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-bold transition-all duration-200 ${
+              className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-all duration-200 xl:h-10 xl:gap-2 xl:px-3 xl:text-xs ${
                 isCustomerPanelOpen
                   ? "border-[#0A9090]/25 bg-[#F2FAFA] text-[#087B7B]"
                   : "border-black/10 bg-white text-black/55 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
