@@ -12,6 +12,7 @@ type CustomerRecord = {
   customerCode: number | null;
   remoteJid: string;
   name: string | null;
+  nameManuallySet?: boolean;
   phone: string | null;
   company: string | null;
   city: string | null;
@@ -41,6 +42,22 @@ export default function useCustomer({
     customerCode,
     setCustomerCode,
   ] = useState<number | null>(null);
+
+  const [
+    customerName,
+    setCustomerNameState,
+  ] = useState(name);
+
+  const [
+    isCustomerNameDirty,
+    setIsCustomerNameDirty,
+  ] = useState(false);
+
+  const setCustomerName =
+    useCallback((value: string) => {
+      setCustomerNameState(value);
+      setIsCustomerNameDirty(true);
+    }, []);
 
   const [company, setCompany] =
     useState("");
@@ -120,6 +137,8 @@ export default function useCustomer({
 
     setCustomerId(null);
     setCustomerCode(null);
+    setCustomerNameState(name);
+    setIsCustomerNameDirty(false);
     setCompany("");
     setCity("");
     setResponsible("");
@@ -129,6 +148,7 @@ export default function useCustomer({
     clearFeedback();
   }, [
     isOpen,
+    name,
     clearFeedback,
   ]);
 
@@ -190,6 +210,11 @@ export default function useCustomer({
           customer.customerCode ??
             null,
         );
+
+        setCustomerNameState(
+          customer.name || name,
+        );
+        setIsCustomerNameDirty(false);
 
         setCompany(
           customer.company || "",
@@ -268,7 +293,12 @@ export default function useCustomer({
           },
           body: JSON.stringify({
             remoteJid,
-            name,
+            name: customerName,
+            nameManuallySet:
+              isCustomerNameDirty
+                ? true
+                : undefined,
+            customerCode,
             phone,
             company,
             city,
@@ -304,6 +334,11 @@ export default function useCustomer({
           null,
       );
 
+      setCustomerNameState(
+        customer.name || customerName,
+      );
+      setIsCustomerNameDirty(false);
+
       setCompany(
         customer.company || "",
       );
@@ -332,7 +367,9 @@ export default function useCustomer({
       return customer;
     }, [
       remoteJid,
-      name,
+      customerName,
+      isCustomerNameDirty,
+      customerCode,
       phone,
       company,
       city,
@@ -451,6 +488,9 @@ export default function useCustomer({
   return {
     customerId,
     customerCode,
+    setCustomerCode,
+    customerName,
+    setCustomerName,
     company,
     setCompany,
     city,

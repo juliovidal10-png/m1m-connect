@@ -351,6 +351,9 @@ export default function CustomerPanel({
   const {
     customerId,
     customerCode,
+    setCustomerCode,
+    customerName,
+    setCustomerName,
     company,
     setCompany,
     city,
@@ -614,7 +617,7 @@ export default function CustomerPanel({
             <div className="border-b border-black/5 bg-[#f7f7f8] p-5">
               <CustomerHeader
                 avatar={profilePicUrl}
-                name={name}
+                name={customerName || name}
                 customerCode={
                   customerCode
                 }
@@ -661,6 +664,50 @@ export default function CustomerPanel({
             )}
 {activeTab === "cliente" && (
               <div className="p-6">
+                <div className="mb-6 grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold text-black/55">
+                      Nome do cliente
+                    </span>
+                    <input
+                      type="text"
+                      value={customerName}
+                      disabled={isLoadingCustomer || !canEditCrm}
+                      onChange={(event) =>
+                        setCustomerName(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-black outline-none transition focus:border-[#0A9090] disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-black/45"
+                      placeholder="Nome operacional do cliente"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold text-black/55">
+                      Codigo do cliente
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={customerCode ?? ""}
+                      disabled={isLoadingCustomer || !canEditCrm}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setCustomerCode(
+                          value
+                            ? Number.parseInt(value, 10)
+                            : null,
+                        );
+                      }}
+                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-black outline-none transition focus:border-[#0A9090] disabled:cursor-not-allowed disabled:bg-black/[0.03] disabled:text-black/45"
+                      placeholder="Ex.: 301"
+                    />
+                    <span className="mt-1 block text-[11px] text-black/35">
+                      Exibido no formato #000301.
+                    </span>
+                  </label>
+                </div>
+
                 <CustomerInformation
                   company={company}
                   city={city}

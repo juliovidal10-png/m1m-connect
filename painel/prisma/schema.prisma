@@ -386,22 +386,23 @@ model M1MSectorUser {
 }
 
 model M1MCustomer {
-  id            String    @id @default(cuid())
-  companyId     String
-  customerCode  Int?
-  remoteJid     String
-  name          String?
-  phone         String?
-  company       String?
-  city          String?
-  responsible   String?
-  responsibleId String?
-  observations  String?
-  status        String?   @default("IA")
-  assignedAt    DateTime?
-  releasedAt    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  companyId       String
+  customerCode    Int?
+  remoteJid       String
+  name            String?
+  nameManuallySet Boolean   @default(false)
+  phone           String?
+  company         String?
+  city            String?
+  responsible     String?
+  responsibleId   String?
+  observations    String?
+  status          String?   @default("IA")
+  assignedAt      DateTime?
+  releasedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   owner           M1MCompany          @relation(fields: [companyId], references: [id])
   assignedUser    M1MUser?            @relation("AssignedCustomerUser", fields: [responsibleId], references: [id], onDelete: SetNull)

@@ -7,6 +7,8 @@ export type SaveCustomerInput = {
   companyId: string;
   remoteJid: string;
   name?: string | null;
+  customerCode?: number | null;
+  nameManuallySet?: boolean;
   phone?: string | null;
   company?: string | null;
   city?: string | null;
@@ -52,6 +54,29 @@ function normalizeOptionalText(
     value?.trim();
 
   return normalizedValue || null;
+}
+
+function normalizeCustomerCode(
+  value?: number | null,
+) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
+    throw new Error(
+      "Codigo do cliente deve ser um numero inteiro maior que zero.",
+    );
+  }
+
+  return value;
 }
 
 function normalizeStatus(
@@ -180,7 +205,21 @@ export const customerService = {
           input.remoteJid,
           "Identificador do cliente",
         ),
-      name: input.name,
+      name:
+        input.nameManuallySet === true
+          ? requireText(
+              input.name,
+              "Nome do cliente",
+            )
+          : input.name,
+      customerCode:
+        normalizeCustomerCode(
+          input.customerCode,
+        ),
+      nameManuallySet:
+        input.nameManuallySet === true
+          ? true
+          : undefined,
       phone: input.phone,
       company: input.company,
       city: input.city,

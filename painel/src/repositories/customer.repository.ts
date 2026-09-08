@@ -4,6 +4,8 @@ export type CustomerData = {
   companyId: string;
   remoteJid: string;
   name?: string | null;
+  customerCode?: number | null;
+  nameManuallySet?: boolean;
   phone?: string | null;
   company?: string | null;
   city?: string | null;
@@ -335,6 +337,8 @@ function buildUpdateData(
 ) {
   const updateData: {
     name?: string | null;
+    customerCode?: number | null;
+    nameManuallySet?: boolean;
     phone?: string | null;
     company?: string | null;
     city?: string | null;
@@ -349,6 +353,16 @@ function buildUpdateData(
       normalizeOptionalText(
         data.name,
       );
+  }
+
+  if (data.customerCode !== undefined) {
+    updateData.customerCode =
+      data.customerCode;
+  }
+
+  if (data.nameManuallySet !== undefined) {
+    updateData.nameManuallySet =
+      data.nameManuallySet;
   }
 
   if (data.phone !== undefined) {
@@ -459,8 +473,9 @@ async function createCustomerWithCode(
             });
 
           const nextCustomerCode =
-            (lastCustomer?.customerCode ??
-              0) + 1;
+            data.customerCode ??
+            ((lastCustomer?.customerCode ??
+              0) + 1);
 
           return transaction.m1MCustomer.create({
             data: {
@@ -475,6 +490,8 @@ async function createCustomerWithCode(
                   data.name,
                   data.remoteJid,
                 ),
+              nameManuallySet:
+                data.nameManuallySet === true,
               phone:
                 normalizeOptionalText(
                   data.phone,
@@ -514,6 +531,16 @@ async function createCustomerWithCode(
     } catch (error) {
       const errorCode =
         getPrismaErrorCode(error);
+
+      if (
+        errorCode === "P2002" &&
+        data.customerCode !== undefined &&
+        data.customerCode !== null
+      ) {
+        throw new Error(
+          "Codigo do cliente ja esta em uso nesta empresa.",
+        );
+      }
 
       const mayRetry =
         errorCode === "P2002" ||
@@ -931,13 +958,20 @@ export const customerRepository = {
     const updateData =
       buildUpdateData({
         name:
-          chooseCustomerName(
-            existingCustomer.name,
-            data.name,
-            shouldPromoteRemoteJid
-              ? normalizedRemoteJid
-              : existingCustomer.remoteJid,
-          ),
+          existingCustomer.nameManuallySet &&
+          data.nameManuallySet !== true
+            ? existingCustomer.name
+            : chooseCustomerName(
+                existingCustomer.name,
+                data.name,
+                shouldPromoteRemoteJid
+                  ? normalizedRemoteJid
+                  : existingCustomer.remoteJid,
+              ),
+        customerCode:
+          data.customerCode,
+        nameManuallySet:
+          data.nameManuallySet,
         phone:
           normalizedPhone ??
           existingCustomer.phone,
@@ -952,19 +986,32 @@ export const customerRepository = {
         status: data.status,
       });
 
-    return prisma.m1MCustomer.update({
-      where: {
-        id: existingCustomer.id,
-      },
-      data: {
-        ...updateData,
-        ...(shouldPromoteRemoteJid
-          ? {
-              remoteJid:
-                normalizedRemoteJid,
-            }
-          : {}),
-      },
-    });
+    try {
+      return await prisma.m1MCustomer.update({
+        where: {
+          id: existingCustomer.id,
+        },
+        data: {
+          ...updateData,
+          ...(shouldPromoteRemoteJid
+            ? {
+                remoteJid:
+                  normalizedRemoteJid,
+              }
+            : {}),
+        },
+      });
+    } catch (error) {
+      if (
+        getPrismaErrorCode(error) === "P2002" &&
+        data.customerCode !== undefined
+      ) {
+        throw new Error(
+          "Codigo do cliente ja esta em uso nesta empresa.",
+        );
+      }
+
+      throw error;
+    }
   },
 };
