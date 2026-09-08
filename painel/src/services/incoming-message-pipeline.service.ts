@@ -190,6 +190,27 @@ export const incomingMessagePipelineService = {
     const normalizedInstanceName =
       instanceName.trim();
 
+    const m1mT2Trace = (
+      stage: string,
+      extra?: Record<string, unknown>,
+    ) => {
+      console.log("[M1M T2 TRACE]", {
+        timestamp: new Date().toISOString(),
+        stage,
+        evolutionMessageId:
+          normalizedMessage.evolutionMessageId ?? null,
+        remoteJid:
+          normalizedMessage.remoteJid ?? null,
+        instanceName: normalizedInstanceName,
+        ...extra,
+      });
+    };
+
+    m1mT2Trace("PIPELINE_ENTRY", {
+      fromMe: normalizedMessage.fromMe,
+      messageType: normalizedMessage.type,
+    });
+
     if (!normalizedInstanceName) {
       throw new Error(
         "A instância do WhatsApp não foi identificada.",
@@ -243,6 +264,12 @@ export const incomingMessagePipelineService = {
       await messageService.claimProcessing(
         storedMessage.id,
       );
+
+    m1mT2Trace("PROCESSING_CLAIM_RESULT", {
+      messageId: storedMessage.id,
+      customerId: storedMessage.customerId,
+      processingClaimed,
+    });
 
     if (!processingClaimed) {
       return {
@@ -613,6 +640,12 @@ export const incomingMessagePipelineService = {
         };
       }
 
+      m1mT2Trace("BEFORE_ROUTER", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+      });
+
       let router =
         await routerService.execute({
           companyId,
@@ -626,6 +659,15 @@ export const incomingMessagePipelineService = {
           payload:
             rawMessage,
         });
+
+      m1mT2Trace("AFTER_ROUTER", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        routerState: router.state,
+        attendanceId: router.attendanceId,
+        sectorId: router.sectorId,
+      });
 
       // NEXT_CONVERSATION_12H
 
@@ -860,6 +902,12 @@ export const incomingMessagePipelineService = {
               storedMessage.id,
             );
 
+          m1mT2Trace("BEFORE_COMPANY_AI", {
+            messageId: storedMessage.id,
+            customerId: storedMessage.customerId,
+            companyId,
+          });
+
           const companyAiResponse =
             await openAIProviderService.generateResponse({
               systemPrompt:
@@ -870,6 +918,14 @@ export const incomingMessagePipelineService = {
                   companyConversationHistory,
                 ),
             });
+
+          m1mT2Trace("AFTER_COMPANY_AI", {
+            messageId: storedMessage.id,
+            customerId: storedMessage.customerId,
+            companyId,
+            responseId: companyAiResponse.responseId,
+            needsHuman: companyAiResponse.needsHuman,
+          });
 
           if (
             !companyAiResponse.needsHuman
@@ -899,6 +955,12 @@ export const incomingMessagePipelineService = {
               };
             }
 
+            m1mT2Trace("BEFORE_SEND_COMPANY_INFORMATION", {
+              messageId: storedMessage.id,
+              customerId: storedMessage.customerId,
+              companyId,
+            });
+
             await automaticMessageService.sendText({
               companyId,
               customerId:
@@ -913,6 +975,12 @@ export const incomingMessagePipelineService = {
                 companyAiResponse.text,
               sourceMessageId:
                 storedMessage.id,
+            });
+
+            m1mT2Trace("AFTER_SEND_COMPANY_INFORMATION", {
+              messageId: storedMessage.id,
+              customerId: storedMessage.customerId,
+              companyId,
             });
 
             return {
@@ -1035,6 +1103,13 @@ const menuAlreadyShownInCurrentCycle =
           };
         }
 
+        m1mT2Trace("BEFORE_SEND_SECTOR_MENU", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          routerState: router.state,
+        });
+
         await automaticMessageService.sendText({
           companyId,
           customerId:
@@ -1048,6 +1123,13 @@ const menuAlreadyShownInCurrentCycle =
             responseMessage,
           sourceMessageId:
             storedMessage.id,
+        });
+
+        m1mT2Trace("AFTER_SEND_SECTOR_MENU", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          routerState: router.state,
         });
 
         return {
@@ -1280,6 +1362,15 @@ const menuAlreadyShownInCurrentCycle =
           storedMessage.id,
         );
 
+      m1mT2Trace("BEFORE_AI", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        routerState: router.state,
+        attendanceId: router.attendanceId,
+        sectorId: router.sectorId,
+      });
+
       const aiResponse =
         await openAIProviderService.generateResponse({
           systemPrompt:
@@ -1290,6 +1381,14 @@ const menuAlreadyShownInCurrentCycle =
               sectorConversationHistory,
             ),
         });
+
+      m1mT2Trace("AFTER_AI", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        responseId: aiResponse.responseId,
+        needsHuman: aiResponse.needsHuman,
+      });
 
       let customerResponseText =
         aiResponse.text;
@@ -1334,6 +1433,15 @@ const menuAlreadyShownInCurrentCycle =
         };
       }
 
+      m1mT2Trace("BEFORE_SEND_AI_RESPONSE", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        routerState: router.state,
+        attendanceId: router.attendanceId,
+        sectorId: router.sectorId,
+      });
+
       await automaticMessageService.sendText({
         companyId,
         customerId:
@@ -1347,6 +1455,15 @@ const menuAlreadyShownInCurrentCycle =
           customerResponseText,
       sourceMessageId:
           storedMessage.id,
+      });
+
+      m1mT2Trace("AFTER_SEND_AI_RESPONSE", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        routerState: router.state,
+        attendanceId: router.attendanceId,
+        sectorId: router.sectorId,
       });
       if (aiResponse.needsHuman) {
         await attendanceService.requestHumanAttendanceByAI({
@@ -1363,6 +1480,12 @@ const menuAlreadyShownInCurrentCycle =
             aiResponse.context,
         });
       }
+
+      m1mT2Trace("PIPELINE_END_AI_RESPONSE_SENT", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+      });
 
       return {
         processed: true,
