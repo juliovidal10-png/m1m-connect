@@ -276,6 +276,42 @@ export const incomingMessagePipelineService = {
       !normalizedMessage.fromMe &&
       normalizedMessage.type === M1MMessageType.TEXT
     ) {
+      /*
+       * T2: garante uma fronteira de atendimento antes da consolidacao.
+       * Fragmentos superseded continuam no mesmo atendimento e ficam
+       * disponiveis ao roteamento contextual.
+       *
+       * Atendimento HUMANO nao e antecipado aqui para preservar
+       * NEXT_CONVERSATION_12H.
+       */
+      const t2OpenAttendance =
+        await attendanceService.getOpenAttendanceByCustomer(
+          companyId,
+          storedMessage.customerId,
+        );
+
+      const t2ContextAttendance =
+        t2OpenAttendance?.state === "HUMANO"
+          ? null
+          : t2OpenAttendance ??
+            await attendanceService.startAttendance(
+              companyId,
+              storedMessage.customerId,
+            );
+
+      if (t2ContextAttendance) {
+        await messageService.attachMessageToAttendance(
+          storedMessage.id,
+          t2ContextAttendance.id,
+        );
+
+        m1mT2Trace("T2_CONTEXT_ATTENDANCE_ATTACHED", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          attendanceId: t2ContextAttendance.id,
+        });
+      }
+
       const T2_INITIAL_QUIET_MS = 1_500;
       const T2_INCOMPLETE_EXTENSION_MS = 8_500;
 
