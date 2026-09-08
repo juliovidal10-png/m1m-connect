@@ -1,4 +1,4 @@
-﻿import { companyInformationIntentService } from "@/services/company-information-intent.service";
+import { companyInformationIntentService } from "@/services/company-information-intent.service";
 import { companyContextBuilderService } from "@/services/company-context-builder.service";
 import { companyPromptBuilderService } from "@/services/company-prompt-builder.service";
 import { attendanceService } from "@/services/attendance.service";
@@ -276,7 +276,7 @@ export const incomingMessagePipelineService = {
       !normalizedMessage.fromMe &&
       normalizedMessage.type === M1MMessageType.TEXT
     ) {
-      const T2_CONSECUTIVE_MESSAGE_QUIET_MS = 1_500;
+      const T2_CONSECUTIVE_MESSAGE_QUIET_MS = 5_000;
 
       await new Promise<void>((resolve) => {
         setTimeout(
