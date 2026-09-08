@@ -17,6 +17,9 @@ import {
 import {
   sectorService,
 } from "@/services/sector.service";
+import {
+  messageService,
+} from "@/services/message.service";
 
 export type RouterContext = {
   companyId: string;
@@ -194,10 +197,40 @@ export class RouterService {
       context.messageContent?.trim()
     ) {
       try {
+        const previousCustomerMessages =
+          existingAttendance
+            ? (
+                await messageService.listMessagesByAttendance(
+                  attendance.id,
+                )
+              )
+                .filter(
+                  (message) =>
+                    !message.fromMe &&
+                    Boolean(message.content?.trim()),
+                )
+                .slice(-12)
+                .map(
+                  (message) =>
+                    message.content!.trim(),
+                )
+            : [];
+
+        const semanticMessage =
+          previousCustomerMessages.length > 0
+            ? [
+                "CONTEXTO RECENTE DO CLIENTE NESTE ATENDIMENTO:",
+                ...previousCustomerMessages,
+                "",
+                "MENSAGEM ATUAL DO CLIENTE:",
+                context.messageContent,
+              ].join("\n")
+            : context.messageContent;
+
         const semanticIntent =
           await semanticSectorInterpreterService.interpret({
             message:
-              context.messageContent,
+              semanticMessage,
             sectors:
               sectors.map(
                 (sector) => ({
