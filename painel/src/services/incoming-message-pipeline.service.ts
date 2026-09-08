@@ -276,17 +276,17 @@ export const incomingMessagePipelineService = {
       !normalizedMessage.fromMe &&
       normalizedMessage.type === M1MMessageType.TEXT
     ) {
-      const T2_CONSECUTIVE_MESSAGE_QUIET_MS = 5_000;
+      const T2_INITIAL_QUIET_MS = 1_500;
+      const T2_INCOMPLETE_EXTENSION_MS = 8_500;
 
-      await new Promise<void>((resolve) => {
-        setTimeout(
-          resolve,
-          T2_CONSECUTIVE_MESSAGE_QUIET_MS,
-        );
-      });
+      const wait = async (milliseconds: number) => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, milliseconds);
+        });
+      };
 
-      const newerCustomerMessage =
-        await prisma.m1MMessage.findFirst({
+      const findNewerCustomerMessage = async () =>
+        prisma.m1MMessage.findFirst({
           where: {
             companyId,
             customerId:
@@ -307,18 +307,15 @@ export const incomingMessagePipelineService = {
           },
         });
 
-      if (newerCustomerMessage) {
-        m1mT2Trace(
-          "CONSECUTIVE_MESSAGE_SUPERSEDED",
-          {
-            messageId:
-              storedMessage.id,
-            customerId:
-              storedMessage.customerId,
-            newerMessageId:
-              newerCustomerMessage.id,
-          },
-        );
+      const supersedeCurrentMessage = async (
+        newerMessageId: string,
+        stage: string,
+      ) => {
+        m1mT2Trace(stage, {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          newerMessageId,
+        });
 
         await messageService.markAsProcessed(
           storedMessage.id,
@@ -331,6 +328,98 @@ export const incomingMessagePipelineService = {
           messageId:
             storedMessage.id,
         };
+      };
+
+      await wait(T2_INITIAL_QUIET_MS);
+
+      const newerCustomerMessage =
+        await findNewerCustomerMessage();
+
+      if (newerCustomerMessage) {
+        return supersedeCurrentMessage(
+          newerCustomerMessage.id,
+          "CONSECUTIVE_MESSAGE_SUPERSEDED",
+        );
+      }
+
+      const currentText =
+        normalizedMessage.content?.trim() ?? "";
+
+      if (currentText) {
+        try {
+          const recentCustomerMessages =
+            (
+              await prisma.m1MMessage.findMany({
+                where: {
+                  companyId,
+                  customerId:
+                    storedMessage.customerId,
+                  fromMe: false,
+                  type: M1MMessageType.TEXT,
+                  id: {
+                    not: storedMessage.id,
+                  },
+                  createdAt: {
+                    lt: storedMessage.createdAt,
+                  },
+                },
+                select: {
+                  content: true,
+                },
+                orderBy: {
+                  createdAt: "desc",
+                },
+                take: 6,
+              })
+            )
+              .reverse()
+              .map((message) =>
+                message.content?.trim() ?? "",
+              )
+              .filter(Boolean);
+
+          const readiness =
+            await openAIProviderService.classifyMessageReadiness({
+              recentCustomerMessages,
+              currentMessage: currentText,
+            });
+
+          m1mT2Trace("MESSAGE_READINESS_DECISION", {
+            messageId: storedMessage.id,
+            customerId: storedMessage.customerId,
+            shouldWaitForContinuation:
+              readiness.shouldWaitForContinuation,
+            responseId: readiness.responseId,
+          });
+
+          if (readiness.shouldWaitForContinuation) {
+            await wait(T2_INCOMPLETE_EXTENSION_MS);
+
+            const newerAfterExtension =
+              await findNewerCustomerMessage();
+
+            if (newerAfterExtension) {
+              return supersedeCurrentMessage(
+                newerAfterExtension.id,
+                "INCOMPLETE_MESSAGE_SUPERSEDED",
+              );
+            }
+
+            m1mT2Trace(
+              "INCOMPLETE_MESSAGE_EXTENSION_EXPIRED",
+              {
+                messageId: storedMessage.id,
+                customerId:
+                  storedMessage.customerId,
+              },
+            );
+          }
+        } catch (readinessError) {
+          console.warn(
+            "[M1M T2] Classificacao de continuidade falhou; seguindo o fluxo normal sem bloquear o atendimento.",
+            readinessError,
+          );
+        }
       }
     }
 

@@ -204,6 +204,113 @@ function parseStructuredResponse(
 }
 
 export const openAIProviderService = {
+  async classifyMessageReadiness(input: {
+    recentCustomerMessages: string[];
+    currentMessage: string;
+  }): Promise<{
+    shouldWaitForContinuation: boolean;
+    responseId: string;
+    model: string;
+  }> {
+    const currentMessage = requireText(
+      input.currentMessage,
+      "Mensagem atual do cliente",
+    );
+
+    const recentCustomerMessages = input.recentCustomerMessages
+      .map((message) => message.trim())
+      .filter(Boolean)
+      .slice(-6);
+
+    const model =
+      process.env.OPENAI_MODEL?.trim() ||
+      "gpt-5-mini";
+
+    const client = getClient();
+
+    const response = await client.responses.create({
+      model,
+      instructions: [
+        "Voce decide somente se uma mensagem de WhatsApp provavelmente e um fragmento que o cliente ainda esta completando.",
+        "Retorne shouldWaitForContinuation=true apenas quando a mensagem atual, considerando as mensagens recentes do proprio CLIENTE, aparentar claramente ser uma continuacao incompleta e houver forte chance de outra mensagem completar a ideia.",
+        "Retorne false para perguntas completas, pedidos completos, respostas objetivas, saudacoes, numeros/opcoes de menu, confirmacoes, negativas, agradecimentos e qualquer mensagem que ja possa ser respondida utilmente.",
+        "Nao decida setor, nao responda ao cliente e nao invente contexto.",
+      ].join("\n"),
+      input: [
+        recentCustomerMessages.length
+          ? `MENSAGENS RECENTES DO CLIENTE:\n${recentCustomerMessages.join("\n")}`
+          : "MENSAGENS RECENTES DO CLIENTE: nenhuma",
+        "",
+        "MENSAGEM ATUAL DO CLIENTE:",
+        currentMessage,
+      ].join("\n"),
+      reasoning: {
+        effort: "minimal",
+      },
+      max_output_tokens: 80,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "m1m_message_readiness",
+          strict: true,
+          description:
+            "Decisao sobre aguardar uma possivel continuacao da mensagem atual.",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              shouldWaitForContinuation: {
+                type: "boolean",
+                description:
+                  "True somente quando a mensagem atual aparenta claramente ser um fragmento incompleto que provavelmente sera continuado.",
+              },
+            },
+            required: [
+              "shouldWaitForContinuation",
+            ],
+          },
+        },
+      },
+    });
+
+    const rawText = response.output_text?.trim();
+
+    if (!rawText) {
+      throw new Error(
+        "A OpenAI nao retornou a decisao de continuidade da mensagem.",
+      );
+    }
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      throw new Error(
+        "A OpenAI retornou uma decisao de continuidade invalida.",
+      );
+    }
+
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof (parsed as Record<string, unknown>)
+        .shouldWaitForContinuation !== "boolean"
+    ) {
+      throw new Error(
+        "A OpenAI retornou uma decisao de continuidade invalida.",
+      );
+    }
+
+    return {
+      shouldWaitForContinuation:
+        (parsed as Record<string, unknown>)
+          .shouldWaitForContinuation as boolean,
+      responseId: response.id,
+      model: response.model,
+    };
+  },
+
   async generateResponse(
     input: AIProviderInput,
   ): Promise<AIProviderResult> {
