@@ -271,6 +271,69 @@ export const incomingMessagePipelineService = {
       processingClaimed,
     });
 
+    if (
+      processingClaimed &&
+      !normalizedMessage.fromMe &&
+      normalizedMessage.type === M1MMessageType.TEXT
+    ) {
+      const T2_CONSECUTIVE_MESSAGE_QUIET_MS = 1_500;
+
+      await new Promise<void>((resolve) => {
+        setTimeout(
+          resolve,
+          T2_CONSECUTIVE_MESSAGE_QUIET_MS,
+        );
+      });
+
+      const newerCustomerMessage =
+        await prisma.m1MMessage.findFirst({
+          where: {
+            companyId,
+            customerId:
+              storedMessage.customerId,
+            fromMe: false,
+            id: {
+              not: storedMessage.id,
+            },
+            createdAt: {
+              gt: storedMessage.createdAt,
+            },
+          },
+          select: {
+            id: true,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
+
+      if (newerCustomerMessage) {
+        m1mT2Trace(
+          "CONSECUTIVE_MESSAGE_SUPERSEDED",
+          {
+            messageId:
+              storedMessage.id,
+            customerId:
+              storedMessage.customerId,
+            newerMessageId:
+              newerCustomerMessage.id,
+          },
+        );
+
+        await messageService.markAsProcessed(
+          storedMessage.id,
+        );
+
+        return {
+          processed: true,
+          action:
+            "CONSECUTIVE_MESSAGE_SUPERSEDED" as const,
+          messageId:
+            storedMessage.id,
+        };
+      }
+    }
+
     if (!processingClaimed) {
       return {
         processed: false,
@@ -1541,5 +1604,3 @@ const menuAlreadyShownInCurrentCycle =
     }
   },
 };
-
-
