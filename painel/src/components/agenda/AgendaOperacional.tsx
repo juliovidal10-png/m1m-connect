@@ -1484,7 +1484,7 @@ export default function AgendaOperacional() {
                               {formatAgendaPhone(
                                 reminder.customer.phone,
                               ) ||
-                                "NÃ£o disponÃ­vel"}
+                                "Não disponível"}
                             </strong>
                           </p>
 
