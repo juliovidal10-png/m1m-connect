@@ -5,6 +5,8 @@ import type {
 export type PromptBuilderInput = {
   context: SectorContext;
   customerMessage: string;
+  customerName?: string | null;
+  isConversationStart?: boolean;
 };
 
 export type PromptBuilderResult = {
@@ -261,6 +263,10 @@ export const promptBuilderService = {
       "",
       "REGRAS OBRIGATÓRIAS",
       "- Converse como uma pessoa da equipe no WhatsApp: natural, breve e focada no pedido atual.",
+      input.isConversationStart
+        ? `- Esta Ã© a primeira resposta deste atendimento. FaÃ§a uma saudaÃ§Ã£o breve e natural${normalizeText(input.customerName) ? ` usando o nome ${normalizeText(input.customerName)}` : ""}. NÃ£o transforme a abertura em apresentaÃ§Ã£o, menu ou questionÃ¡rio.`
+        : "- Este atendimento jÃ¡ estÃ¡ em andamento. NÃ£o reinicie a conversa com apresentaÃ§Ã£o, saudaÃ§Ã£o de abertura ou menu.",
+      "- Se o nome do cliente foi fornecido no contexto, use-o apenas quando soar natural e nÃ£o pergunte o nome novamente.",
       "- Use primeiro o que o cliente acabou de dizer e os fatos já informados na conversa.",
       "- Quando faltar uma informação realmente necessária, escolha somente a próxima informação essencial e pergunte por ela de forma aberta e natural.",
       "- Proposta, orçamento, plano ou próxima etapa só entram na conversa quando o cliente pedir ou quando forem indispensáveis para atender o pedido atual.",

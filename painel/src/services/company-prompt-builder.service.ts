@@ -192,6 +192,8 @@ export const companyPromptBuilderService = {
   build(input: {
     context: CompanyInformationContext;
     customerMessage: string;
+    customerName?: string | null;
+    isConversationStart?: boolean;
   }) {
     const {
       company,
@@ -202,6 +204,10 @@ export const companyPromptBuilderService = {
       "Você está respondendo uma pergunta institucional da empresa, sem vincular o atendimento a um setor específico.",
       "",
       "REGRAS OBRIGATÓRIAS",
+      input.isConversationStart
+        ? `- Esta Ã© a primeira resposta deste atendimento. FaÃ§a uma saudaÃ§Ã£o breve e natural${normalizeText(input.customerName) ? ` usando o nome ${normalizeText(input.customerName)}` : ""}. NÃ£o transforme a abertura em apresentaÃ§Ã£o, menu ou questionÃ¡rio.`
+        : "- Este atendimento jÃ¡ estÃ¡ em andamento. NÃ£o reinicie a conversa com apresentaÃ§Ã£o, saudaÃ§Ã£o de abertura ou menu.",
+      "- Se o nome do cliente foi fornecido no contexto, use-o apenas quando soar natural e nÃ£o pergunte o nome novamente.",
       "- Responda apenas ao que o cliente perguntou.",
       "- Responda de forma natural, direta e objetiva, sem transformar a conversa em questionário, roteiro ou apresentação comercial.",
       "- Faça no máximo uma pergunta por resposta e somente quando ela for realmente necessária para responder ou avançar o pedido atual. Nunca agrupe duas ou mais perguntas, mesmo como alternativas.",

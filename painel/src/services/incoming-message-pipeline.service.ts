@@ -1093,14 +1093,6 @@ export const incomingMessagePipelineService = {
               companyId,
             );
 
-          const companyPrompt =
-            companyPromptBuilderService.build({
-              context:
-                companyContext,
-              customerMessage:
-                institutionalMessage,
-            });
-
           const recentCompanyMessages =
             (await messageService.listMessagesByAttendance(
               router.attendanceId,
@@ -1111,6 +1103,30 @@ export const incomingMessagePipelineService = {
               recentCompanyMessages,
               storedMessage.id,
             );
+
+          const companyConversationCustomer =
+            await prisma.m1MCustomer.findFirst({
+            where: {
+              id: storedMessage.customerId,
+              companyId,
+            },
+            select: {
+              name: true,
+            },
+          });
+
+          const companyPrompt =
+            companyPromptBuilderService.build({
+              context:
+                companyContext,
+              customerMessage:
+                institutionalMessage,
+              customerName:
+                companyConversationCustomer?.name?.trim() ||
+                null,
+              isConversationStart:
+                !companyConversationHistory,
+            });
 
           m1mT2Trace("BEFORE_COMPANY_AI", {
             messageId: storedMessage.id,
@@ -1211,6 +1227,75 @@ export const incomingMessagePipelineService = {
                   companyAiResponse.outputTokens,
                 totalTokens:
                   companyAiResponse.totalTokens,
+              },
+            };
+          }
+        }
+      }
+      if (
+        router.requiresSectorIdentification &&
+        normalizedMessage.type === M1MMessageType.TEXT
+      ) {
+        const conversationalMessage = normalizedMessage.content?.trim() ?? "";
+
+        if (conversationalMessage) {
+          const recentConversationalMessages = (
+            await messageService.listMessagesByAttendance(router.attendanceId)
+          ).slice(-AI_CONVERSATION_HISTORY_LIMIT);
+
+          const conversationalHistory = buildAIConversationHistory(
+            recentConversationalMessages,
+            storedMessage.id,
+          );
+
+          const conversationalCustomer = await prisma.m1MCustomer.findFirst({
+            where: {
+              id: storedMessage.customerId,
+              companyId,
+            },
+            select: {
+              name: true,
+            },
+          });
+
+          const conversationalIntent =
+            await openAIProviderService.classifyConversationIntent({
+              currentMessage: conversationalMessage,
+              conversationHistory: conversationalHistory,
+              customerName: conversationalCustomer?.name?.trim() || null,
+            });
+
+          if (
+            conversationalIntent.intent === "SOCIAL" ||
+            conversationalIntent.intent === "CLOSING"
+          ) {
+            const replyText = conversationalIntent.replyText;
+
+            if (!replyText) {
+              throw new Error("Resposta conversacional ausente.");
+            }
+
+            await automaticMessageService.sendText({
+              companyId,
+              customerId: storedMessage.customerId,
+              attendanceId: router.attendanceId,
+              instanceName: normalizedInstanceName,
+              remoteJid: normalizedMessage.remoteJid,
+              text: replyText,
+              sourceMessageId: storedMessage.id,
+            });
+
+            return {
+              processed: true,
+              action:
+                conversationalIntent.intent === "CLOSING"
+                  ? ("CONVERSATION_CLOSING" as const)
+                  : ("CONVERSATION_SOCIAL" as const),
+              messageId: storedMessage.id,
+              router,
+              ai: {
+                model: conversationalIntent.model,
+                responseId: conversationalIntent.responseId,
               },
             };
           }
@@ -1554,23 +1639,39 @@ const menuAlreadyShownInCurrentCycle =
           router.sectorId,
         );
 
-      const prompt =
-        promptBuilderService.build({
-          context,
-          customerMessage:
-            messageContent,
-        });
-
       const recentSectorMessages =
         (await messageService.listMessagesByAttendance(
-              router.attendanceId,
-            )).slice(-AI_CONVERSATION_HISTORY_LIMIT);
+          router.attendanceId,
+        )).slice(-AI_CONVERSATION_HISTORY_LIMIT);
 
       const sectorConversationHistory =
         buildAIConversationHistory(
           recentSectorMessages,
           storedMessage.id,
         );
+
+      const sectorConversationCustomer =
+        await prisma.m1MCustomer.findFirst({
+            where: {
+              id: storedMessage.customerId,
+              companyId,
+            },
+            select: {
+              name: true,
+            },
+          });
+
+      const prompt =
+        promptBuilderService.build({
+          context,
+          customerMessage:
+            messageContent,
+          customerName:
+            sectorConversationCustomer?.name?.trim() ||
+            null,
+          isConversationStart:
+            !sectorConversationHistory,
+        });
 
       m1mT2Trace("BEFORE_AI", {
         messageId: storedMessage.id,
