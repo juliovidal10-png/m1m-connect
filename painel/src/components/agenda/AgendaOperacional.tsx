@@ -171,6 +171,51 @@ function formatTime(
   ).format(date);
 }
 
+function formatAgendaPhone(
+  value?: string | null,
+) {
+  const trimmedValue =
+    value?.trim() || "";
+
+  if (
+    !trimmedValue ||
+    trimmedValue.includes("@")
+  ) {
+    return null;
+  }
+
+  const digits =
+    trimmedValue.replace(/\D/g, "");
+
+  const normalizedDigits =
+    digits.startsWith("55") &&
+    digits.length >= 12
+      ? digits.slice(2)
+      : digits;
+
+  if (normalizedDigits.length === 11) {
+    return `(${normalizedDigits.slice(
+      0,
+      2,
+    )}) ${normalizedDigits.slice(
+      2,
+      7,
+    )}-${normalizedDigits.slice(7)}`;
+  }
+
+  if (normalizedDigits.length === 10) {
+    return `(${normalizedDigits.slice(
+      0,
+      2,
+    )}) ${normalizedDigits.slice(
+      2,
+      6,
+    )}-${normalizedDigits.slice(6)}`;
+  }
+
+  return null;
+}
+
 function getCustomerName(
   reminder: AgendaReminder,
 ) {
@@ -1432,6 +1477,17 @@ export default function AgendaOperacional() {
                               reminder,
                             )}
                           </h3>
+
+                          <p className="mt-1 text-xs text-black/50">
+                            WhatsApp:{" "}
+                            <strong className="font-semibold text-black/65">
+                              {formatAgendaPhone(
+                                reminder.customer.phone,
+                              ) ||
+                                "NÃ£o disponÃ­vel"}
+                            </strong>
+                          </p>
+
 
                           <p className="mt-1 text-sm font-semibold text-black/65">
                             {reminder.title}
