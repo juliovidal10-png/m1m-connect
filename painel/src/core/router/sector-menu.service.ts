@@ -40,8 +40,8 @@ export const sectorMenuService = {
       customerName?.trim() || null;
 
     const greeting = name
-      ? `Opa, ${name}! Que bom receber o seu contato aqui na ${company}! 🚀`
-      : `Opa, tudo bem? Que bom receber o seu contato aqui na ${company}! 🚀`;
+      ? `Olá, ${name}! Tudo bem?`
+      : "Olá! Tudo bem?";
 
     const sectorLines = sectors.map(
       (sector, index) =>
@@ -51,11 +51,9 @@ export const sectorMenuService = {
     return [
       greeting,
       "",
-      "Para eu te direcionar pro pessoal certo agora mesmo, me conta: seu assunto de hoje é sobre:",
+      "Me avisa por aqui com qual setor você precisa falar hoje para eu te passar pro pessoal:",
       "",
       ...sectorLines,
-      "",
-      "Se preferir, pode só digitar o número ou me explicar com suas palavras o que precisa!",
     ].join("\n");
   },
 };
