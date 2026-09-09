@@ -6,6 +6,7 @@ export type CustomerData = {
   name?: string | null;
   customerCode?: number | null;
   nameManuallySet?: boolean;
+  aiEnabled?: boolean;
   phone?: string | null;
   company?: string | null;
   city?: string | null;
@@ -339,6 +340,7 @@ function buildUpdateData(
     name?: string | null;
     customerCode?: number | null;
     nameManuallySet?: boolean;
+    aiEnabled?: boolean;
     phone?: string | null;
     company?: string | null;
     city?: string | null;
@@ -365,6 +367,10 @@ function buildUpdateData(
       data.nameManuallySet;
   }
 
+  if (data.aiEnabled !== undefined) {
+    updateData.aiEnabled =
+      data.aiEnabled;
+  }
   if (data.phone !== undefined) {
     updateData.phone =
       normalizeOptionalText(
@@ -492,6 +498,8 @@ async function createCustomerWithCode(
                 ),
               nameManuallySet:
                 data.nameManuallySet === true,
+              aiEnabled:
+                data.aiEnabled ?? true,
               phone:
                 normalizeOptionalText(
                   data.phone,
@@ -972,6 +980,8 @@ export const customerRepository = {
           data.customerCode,
         nameManuallySet:
           data.nameManuallySet,
+        aiEnabled:
+          data.aiEnabled,
         phone:
           normalizedPhone ??
           existingCustomer.phone,

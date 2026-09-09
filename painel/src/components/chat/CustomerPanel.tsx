@@ -363,6 +363,8 @@ export default function CustomerPanel({
     responsibleId,
     setResponsibleId,
     attendanceStatus,
+    aiEnabled,
+    setAiEnabled,
     notes,
     setNotes,
     isLoadingCustomer,
@@ -728,6 +730,44 @@ export default function CustomerPanel({
                     setResponsibleId(userId);
                   }}
                 />
+
+                <div className="mt-6 rounded-xl border border-black/10 bg-black/[0.02] p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-[#171717]">
+                        IA autom&aacute;tica para este contato
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-black/45">
+                        Desative para manter mensagens e hist&oacute;rico normalmente, sem respostas autom&aacute;ticas da IA.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={aiEnabled}
+                      disabled={isLoadingCustomer || !canEditCrm}
+                      onClick={() => setAiEnabled(!aiEnabled)}
+                      className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                        aiEnabled ? "bg-[#0A9090]" : "bg-black/20"
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
+                      title={aiEnabled ? "IA automatica ativada" : "IA automatica desativada"}
+                    >
+                      <span
+                        className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
+                          aiEnabled ? "left-6" : "left-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-xs font-semibold">
+                    Status:{" "}
+                    <span className={aiEnabled ? "text-[#087B7B]" : "text-black/45"}>
+                      {aiEnabled ? "IA ativada" : "IA desativada"}
+                    </span>
+                  </p>
+                </div>
               </div>
             )}
 

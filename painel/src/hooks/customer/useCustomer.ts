@@ -13,6 +13,7 @@ type CustomerRecord = {
   remoteJid: string;
   name: string | null;
   nameManuallySet?: boolean;
+  aiEnabled: boolean;
   phone: string | null;
   company: string | null;
   city: string | null;
@@ -80,6 +81,11 @@ export default function useCustomer({
     setAttendanceStatus,
   ] = useState("IA");
 
+  const [
+    aiEnabled,
+    setAiEnabled,
+  ] = useState(true);
+
   const [notes, setNotes] =
     useState("");
 
@@ -144,6 +150,7 @@ export default function useCustomer({
     setResponsible("");
     setResponsibleId("");
     setAttendanceStatus("IA");
+    setAiEnabled(true);
     setNotes("");
     clearFeedback();
   }, [
@@ -237,6 +244,9 @@ export default function useCustomer({
           customer.status || "IA",
         );
 
+        setAiEnabled(
+          customer.aiEnabled !== false,
+        );
         setNotes(
           customer.observations ||
             "",
@@ -308,6 +318,7 @@ export default function useCustomer({
               notes,
             status:
               attendanceStatus,
+            aiEnabled,
           }),
         },
       );
@@ -359,6 +370,9 @@ export default function useCustomer({
         customer.status || "IA",
       );
 
+      setAiEnabled(
+        customer.aiEnabled !== false,
+      );
       setNotes(
         customer.observations ||
           "",
@@ -376,6 +390,7 @@ export default function useCustomer({
       responsible,
       notes,
       attendanceStatus,
+      aiEnabled,
     ]);
 
   const handleSaveCustomer =
@@ -500,6 +515,8 @@ export default function useCustomer({
     responsibleId,
     setResponsibleId,
     attendanceStatus,
+    aiEnabled,
+    setAiEnabled,
     notes,
     setNotes,
     isLoadingCustomer,

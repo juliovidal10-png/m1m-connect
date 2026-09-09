@@ -1053,6 +1053,28 @@ export const incomingMessagePipelineService = {
           resolvedSectorName,
       });
 
+      const customerAiControl =
+        await prisma.m1MCustomer.findFirst({
+          where: {
+            id: storedMessage.customerId,
+            companyId,
+          },
+          select: {
+            aiEnabled: true,
+          },
+        });
+
+      if (customerAiControl?.aiEnabled === false) {
+        return {
+          processed: true,
+          action:
+            "CUSTOMER_AI_DISABLED" as const,
+          messageId:
+            storedMessage.id,
+          router,
+        };
+      }
+
       if (
         router.requiresSectorIdentification &&
         normalizedMessage.type ===

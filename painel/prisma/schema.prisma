@@ -392,6 +392,7 @@ model M1MCustomer {
   remoteJid       String
   name            String?
   nameManuallySet Boolean   @default(false)
+  aiEnabled       Boolean   @default(true)
   phone           String?
   company         String?
   city            String?
@@ -683,3 +684,4 @@ model M1MLegalAcceptance {
   @@index([userId])
   @@map("m1m_legal_acceptances")
 }
+

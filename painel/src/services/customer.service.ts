@@ -9,6 +9,7 @@ export type SaveCustomerInput = {
   name?: string | null;
   customerCode?: number | null;
   nameManuallySet?: boolean;
+  aiEnabled?: boolean;
   phone?: string | null;
   company?: string | null;
   city?: string | null;
@@ -220,6 +221,8 @@ export const customerService = {
         input.nameManuallySet === true
           ? true
           : undefined,
+      aiEnabled:
+        input.aiEnabled,
       phone: input.phone,
       company: input.company,
       city: input.city,
