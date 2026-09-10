@@ -305,6 +305,10 @@ function applyDeterministicConversationGuard(
     return replyText;
   }
 
+  if (pureCourtesy) {
+    return "Por nada! Até mais!";
+  }
+
   const withoutQuestions =
     stripQuestionsForResolvedStage(replyText);
 
@@ -312,9 +316,7 @@ function applyDeterministicConversationGuard(
     return withoutQuestions;
   }
 
-  return pureCourtesy
-    ? "Por nada! Qualquer coisa, estou por aqui."
-    : "Perfeito! Combinado.";
+  return "Perfeito! Combinado.";
 }
 export const openAIProviderService = {
   async classifyMessageReadiness(input: {
