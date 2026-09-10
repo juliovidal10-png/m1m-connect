@@ -203,6 +203,119 @@ function parseStructuredResponse(
   };
 }
 
+function extractCurrentCustomerMessage(userPrompt: string) {
+  const marker = "MENSAGEM ATUAL DO CLIENTE:";
+  const markerIndex = userPrompt.lastIndexOf(marker);
+
+  return markerIndex < 0
+    ? ""
+    : userPrompt.slice(markerIndex + marker.length).trim();
+}
+
+function normalizeBehaviorText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9?\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasExplicitNewRequest(value: string) {
+  const normalized = normalizeBehaviorText(value);
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (value.includes("?")) {
+    return true;
+  }
+
+  return /\b(qual|quais|como|quando|onde|porque|por que|pra que|para que|quanto|quantos|quanta|quantas|quem)\b/.test(
+    normalized,
+  );
+}
+
+function isPureCourtesyWithoutNewRequest(value: string) {
+  if (hasExplicitNewRequest(value)) {
+    return false;
+  }
+
+  const normalized = normalizeBehaviorText(value);
+
+  return /^(obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa]|obrigad[oa] demais|valeu demais)$/.test(
+    normalized,
+  );
+}
+
+function isStrongContextualConfirmationWithoutNewRequest(value: string) {
+  if (hasExplicitNewRequest(value)) {
+    return false;
+  }
+
+  const normalized = normalizeBehaviorText(value);
+
+  if (!normalized || /^(sim|ok|okay|blz|beleza|feito)$/.test(normalized)) {
+    return false;
+  }
+
+  return (
+    /^(sim|ok|okay|blz|beleza|perfeito|certo|combinado|feito|confirmo)\b/.test(
+      normalized,
+    ) &&
+    /\b(vou|irei|envio|enviar|mando|mandar|faco|fazer|pode deixar|confirmo|ja fiz|feito)\b/.test(
+      normalized,
+    )
+  ) ||
+    /\b(vou enviar|vou mandar|irei enviar|irei mandar|envio sim|mando sim|pode deixar|ja fiz|confirmo)\b/.test(
+      normalized,
+    );
+}
+
+function stripQuestionsForResolvedStage(value: string) {
+  const parts = value
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts
+    .filter((part) => !part.includes("?"))
+    .join(" ")
+    .trim();
+}
+
+function applyDeterministicConversationGuard(
+  replyText: string,
+  userPrompt: string,
+) {
+  const currentMessage = extractCurrentCustomerMessage(userPrompt);
+
+  if (!currentMessage) {
+    return replyText;
+  }
+
+  const pureCourtesy =
+    isPureCourtesyWithoutNewRequest(currentMessage);
+  const strongConfirmation =
+    isStrongContextualConfirmationWithoutNewRequest(currentMessage);
+
+  if (!pureCourtesy && !strongConfirmation) {
+    return replyText;
+  }
+
+  const withoutQuestions =
+    stripQuestionsForResolvedStage(replyText);
+
+  if (withoutQuestions) {
+    return withoutQuestions;
+  }
+
+  return pureCourtesy
+    ? "Por nada! Qualquer coisa, estou por aqui."
+    : "Perfeito! Combinado.";
+}
 export const openAIProviderService = {
   async classifyMessageReadiness(input: {
     recentCustomerMessages: string[];
@@ -588,6 +701,14 @@ export const openAIProviderService = {
           "MENSAGEM / CONTEXTO DO CLIENTE:",
           userPrompt,
           "",
+          "REGRAS COMPORTAMENTAIS OBRIGATORIAS:",
+          "Pedido atual explicito tem prioridade. Se houver novo pedido, responda-o mesmo que a mensagem tambem contenha agradecimento.",
+          "Se a resposta ja puder resolver o pedido atual, responda e PARE; nao crie pergunta, oferta, qualificacao ou proximo passo desnecessario.",
+          "Confirmacao contextual de pergunta/acao anterior deve ser reconhecida sem repetir a solicitacao. 'Sim' isolado diante de alternativas ou contexto ambiguo exige esclarecimento, nao escolha automatica.",
+          "Agradecimento sem novo pedido deve terminar cordialmente e sem pergunta.",
+          "Em conversa ja iniciada, nao se reapresente nem reinicie identidade, empresa ou menu.",
+          "Use o historico recente CLIENTE/ATENDIMENTO para continuidade e para nao repetir pergunta ja respondida.",
+          "",
           "RESPOSTA CANDIDATA:",
           structuredResponse.replyText,
         ].join("\n"),
@@ -657,9 +778,10 @@ export const openAIProviderService = {
         "A OpenAI retornou uma revisao factual invalida.",
       );
     }
-
-    const guardedReplyText =
-      guardedReplyTextRaw.trim();
+    const guardedReplyText = applyDeterministicConversationGuard(
+      guardedReplyTextRaw.trim(),
+      userPrompt,
+    );
 
     if (!guardedReplyText) {
       throw new Error(
