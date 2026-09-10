@@ -1237,6 +1237,7 @@ export const incomingMessagePipelineService = {
           }
         }
       }
+      let ambiguousSectorAffirmation = false;
       if (
         router.requiresSectorIdentification &&
         normalizedMessage.type === M1MMessageType.TEXT
@@ -1244,6 +1245,22 @@ export const incomingMessagePipelineService = {
         const conversationalMessage = normalizedMessage.content?.trim() ?? "";
 
         if (conversationalMessage) {
+          const normalizedSectorReply = conversationalMessage
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim()
+            .toLowerCase();
+
+          ambiguousSectorAffirmation = new Set([
+            "sim",
+            "ok",
+            "okay",
+            "blz",
+            "beleza",
+            "certo",
+            "isso",
+            "isso mesmo",
+          ]).has(normalizedSectorReply);
           const recentConversationalMessages = (
             await messageService.listMessagesByAttendance(router.attendanceId)
           ).slice(-AI_CONVERSATION_HISTORY_LIMIT);
@@ -1273,7 +1290,8 @@ export const incomingMessagePipelineService = {
           const shouldHandleConversationalIntent =
             conversationalIntent.intent === "CLOSING" ||
             (conversationalIntent.intent === "SOCIAL" &&
-              Boolean(conversationalHistory));
+              Boolean(conversationalHistory) &&
+              !ambiguousSectorAffirmation);
 
           if (shouldHandleConversationalIntent) {
             const replyText = conversationalIntent.replyText;
@@ -1360,6 +1378,18 @@ const menuAlreadyShownInCurrentCycle =
                 sectorMenuMessage,
               )
             : false;
+        const availableSectorNames = (router.availableSectors ?? [])
+          .map((sector) => sector.name.trim())
+          .filter(Boolean);
+
+        const formattedAvailableSectorNames =
+          availableSectorNames.length === 2
+            ? `${availableSectorNames[0]} ou ${availableSectorNames[1]}`
+            : availableSectorNames.length > 2
+              ? `${availableSectorNames.slice(0, -1).join(", ")} ou ${
+                  availableSectorNames[availableSectorNames.length - 1]
+                }`
+              : availableSectorNames[0] ?? "";
 
         const multipleIntentSectorNames =
           router.multipleIntentSelectionRequired
@@ -1385,7 +1415,11 @@ const menuAlreadyShownInCurrentCycle =
               : multipleIntentSectorNames[0] ?? "";
 
         const responseMessage =
-          router.multipleIntentSelectionRequired &&
+          ambiguousSectorAffirmation &&
+          menuAlreadyShownInCurrentCycle &&
+          availableSectorNames.length > 1
+            ? `Entendi. Qual setor você prefere: ${formattedAvailableSectorNames}?`
+            : router.multipleIntentSelectionRequired &&
           multipleIntentSectorNames.length > 1
             ? `Entendi que você quer tratar de ${formattedMultipleIntentSectors}. Qual desses assuntos você prefere resolver primeiro?`
             : menuAlreadyShownInCurrentCycle
