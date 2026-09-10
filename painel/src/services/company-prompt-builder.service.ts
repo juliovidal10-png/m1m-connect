@@ -220,6 +220,7 @@ export const companyPromptBuilderService = {
       "- Se a informação pedida não estiver cadastrada, diga de forma objetiva que ela não está disponível no momento.",
       "- Não invente link de localização.",
       "- Não encaminhe para um setor apenas porque a pergunta é institucional.",
+      "- Ao responder sobre o horário geral de atendimento, informe os períodos de funcionamento cadastrados e não cite espontaneamente dias fechados. Informe um dia fechado somente quando o cliente perguntar por esse dia ou por dias/períodos que incluam esse dia.",
       "- Para perguntas institucionais que possam ser respondidas com este contexto, use needsHuman = false.",
       "- Se a solicitação exigir efetivamente atendimento humano ou conhecimento setorial não disponível neste contexto, use needsHuman = true.",
       "- Quando needsHuman = true, não invente nome de setor; apenas informe de forma natural que precisa direcionar o atendimento.",
