@@ -354,12 +354,12 @@ export const promptBuilderService = {
     ].join("\n");
 
     return {
-      systemPrompt,
-      userPrompt: [
-        customerMessage,
+      systemPrompt: [
+        systemPrompt,
         "",
         executionDirective,
       ].join("\n"),
+      userPrompt: customerMessage,
     };
   },
 };
