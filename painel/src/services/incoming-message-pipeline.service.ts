@@ -317,7 +317,7 @@ export const incomingMessagePipelineService = {
         });
       }
 
-      const T2_INITIAL_QUIET_MS = 900;
+      const T2_INITIAL_QUIET_MS = 1_200;
       const T2_INCOMPLETE_EXTENSION_MS = 8_500;
 
       const wait = async (milliseconds: number) => {
