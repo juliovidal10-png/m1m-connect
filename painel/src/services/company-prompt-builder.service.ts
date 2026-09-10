@@ -69,6 +69,7 @@ function buildKnowledge(
 
 function buildSchedules(
   context: CompanyInformationContext,
+  customerMessage: string,
 ) {
   const weekdayNames: Record<
     string,
@@ -83,6 +84,34 @@ function buildSchedules(
     SUNDAY: "Domingo",
   };
 
+  const normalizedCustomerMessage = customerMessage
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const asksAboutClosedDays =
+    /\b(fecha|fechado|fechada|nao abre|nao funciona)\b/.test(
+      normalizedCustomerMessage,
+    );
+  const asksAboutWeekend =
+    /\bfim de semana\b/.test(normalizedCustomerMessage);
+  const requestedDays = new Set<string>();
+  const dayTerms: Record<string, string[]> = {
+    MONDAY: ["segunda", "segunda-feira"],
+    TUESDAY: ["terca", "terca-feira"],
+    WEDNESDAY: ["quarta", "quarta-feira"],
+    THURSDAY: ["quinta", "quinta-feira"],
+    FRIDAY: ["sexta", "sexta-feira"],
+    SATURDAY: ["sabado"],
+    SUNDAY: ["domingo"],
+  };
+
+  for (const [dayOfWeek, terms] of Object.entries(dayTerms)) {
+    if (terms.some((term) => normalizedCustomerMessage.includes(term))) {
+      requestedDays.add(dayOfWeek);
+    }
+  }
+
   const lines =
     context.schedules.map(
       (schedule) => {
@@ -93,7 +122,16 @@ function buildSchedules(
           schedule.dayOfWeek;
 
         if (!schedule.enabled) {
-          return `${day}: fechado.`;
+          const shouldMentionClosedDay =
+            asksAboutClosedDays ||
+            requestedDays.has(schedule.dayOfWeek) ||
+            (asksAboutWeekend &&
+              (schedule.dayOfWeek === "SATURDAY" ||
+                schedule.dayOfWeek === "SUNDAY"));
+
+          return shouldMentionClosedDay
+            ? `${day}: fechado.`
+            : "";
         }
 
         if (schedule.allDay) {
@@ -114,7 +152,7 @@ function buildSchedules(
 
         return `${day}: ${firstPeriod}${secondPeriod}.`;
       },
-    );
+    ).filter(Boolean);
 
   return lines.length > 0
     ? lines.join("\n")
@@ -240,6 +278,7 @@ export const companyPromptBuilderService = {
       "HORÁRIOS GERAIS DA EMPRESA",
       buildSchedules(
         input.context,
+        input.customerMessage,
       ),
       "",
       "PAGAMENTO",
