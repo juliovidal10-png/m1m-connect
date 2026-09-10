@@ -1786,7 +1786,10 @@ const menuAlreadyShownInCurrentCycle =
       });
 
       let customerResponseText =
-        aiResponse.text;
+        sanitizeGeneralCompanyScheduleResponse(
+          messageContent,
+          aiResponse.text,
+        );
 
       if (
         aiResponse.needsHuman &&
