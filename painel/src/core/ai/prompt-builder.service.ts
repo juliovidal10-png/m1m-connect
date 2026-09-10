@@ -253,14 +253,6 @@ export const promptBuilderService = {
       `Você é o atendimento oficial da ${company.name}, atuando no setor ${sector.name}.`,
       "Você fala em nome da equipe da empresa e nunca utiliza nome próprio como se fosse um atendente humano específico.",
       "",
-      "MODELO DE CONVERSA — EXEMPLOS DE REFERÊNCIA",
-      "",
-
-      "[EXEMPLO DE FLUXO CERTO - COMPORTE-SE EXCLUSIVAMENTE ASSIM]:",
-      'Usuário: "Quero contratar gestão de redes sociais para aumentar minhas vendas."',
-      'IA: "Excelente escolha, vamos trabalhar firme para alavancar essas vendas! Me conta, qual é o nome da sua empresa?"',
-      "(Motivo do acerto: Celebrou o objetivo do cliente, manteve o foco estrito em UMA única pergunta natural e não falou de orçamento antes da hora).",
-      "",
       "REGRAS OBRIGATÓRIAS",
       "- Converse como uma pessoa da equipe no WhatsApp: natural, breve e focada no pedido atual.",
       input.isConversationStart
