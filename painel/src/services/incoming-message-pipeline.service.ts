@@ -138,6 +138,43 @@ function appendConversationHistoryToUserPrompt(
   ].join("\n");
 }
 
+function isGeneralCompanyScheduleQuestion(
+  value: string | null | undefined,
+) {
+  const normalized = normalizeSearchText(value);
+
+  const asksSchedule =
+    /\b(horario|horarios|funcionamento)\b/.test(normalized) ||
+    /\bque horas (abre|abrem|fecha|fecham)\b/.test(normalized) ||
+    /\babre que horas\b/.test(normalized) ||
+    /\bfecha que horas\b/.test(normalized);
+
+  if (!asksSchedule) {
+    return false;
+  }
+
+  return !/\b(segunda|terca|quarta|quinta|sexta|sabado|domingo|hoje|amanha|fim de semana)\b/.test(
+    normalized,
+  );
+}
+
+function sanitizeGeneralCompanyScheduleResponse(
+  customerMessage: string,
+  responseText: string,
+) {
+  if (!isGeneralCompanyScheduleQuestion(customerMessage)) {
+    return responseText;
+  }
+
+  return responseText
+    .replace(
+      /(?:\s*[,;]\s*|\s+)(?:segunda(?:-feira)?|terça(?:-feira)?|quarta(?:-feira)?|quinta(?:-feira)?|sexta(?:-feira)?|sábado|domingo)\s*:?\s*(?:está\s+)?fechad[oa](?:\.|$)/giu,
+      "",
+    )
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim();
+}
 function isControlledHumanHandoffCourtesy(
   value: string | null | undefined,
 ) {
@@ -1158,6 +1195,12 @@ export const incomingMessagePipelineService = {
             needsHuman: companyAiResponse.needsHuman,
           });
 
+          const companyResponseText =
+            sanitizeGeneralCompanyScheduleResponse(
+              institutionalMessage,
+              companyAiResponse.text,
+            );
+
           if (
             !companyAiResponse.needsHuman
           ) {
@@ -1170,7 +1213,7 @@ export const incomingMessagePipelineService = {
                   storedMessage.id,
                 router,
                 simulatedMessage:
-                  companyAiResponse.text,
+                  companyResponseText,
                 ai: {
                   model:
                     companyAiResponse.model,
@@ -1203,7 +1246,7 @@ export const incomingMessagePipelineService = {
               remoteJid:
                 normalizedMessage.remoteJid,
               text:
-                companyAiResponse.text,
+                companyResponseText,
               sourceMessageId:
                 storedMessage.id,
             });
