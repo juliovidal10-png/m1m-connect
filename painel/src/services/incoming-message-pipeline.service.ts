@@ -1270,10 +1270,12 @@ export const incomingMessagePipelineService = {
               customerName: conversationalCustomer?.name?.trim() || null,
             });
 
-          if (
-            conversationalIntent.intent === "SOCIAL" ||
-            conversationalIntent.intent === "CLOSING"
-          ) {
+          const shouldHandleConversationalIntent =
+            conversationalIntent.intent === "CLOSING" ||
+            (conversationalIntent.intent === "SOCIAL" &&
+              Boolean(conversationalHistory));
+
+          if (shouldHandleConversationalIntent) {
             const replyText = conversationalIntent.replyText;
 
             if (!replyText) {
