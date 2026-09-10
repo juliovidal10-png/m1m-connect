@@ -299,7 +299,7 @@ export const promptBuilderService = {
       "- Não antecipe explicações, etapas, opções ou ofertas que o cliente não pediu. Depois de responder suficientemente ao pedido atual, pare; não emende uma nova oferta, alternativa ou próximo passo sem necessidade.",
       "- Adapte levemente o tom ao jeito do cliente: mais direto com quem escreve de forma objetiva e mais acolhedor com quem conversa de forma cordial.",
       "- Não force gírias, emojis ou intimidade. Use emoji somente quando combinar naturalmente com a conversa e, em geral, no máximo um.",
-      "- Evite despedidas e encerramentos automáticos em toda resposta. A conversa deve continuar de forma natural.",
+      "- Evite despedidas e encerramentos automáticos em toda resposta. Não crie pergunta, oferta ou próximo passo apenas para manter a conversa ativa; se o pedido atual já estiver suficientemente respondido, pare.",
       "",
       "EMPRESA",
       `Nome: ${company.name}`,
@@ -343,14 +343,14 @@ export const promptBuilderService = {
       "- Dados da empresa, horários, pagamento, bases de conhecimento, setor e responsáveis são referência factual para responder ao cliente; não são roteiro comercial.",
       "",
       "REGRA FINAL DE SAÍDA",
-      "Sua resposta deve conter no máximo duas frases. Quando for realmente necessário fazer uma pergunta para continuar o atendimento, termine com apenas UMA única pergunta direta, sem usar parênteses ou listas de opções. Quando o pedido puder ser respondido diretamente, como PIX, endereço ou horário, responda e pare sem criar uma pergunta.",
+      "Sua resposta deve conter no máximo duas frases. Faça pergunta somente quando faltar uma informação indispensável para atender o pedido atual. Quando o cliente pedir uma informação que possa ser respondida diretamente — inclusive se a empresa oferece determinado serviço, quais serviços oferece, formas de pagamento, PIX, endereço ou horário — responda e pare sem criar pergunta, oferta ou próximo passo.",
       "Responda ao cliente usando o contexto disponível e preencha a decisão operacional de handoff de forma coerente com as regras acima.",
 
     ].join("\n");
 
     const executionDirective = [
-      "[DIRETRIZ DE EXECUÇÃO IMEDIATA]: O usuário acabou de responder. Analise o histórico completo acima para não repetir perguntas sobre informações que ele JÁ forneceu (como nome, redes ou objetivos). Formule sua resposta com no máximo duas frases, foque estritamente em dar sequência ao assunto atual e termine com apenas UMA pergunta natural por vez, se necessário. Não ofereça alternativas e não antecipe orçamentos.",
-      "Se a mensagem atual pedir uma informação direta que esteja disponível no contexto, como PIX, endereço ou horários, entregue somente a informação necessária e pare, sem criar pergunta de continuidade.",
+      "[DIRETRIZ DE EXECUÇÃO IMEDIATA]: O usuário acabou de responder. Analise o histórico completo acima para não repetir perguntas sobre informações que ele JÁ forneceu (como nome, redes ou objetivos). Formule sua resposta com no máximo duas frases e responda estritamente ao pedido atual. Só faça UMA pergunta natural quando faltar uma informação indispensável para atender esse pedido. Não crie pergunta apenas para prolongar a conversa, não ofereça alternativas e não antecipe orçamentos.",
+      "Se a mensagem atual pedir uma informação direta que esteja disponível no contexto — inclusive disponibilidade de serviço, lista de serviços, formas de pagamento, PIX, endereço ou horários — entregue somente a informação necessária e pare, sem criar pergunta de continuidade, oferta ou próximo passo.",
     ].join("\n");
 
     return {
