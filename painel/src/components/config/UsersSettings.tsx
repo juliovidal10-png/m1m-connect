@@ -418,13 +418,13 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
         await navigator.clipboard.writeText(inviteUrl);
 
         setSuccess(
-          `Convite de ${user.name} copiado. O link é válido por 24 horas.`,
+          `Novo convite de ${user.name} copiado. O link é válido por 24 horas e invalida qualquer convite anterior ainda válido.`,
         );
       } catch {
         window.prompt(`Copie o convite de ${user.name}:`, inviteUrl);
 
         setSuccess(
-          `Novo convite de ${user.name} gerado. O link é válido por 24 horas.`,
+          `Novo convite de ${user.name} gerado. O link é válido por 24 horas e invalida qualquer convite anterior ainda válido.`,
         );
       }
     } catch (inviteError) {
@@ -753,7 +753,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
                         onClick={() => void generateAndCopyInvite(user)}
                         className="rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {isProcessing ? "Gerando..." : "Gerar/Copiar convite"}
+                        {isProcessing ? "Gerando..." : "Gerar novo convite"}
                       </button>
                     )}
 
