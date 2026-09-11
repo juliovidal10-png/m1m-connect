@@ -341,6 +341,49 @@ function keepOnlyFirstRequestedInformation(
     .trim();
 }
 
+function keepOnlyUnsupportedServiceAnswer(
+  replyText: string,
+  currentMessage: string,
+) {
+  const normalizedMessage =
+    currentMessage
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  const asksServiceAvailability =
+    /\b(voces|a empresa|a loja)\s+(fazem|faz|oferecem|oferece|prestam|presta|trabalham com|trabalha com)\b/.test(
+      normalizedMessage,
+    );
+
+  if (!asksServiceAvailability) {
+    return replyText;
+  }
+
+  const normalizedReply =
+    replyText
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const isNegativeServiceAnswer =
+    /^(nao fazemos|nao oferecemos|nao prestamos|nao trabalhamos com|esse servico nao|essa informacao nao|o servico nao)/.test(
+      normalizedReply,
+    );
+
+  if (!isNegativeServiceAnswer) {
+    return replyText;
+  }
+
+  const firstSentenceMatch =
+    replyText.match(/^.*?[.!](?:\s|$)/);
+
+  return firstSentenceMatch
+    ? firstSentenceMatch[0].trim()
+    : replyText;
+}
+
 function applyDeterministicConversationGuard(
   replyText: string,
   userPrompt: string,
@@ -358,7 +401,10 @@ function applyDeterministicConversationGuard(
 
   if (!pureCourtesy && !strongConfirmation) {
     return keepOnlyFirstRequestedInformation(
-      replyText,
+      keepOnlyUnsupportedServiceAnswer(
+        replyText,
+        currentMessage,
+      ),
     );
   }
 
