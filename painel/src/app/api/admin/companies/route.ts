@@ -1,4 +1,4 @@
-﻿import {
+import {
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -12,6 +12,15 @@ import {
 import {
   prisma,
 } from "@/lib/prisma";
+import {
+  accessTokenService,
+} from "@/services/auth/access-token.service";
+
+const FIRST_ACCESS_PURPOSE =
+  "FIRST_ACCESS";
+
+const FIRST_ACCESS_TTL_MINUTES =
+  24 * 60;
 
 function getErrorMessage(
   error: unknown,
@@ -32,7 +41,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          "Acesso administrativo nÃ£o autorizado.",
+          "Acesso administrativo não autorizado.",
       },
       {
         status: 401,
@@ -115,6 +124,7 @@ export async function GET(
           role: true,
           active: true,
           isPrimary: true,
+          passwordHash: true,
         },
       }),
 
@@ -352,6 +362,9 @@ export async function GET(
                       admin.email,
                     active:
                       admin.active,
+                    firstAccessPending:
+                      admin.passwordHash ===
+                      null,
                   }
                 : null,
           };
@@ -460,7 +473,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Acesso administrativo nÃ£o autorizado.",
+          "Acesso administrativo não autorizado.",
       },
       {
         status: 401,
@@ -525,7 +538,7 @@ export async function POST(
 
     const conflict =
       message.includes(
-        "JÃ¡ existe",
+        "Já existe",
       );
 
     return NextResponse.json(
@@ -538,6 +551,161 @@ export async function POST(
           conflict
             ? 409
             : 400,
+      },
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+) {
+  if (
+    !adminAuthService.isAuthorizedRequest(
+      request,
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Acesso administrativo não autorizado.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  try {
+    const body =
+      await request.json();
+
+    const companyId =
+      typeof body.companyId === "string"
+        ? body.companyId.trim()
+        : "";
+
+    const action =
+      typeof body.action === "string"
+        ? body.action.trim()
+        : "";
+
+    if (!companyId) {
+      throw new Error(
+        "Empresa não informada.",
+      );
+    }
+
+    if (
+      action !==
+      "REGENERATE_FIRST_ACCESS"
+    ) {
+      throw new Error(
+        "Ação administrativa inválida.",
+      );
+    }
+
+    const company =
+      await prisma.m1MCompany.findUnique({
+        where: {
+          id: companyId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    if (!company) {
+      return NextResponse.json(
+        {
+          error:
+            "Empresa não encontrada.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const companyUsers =
+      await prisma.m1MUser.findMany({
+        where: {
+          companyId,
+        },
+        select: {
+          id: true,
+          role: true,
+          active: true,
+          isPrimary: true,
+          passwordHash: true,
+        },
+      });
+
+    const admin =
+      companyUsers.find(
+        (user) =>
+          user.isPrimary,
+      ) ??
+      companyUsers.find(
+        (user) =>
+          user.role === "ADMIN" &&
+          user.active,
+      ) ??
+      companyUsers.find(
+        (user) =>
+          user.role === "ADMIN",
+      ) ??
+      null;
+
+    if (!admin) {
+      return NextResponse.json(
+        {
+          error:
+            "Administrador da empresa não encontrado.",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    if (admin.passwordHash) {
+      return NextResponse.json(
+        {
+          error:
+            "O administrador já concluiu o primeiro acesso.",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    const firstAccess =
+      await accessTokenService.createToken(
+        admin.id,
+        FIRST_ACCESS_PURPOSE,
+        FIRST_ACCESS_TTL_MINUTES,
+      );
+
+    return NextResponse.json({
+      success: true,
+      firstAccess,
+    });
+  } catch (error) {
+    console.error(
+      "ERRO ADMIN COMPANY FIRST ACCESS PATCH:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          getErrorMessage(
+            error,
+          ),
+      },
+      {
+        status: 400,
       },
     );
   }

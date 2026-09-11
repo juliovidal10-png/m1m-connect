@@ -1,4 +1,4 @@
-﻿import {
+import {
   M1MSubscriptionStatus,
   M1MUserRole,
 } from "@/generated/prisma/enums";
@@ -12,6 +12,9 @@ const TRIAL_DURATION_MS =
 
 const FIRST_ACCESS_PURPOSE =
   "FIRST_ACCESS";
+
+const FIRST_ACCESS_TTL_MINUTES =
+  24 * 60;
 
 export type ProvisionCompanyInput = {
   companyName: string;
@@ -37,7 +40,7 @@ function requireText(
 
   if (!normalized) {
     throw new Error(
-      `${fieldName} é obrigatório.`,
+      `${fieldName} � obrigat�rio.`,
     );
   }
 
@@ -69,7 +72,7 @@ function normalizeEmail(
     )
   ) {
     throw new Error(
-      `${fieldName} inválido.`,
+      `${fieldName} inv�lido.`,
     );
   }
 
@@ -108,7 +111,7 @@ function normalizeSlug(
 
   if (!candidate) {
     throw new Error(
-      "Não foi possível gerar o identificador da empresa.",
+      "N�o foi poss�vel gerar o identificador da empresa.",
     );
   }
 
@@ -175,13 +178,13 @@ export const adminCompanyProvisioningService = {
 
     if (existingCompanyBySlug) {
       throw new Error(
-        "Já existe uma empresa com este identificador.",
+        "J� existe uma empresa com este identificador.",
       );
     }
 
     if (existingAdminEmail) {
       throw new Error(
-        "Já existe um usuário com este e-mail.",
+        "J� existe um usu�rio com este e-mail.",
       );
     }
 
@@ -281,6 +284,7 @@ export const adminCompanyProvisioningService = {
       await accessTokenService.createToken(
         result.admin.id,
         FIRST_ACCESS_PURPOSE,
+        FIRST_ACCESS_TTL_MINUTES,
       );
 
     return {

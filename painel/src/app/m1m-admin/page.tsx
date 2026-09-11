@@ -50,6 +50,7 @@ type AdminCompany = {
       string | null;
     email: string;
     active: boolean;
+    firstAccessPending: boolean;
   } | null;
 };
 
@@ -528,6 +529,13 @@ export default function M1MAdminPage() {
     creatingCompany,
     setCreatingCompany,
   ] = useState(false);
+
+  const [
+    regeneratingInviteCompanyId,
+    setRegeneratingInviteCompanyId,
+  ] = useState<
+    string | null
+  >(null);
 
   const [
     createCompanyError,
@@ -2350,6 +2358,90 @@ const [
     setShowCreateCompany(false);
   }
 
+  async function handleRegenerateFirstAccess(
+    company: AdminCompany,
+  ) {
+    if (
+      !company.admin ||
+      !company.admin.firstAccessPending
+    ) {
+      return;
+    }
+
+    setCompaniesError(
+      null,
+    );
+    setRegeneratingInviteCompanyId(
+      company.id,
+    );
+
+    try {
+      const response =
+        await fetch(
+          "/api/admin/companies",
+          {
+            method:
+              "PATCH",
+            headers: {
+              "content-type":
+                "application/json",
+            },
+            body:
+              JSON.stringify({
+                companyId:
+                  company.id,
+                action:
+                  "REGENERATE_FIRST_ACCESS",
+              }),
+          },
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Não foi possível regenerar o convite.",
+        );
+      }
+
+      const firstAccessToken =
+        typeof data?.firstAccess?.token ===
+        "string"
+          ? data.firstAccess.token
+          : "";
+
+      if (!firstAccessToken) {
+        throw new Error(
+          "O novo link de primeiro acesso não foi retornado.",
+        );
+      }
+
+      const firstAccessUrl =
+        `${window.location.origin}/primeiro-acesso?token=${encodeURIComponent(firstAccessToken)}`;
+
+      window.prompt(
+        "Novo convite gerado com sucesso. O convite anterior foi invalidado. Copie o novo link de primeiro acesso do administrador:",
+        firstAccessUrl,
+      );
+
+      await loadCompanies();
+    } catch (
+      regenerateError
+    ) {
+      setCompaniesError(
+        regenerateError instanceof Error
+          ? regenerateError.message
+          : "Não foi possível regenerar o convite.",
+      );
+    } finally {
+      setRegeneratingInviteCompanyId(
+        null,
+      );
+    }
+  }
+
   async function handleCreateCompany(
     event:
       FormEvent<HTMLFormElement>,
@@ -2913,7 +3005,28 @@ setCreatingCompany(
                             </div>
                           </div>
 
-                          <div className="lg:text-right">
+                          <div className="flex flex-wrap gap-2 lg:justify-end">
+                            {company.admin?.firstAccessPending && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  void handleRegenerateFirstAccess(
+                                    company,
+                                  )
+                                }
+                                disabled={
+                                  regeneratingInviteCompanyId ===
+                                  company.id
+                                }
+                                className="h-10 rounded-xl border border-[#0A9090]/20 bg-[#0A9090]/5 px-4 text-xs font-bold text-[#087B7B] transition hover:border-[#0A9090]/35 hover:bg-[#0A9090]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {regeneratingInviteCompanyId ===
+                                company.id
+                                  ? "Gerando..."
+                                  : "Regerar convite"}
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() =>
