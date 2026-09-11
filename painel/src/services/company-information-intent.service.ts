@@ -1,4 +1,4 @@
-﻿function normalizeIntentText(
+function normalizeIntentText(
   value: string,
 ) {
   return value
@@ -54,6 +54,9 @@ const companyInformationPatterns = [
   /\bcontato\b/,
   /\bquem (?:sao|e) voces\b/,
   /\bo que (?:voces fazem|a empresa faz)\b/,
+  /\bvoces (?:fazem|oferecem|prestam|trabalham com)\b/,
+  /\ba empresa (?:faz|oferece|presta|trabalha com)\b/,
+  /\ba loja (?:faz|oferece|presta|trabalha com)\b/,
   /\bservicos\b/,
   /\bprodutos\b/,
   /\bdiferenciais\b/,
