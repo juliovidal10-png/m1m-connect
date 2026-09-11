@@ -286,6 +286,61 @@ function stripQuestionsForResolvedStage(value: string) {
     .trim();
 }
 
+function keepOnlyFirstRequestedInformation(
+  replyText: string,
+) {
+  const firstQuestionMark =
+    replyText.indexOf("?");
+
+  if (firstQuestionMark < 0) {
+    return replyText;
+  }
+
+  const throughFirstQuestion =
+    replyText
+      .slice(0, firstQuestionMark + 1)
+      .trim();
+
+  const questionStart =
+    Math.max(
+      throughFirstQuestion.lastIndexOf("."),
+      throughFirstQuestion.lastIndexOf("!"),
+      throughFirstQuestion.lastIndexOf("\n"),
+    ) + 1;
+
+  const prefix =
+    throughFirstQuestion
+      .slice(0, questionStart)
+      .trim();
+
+  let question =
+    throughFirstQuestion
+      .slice(questionStart)
+      .trim();
+
+  const compoundQuestionPattern =
+    /\s+e\s+(qual(?:\s|$)|quais(?:\s|$)|quando(?:\s|$)|onde(?:\s|$)|como(?:\s|$)|quem(?:\s|$)|quanto(?:s|a|as)?(?:\s|$)|por\s+que(?:\s|$)|você(?:\s|$)|voce(?:\s|$))/i;
+
+  const compoundMatch =
+    compoundQuestionPattern.exec(question);
+
+  if (
+    compoundMatch &&
+    typeof compoundMatch.index === "number"
+  ) {
+    question =
+      `${question.slice(0, compoundMatch.index).trim()}?`;
+  }
+
+  return [
+    prefix,
+    question,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
 function applyDeterministicConversationGuard(
   replyText: string,
   userPrompt: string,
@@ -302,7 +357,9 @@ function applyDeterministicConversationGuard(
     isStrongContextualConfirmationWithoutNewRequest(currentMessage);
 
   if (!pureCourtesy && !strongConfirmation) {
-    return replyText;
+    return keepOnlyFirstRequestedInformation(
+      replyText,
+    );
   }
 
   if (pureCourtesy) {
