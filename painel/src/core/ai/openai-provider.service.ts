@@ -245,7 +245,7 @@ function isPureCourtesyWithoutNewRequest(value: string) {
 
   const normalized = normalizeBehaviorText(value);
 
-  return /^(obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa]|obrigad[oa] demais|valeu demais)$/.test(
+  return /^(?:(?:perfeito|certo|beleza|combinado|ok|okay)[,\s]+)?(obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa]|obrigad[oa] demais|valeu demais)$/.test(
     normalized,
   );
 }
