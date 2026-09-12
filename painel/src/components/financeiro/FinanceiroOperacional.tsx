@@ -997,7 +997,7 @@ function Info({
   value: string;
 }) {
   return (
-    <div className="self-start rounded-xl bg-black/[0.025] px-3 py-2">
+    <div className="rounded-xl bg-black/[0.025] px-3 py-2">
       <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-black/35">
         {label}
       </p>
