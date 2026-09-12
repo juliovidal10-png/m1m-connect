@@ -344,7 +344,7 @@ export default function Sidebar() {
     );
 
   return (
-    <aside className="flex h-screen min-h-0 w-72 shrink-0 flex-col overflow-hidden border-r border-black/10 bg-white">
+    <aside className="flex h-screen h-dvh min-h-0 w-72 shrink-0 flex-col overflow-hidden border-r border-black/10 bg-white">
       <div className="flex h-[94px] w-full shrink-0 items-center justify-center px-4">
         <img
           src="/m1m-sidebar-logo.svg"
