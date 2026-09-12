@@ -810,13 +810,18 @@ export default function FinanceiroOperacional() {
                         }
                       />
 
-                      <Info
-                        label="Banco"
-                        value={
-                          receipt.identifiedBank ||
-                          "Não informado"
-                        }
-                      />
+                      <div className="min-w-0 rounded-xl bg-black/[0.025] px-3 py-2">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.08em] text-black/35">
+                          Banco
+                        </p>
+
+                        <p
+                          className="mt-1 truncate text-xs font-semibold text-black/65"
+                          title={receipt.identifiedBank || "Não informado"}
+                        >
+                          {receipt.identifiedBank || "Não informado"}
+                        </p>
+                      </div>
 
                       <Info
                         label="Recebido"
