@@ -344,7 +344,7 @@ export default function Sidebar() {
     );
 
   return (
-    <aside className="flex h-screen h-dvh min-h-0 w-72 shrink-0 flex-col overflow-hidden border-r border-black/10 bg-white">
+    <aside className="grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white">
       <div className="flex h-[94px] w-full shrink-0 items-center justify-center px-4">
         <img
           src="/m1m-sidebar-logo.svg"
@@ -354,7 +354,7 @@ export default function Sidebar() {
       </div>
       <div className="h-px w-full shrink-0 bg-[#d9dde2]" aria-hidden="true" />
 
-      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
+      <nav className="min-h-0 overflow-y-auto overscroll-contain px-3 py-4">
         <div className="space-y-5">
           {menuSections.map((section) => (
             <section key={section.title}>
