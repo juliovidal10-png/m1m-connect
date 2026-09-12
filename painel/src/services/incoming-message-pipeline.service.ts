@@ -355,7 +355,6 @@ export const incomingMessagePipelineService = {
       }
 
       const T2_INITIAL_QUIET_MS = 1_200;
-      const T2_INCOMPLETE_EXTENSION_MS = 8_500;
 
       const wait = async (milliseconds: number) => {
         await new Promise<void>((resolve) => {
@@ -420,85 +419,6 @@ export const incomingMessagePipelineService = {
         );
       }
 
-      const currentText =
-        normalizedMessage.content?.trim() ?? "";
-
-      if (currentText) {
-        try {
-          const recentCustomerMessages =
-            (
-              await prisma.m1MMessage.findMany({
-                where: {
-                  companyId,
-                  customerId:
-                    storedMessage.customerId,
-                  fromMe: false,
-                  type: M1MMessageType.TEXT,
-                  id: {
-                    not: storedMessage.id,
-                  },
-                  createdAt: {
-                    lt: storedMessage.createdAt,
-                  },
-                },
-                select: {
-                  content: true,
-                },
-                orderBy: {
-                  createdAt: "desc",
-                },
-                take: 6,
-              })
-            )
-              .reverse()
-              .map((message) =>
-                message.content?.trim() ?? "",
-              )
-              .filter(Boolean);
-
-          const readiness =
-            await openAIProviderService.classifyMessageReadiness({
-              recentCustomerMessages,
-              currentMessage: currentText,
-            });
-
-          m1mT2Trace("MESSAGE_READINESS_DECISION", {
-            messageId: storedMessage.id,
-            customerId: storedMessage.customerId,
-            shouldWaitForContinuation:
-              readiness.shouldWaitForContinuation,
-            responseId: readiness.responseId,
-          });
-
-          if (readiness.shouldWaitForContinuation) {
-            await wait(T2_INCOMPLETE_EXTENSION_MS);
-
-            const newerAfterExtension =
-              await findNewerCustomerMessage();
-
-            if (newerAfterExtension) {
-              return supersedeCurrentMessage(
-                newerAfterExtension.id,
-                "INCOMPLETE_MESSAGE_SUPERSEDED",
-              );
-            }
-
-            m1mT2Trace(
-              "INCOMPLETE_MESSAGE_EXTENSION_EXPIRED",
-              {
-                messageId: storedMessage.id,
-                customerId:
-                  storedMessage.customerId,
-              },
-            );
-          }
-        } catch (readinessError) {
-          console.warn(
-            "[M1M T2] Classificacao de continuidade falhou; seguindo o fluxo normal sem bloquear o atendimento.",
-            readinessError,
-          );
-        }
-      }
     }
 
     if (!processingClaimed) {
