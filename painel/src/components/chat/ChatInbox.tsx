@@ -778,6 +778,11 @@ export default function ChatInbox() {
   const [searchQuery, setSearchQuery] =
     useState("");
 
+  const [
+    isMobileConversationOpen,
+    setIsMobileConversationOpen,
+  ] = useState(false);
+
   const [searchResults, setSearchResults] =
     useState<Chat[]>([]);
 
@@ -1061,6 +1066,7 @@ export default function ChatInbox() {
             messagesRequestIdRef.current += 1;
             setMessages([]);
             setSelectedChat(chat);
+            setIsMobileConversationOpen(true);
           },
         })),
       [
@@ -1765,6 +1771,7 @@ const loadContacts =
         setSelectedChat(
           matchingChat,
         );
+        setIsMobileConversationOpen(true);
 
         router.replace("/");
       } catch (error) {
@@ -1827,6 +1834,7 @@ const loadContacts =
         setSelectedChat(
           matchingChat,
         );
+        setIsMobileConversationOpen(true);
       } catch (error) {
         setErrorMessage(
           error instanceof Error
@@ -3833,7 +3841,13 @@ const loadContacts =
           }
         }
       `}</style>
-      <div className="w-[380px] shrink-0">
+      <div
+        className={`${
+          isMobileConversationOpen
+            ? "hidden"
+            : "block"
+        } w-full shrink-0 md:block md:w-[300px] lg:w-[320px] min-[1366px]:w-[380px]`}
+      >
         <ChatConversationSidebar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -3846,7 +3860,11 @@ const loadContacts =
       </div>
 
       <section
-        className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f7f7f8]"
+        className={`relative ${
+          isMobileConversationOpen
+            ? "flex"
+            : "hidden"
+        } min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#f7f7f8] md:flex`}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -3955,6 +3973,9 @@ const loadContacts =
               }
               isCustomerPanelOpen={
                 isCustomerQuickPanelOpen
+              }
+              onBackToList={() =>
+                setIsMobileConversationOpen(false)
               }
               onToggleCustomerPanel={() =>
                 setIsCustomerQuickPanelOpen(
@@ -4076,11 +4097,11 @@ const loadContacts =
                     const smartWidthClass =
                       isPlainTextMessage &&
                       messageText.length >= 80
-                        ? "w-[70%] max-w-[760px]"
+                        ? "max-w-[88%] sm:w-[70%] sm:max-w-[760px]"
                         : isPlainTextMessage &&
                             messageText.length >=
                               28
-                          ? "min-w-[280px] max-w-[70%]"
+                          ? "min-w-0 max-w-[88%] sm:min-w-[280px] sm:max-w-[70%]"
                           : "max-w-[88%]";
 
                     const messageReactions =

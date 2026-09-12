@@ -35,6 +35,7 @@ type ChatConversationHeaderProps = {
   onPreviousMatch: () => void;
   onNextMatch: () => void;
   isCustomerPanelOpen: boolean;
+  onBackToList?: () => void;
   onToggleCustomerPanel: () => void;
 };
 
@@ -113,6 +114,7 @@ export default function ChatConversationHeader({
   onPreviousMatch,
   onNextMatch,
   isCustomerPanelOpen,
+  onBackToList,
   onToggleCustomerPanel,
 }: ChatConversationHeaderProps) {
   return (
@@ -218,7 +220,32 @@ export default function ChatConversationHeader({
         </div>
       ) : (
         <>
-          <div className="min-w-[220px] flex-1 basis-[320px]">
+          {onBackToList && (
+            <button
+              type="button"
+              onClick={onBackToList}
+              title="Voltar para conversas"
+              aria-label="Voltar para conversas"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-black/60 transition hover:bg-black/[0.03] md:hidden"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="h-5 w-5"
+              >
+                <path
+                  d="m15 18-6-6 6-6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          )}
+
+          <div className="min-w-0 flex-1 basis-[320px] md:min-w-[220px]">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="truncate text-base font-bold text-[#171717]">
                 {customerName}
@@ -281,7 +308,7 @@ export default function ChatConversationHeader({
             </div>
           </div>
 
-          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
             <AttendanceActions
               attendanceId={attendanceId}
               attendanceState={attendanceState}
@@ -304,7 +331,7 @@ export default function ChatConversationHeader({
                   ? "Fechar Cliente 360"
                   : "Abrir Cliente 360"
               }
-              className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-all duration-200 xl:h-10 xl:gap-2 xl:px-3 xl:text-xs ${
+              className={`inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-[11px] font-bold transition-all duration-200 md:h-9 md:px-2.5 xl:h-10 xl:gap-2 xl:px-3 xl:text-xs ${
                 isCustomerPanelOpen
                   ? "border-[#0A9090]/25 bg-[#F2FAFA] text-[#087B7B]"
                   : "border-black/10 bg-white text-black/55 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
@@ -339,7 +366,7 @@ export default function ChatConversationHeader({
               onClick={onOpenSearch}
               title="Pesquisar nesta conversa"
               aria-label="Pesquisar nesta conversa"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-black/55 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-black/10 bg-white text-black/55 transition-all duration-200 md:h-10 md:w-10 hover:-translate-y-0.5 hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] hover:shadow-sm"
             >
               <SearchIcon />
             </button>

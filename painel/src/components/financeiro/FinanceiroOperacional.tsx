@@ -75,7 +75,7 @@ const filters: Array<{
   },
   {
     value: "UNDER_REVIEW",
-    label: "Em análise",
+    label: "Em anÃ¡lise",
   },
   {
     value: "APPROVED",
@@ -102,7 +102,7 @@ function formatCustomerCode(
     value === null ||
     value === undefined
   ) {
-    return "Sem código";
+    return "Sem cÃ³digo";
   }
 
   return `Cliente #${String(
@@ -117,7 +117,7 @@ function formatMoney(
     value === null ||
     value === ""
   ) {
-    return "Não informado";
+    return "NÃ£o informado";
   }
 
   const numericValue =
@@ -146,7 +146,7 @@ function formatDate(
   value?: string | null,
 ) {
   if (!value) {
-    return "Não informado";
+    return "NÃ£o informado";
   }
 
   const date = new Date(value);
@@ -156,7 +156,7 @@ function formatDate(
       date.getTime(),
     )
   ) {
-    return "Data inválida";
+    return "Data invÃ¡lida";
   }
 
   return new Intl.DateTimeFormat(
@@ -189,7 +189,7 @@ function getStatusLabel(
   > = {
     RECEIVED: "Recebido",
     CLASSIFIED: "Classificado",
-    UNDER_REVIEW: "Em análise",
+    UNDER_REVIEW: "Em anÃ¡lise",
     APPROVED: "Aprovado",
     REJECTED: "Rejeitado",
     AWAITING_NEW_RECEIPT:
@@ -266,7 +266,7 @@ export default function FinanceiroOperacional() {
         if (!response.ok) {
           throw new Error(
             data.error ||
-              "Não foi possível carregar os comprovantes.",
+              "NÃ£o foi possÃ­vel carregar os comprovantes.",
           );
         }
 
@@ -455,7 +455,7 @@ export default function FinanceiroOperacional() {
     if (action === "REJECT") {
       const reason =
         window.prompt(
-          "Informe o motivo da rejeição:",
+          "Informe o motivo da rejeiÃ§Ã£o:",
         );
 
       if (!reason?.trim()) {
@@ -489,7 +489,7 @@ export default function FinanceiroOperacional() {
         !authData?.user?.id
       ) {
         throw new Error(
-          "Sessão do usuário não identificada.",
+          "SessÃ£o do usuÃ¡rio nÃ£o identificada.",
         );
       }
 
@@ -527,7 +527,7 @@ export default function FinanceiroOperacional() {
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Não foi possível atualizar o comprovante.",
+            "NÃ£o foi possÃ­vel atualizar o comprovante.",
         );
       }
 
@@ -579,7 +579,7 @@ export default function FinanceiroOperacional() {
       if (!response.ok) {
         throw new Error(
           data.error ||
-            "Não foi possível excluir o comprovante.",
+            "NÃ£o foi possÃ­vel excluir o comprovante.",
         );
       }
 
@@ -617,7 +617,7 @@ export default function FinanceiroOperacional() {
       <div className="mx-auto w-full max-w-[1500px] px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         <header>
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-black/35">
-            Operação financeira
+            OperaÃ§Ã£o financeira
           </p>
 
           <h1 className="mt-1 text-2xl font-bold text-[#171717]">
@@ -629,7 +629,7 @@ export default function FinanceiroOperacional() {
           </p>
         </header>
 
-        <section className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 min-[1366px]:grid-cols-6">
           {filters
             .filter(
               (filter) =>
@@ -681,8 +681,8 @@ export default function FinanceiroOperacional() {
         </section>
 
         <section className="mt-5 rounded-2xl border border-black/10 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-black/5 p-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col gap-3 border-b border-black/5 p-4">
+            <div className="flex w-full gap-2 overflow-x-auto pb-1">
               {filters.map(
                 (filter) => {
                   const active =
@@ -700,7 +700,7 @@ export default function FinanceiroOperacional() {
                           filter.value,
                         )
                       }
-                      className={`h-9 rounded-xl border px-3 text-xs font-bold transition ${
+                      className={`h-10 shrink-0 whitespace-nowrap rounded-xl border px-3 text-xs font-bold transition ${
                         active
                           ? "border-black bg-black text-white"
                           : "border-black/10 bg-white text-black/55 hover:border-black/20"
@@ -726,8 +726,8 @@ export default function FinanceiroOperacional() {
                   event.target.value,
                 )
               }
-              placeholder="Buscar por cliente, código, banco ou pagamento"
-              className="h-10 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10 xl:max-w-md"
+              placeholder="Buscar por cliente, cÃ³digo, banco ou pagamento"
+              className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-4 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
             />
           </div>
 
@@ -783,7 +783,7 @@ export default function FinanceiroOperacional() {
                             .displayPhone ||
                             receipt.customer
                               .phone ||
-                            "Telefone não informado"}
+                            "Telefone nÃ£o informado"}
                         </p>
                       </div>
 
@@ -794,7 +794,7 @@ export default function FinanceiroOperacional() {
                       </span>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
                       <Info
                         label="Valor"
                         value={formatMoney(
@@ -806,7 +806,7 @@ export default function FinanceiroOperacional() {
                         label="Forma"
                         value={
                           receipt.paymentMethod ||
-                          "Não informada"
+                          "NÃ£o informada"
                         }
                       />
 
@@ -814,7 +814,7 @@ export default function FinanceiroOperacional() {
                         label="Banco"
                         value={
                           receipt.identifiedBank ||
-                          "Não informado"
+                          "NÃ£o informado"
                         }
                       />
 
@@ -843,7 +843,7 @@ export default function FinanceiroOperacional() {
                       </p>
                     )}
 
-                    <div className="mt-4 flex flex-wrap items-start gap-2">
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-start">
                       {receipt.mediaUrl && (
                         <a
                           href={`/api/payment-receipts/${receipt.id}/media`}
@@ -891,14 +891,14 @@ export default function FinanceiroOperacional() {
 
                       <details>
                         <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]">
-                          Mais opções
+                          Mais opÃ§Ãµes
                         </summary>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           {receipt.status !== "FINISHED" &&
                             receipt.status === "RECEIVED" && (
                               <ActionButton
-                                label="Iniciar análise"
+                                label="Iniciar anÃ¡lise"
                                 disabled={actionId !== null}
                                 onClick={() =>
                                   void runAction(
@@ -947,7 +947,7 @@ export default function FinanceiroOperacional() {
                             )}&tab=arquivos`}
                             className="inline-flex h-9 items-center rounded-xl border border-black/10 px-3 text-xs font-bold text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
                           >
-                            Cliente 360°
+                            Cliente 360Â°
                           </Link>
 
                           <Link
@@ -1002,7 +1002,7 @@ function Info({
         {label}
       </p>
 
-      <p className="mt-1 truncate text-xs font-semibold text-black/65">
+      <p className="mt-1 break-words text-xs font-semibold text-black/65">
         {value}
       </p>
     </div>
@@ -1027,7 +1027,7 @@ function ActionButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`h-9 rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`h-11 w-full rounded-xl px-3 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 sm:h-9 sm:w-auto ${
         success
           ? "bg-emerald-600 text-white hover:bg-emerald-700"
           : danger
