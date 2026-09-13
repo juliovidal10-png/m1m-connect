@@ -19,6 +19,7 @@ type SectorKeywordsSettingsProps = {
   sectorId: string;
   sectorName?: string;
   onBack: () => void;
+  apiBaseUrl?: string;
 };
 
 function getErrorMessage(
@@ -34,6 +35,7 @@ export default function SectorKeywordsSettings({
   sectorId,
   sectorName,
   onBack,
+  apiBaseUrl = "/api/sectors",
 }: SectorKeywordsSettingsProps) {
   const [keywords, setKeywords] =
     useState<SectorKeyword[]>([]);
@@ -66,7 +68,7 @@ export default function SectorKeywordsSettings({
       try {
         const response =
           await fetch(
-            `/api/sectors/${sectorId}/keywords`,
+            `${apiBaseUrl}/${sectorId}/keywords`,
             {
               method: "GET",
               cache: "no-store",
@@ -104,7 +106,7 @@ export default function SectorKeywordsSettings({
       } finally {
         setIsLoading(false);
       }
-    }, [sectorId]);
+    }, [apiBaseUrl, sectorId]);
 
   useEffect(() => {
     void loadKeywords();
@@ -137,7 +139,7 @@ export default function SectorKeywordsSettings({
     try {
       const response =
         await fetch(
-          `/api/sectors/${sectorId}/keywords`,
+          `${apiBaseUrl}/${sectorId}/keywords`,
           {
             method: "POST",
             headers: {
@@ -212,7 +214,7 @@ export default function SectorKeywordsSettings({
     try {
       const response =
         await fetch(
-          `/api/sectors/${sectorId}/keywords`,
+          `${apiBaseUrl}/${sectorId}/keywords`,
           {
             method: "DELETE",
             headers: {

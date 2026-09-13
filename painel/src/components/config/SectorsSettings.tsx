@@ -28,6 +28,8 @@ type SectorFormData = {
 
 type SectorsSettingsProps = {
   onBack: () => void;
+  apiBaseUrl?: string;
+  workspaceBaseUrl?: string;
 };
 
 const emptyForm: SectorFormData = {
@@ -39,6 +41,8 @@ const emptyForm: SectorFormData = {
 
 export default function SectorsSettings({
   onBack,
+  apiBaseUrl = "/api/sectors",
+  workspaceBaseUrl = "/configuracoes/setores",
 }: SectorsSettingsProps) {
   const router = useRouter();
 
@@ -77,7 +81,7 @@ export default function SectorsSettings({
 
       try {
         const response = await fetch(
-          "/api/sectors",
+          apiBaseUrl,
           {
             method: "GET",
             cache: "no-store",
@@ -112,10 +116,12 @@ export default function SectorsSettings({
         setIsLoading(false);
       }
     },
-    [],
-  );
+    [apiBaseUrl],
 
-  useEffect(() => {
+    );
+
+
+    useEffect(() => {
     void loadSectors();
   }, [loadSectors]);
 
@@ -217,8 +223,8 @@ export default function SectorsSettings({
 
       const response = await fetch(
         isEditing
-          ? `/api/sectors/${editingSectorId}`
-          : "/api/sectors",
+          ? `${apiBaseUrl}/${editingSectorId}`
+          : apiBaseUrl,
         {
           method: isEditing
             ? "PUT"
@@ -287,7 +293,7 @@ export default function SectorsSettings({
 
     try {
       const response = await fetch(
-        `/api/sectors/${sector.id}`,
+        `${apiBaseUrl}/${sector.id}`,
         {
           method: "PUT",
           headers: {
@@ -352,7 +358,7 @@ export default function SectorsSettings({
 
     try {
       const response = await fetch(
-        `/api/sectors/${sector.id}`,
+        `${apiBaseUrl}/${sector.id}`,
         {
           method: "DELETE",
         },
@@ -390,7 +396,7 @@ export default function SectorsSettings({
     sectorId: string,
   ) {
     router.push(
-      `/configuracoes/setores/${sectorId}`,
+      `${workspaceBaseUrl}/${sectorId}`,
     );
   }
 

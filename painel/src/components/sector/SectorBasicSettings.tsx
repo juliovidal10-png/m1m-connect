@@ -18,12 +18,14 @@ type SectorBasicSettingsProps = {
   sector: Sector;
   onBack: () => void;
   onSaved: (sector: Sector) => void;
+  apiBaseUrl?: string;
 };
 
 export default function SectorBasicSettings({
   sector,
   onBack,
   onSaved,
+  apiBaseUrl = "/api/sectors",
 }: SectorBasicSettingsProps) {
   const [name, setName] =
     useState(sector.name);
@@ -97,7 +99,7 @@ export default function SectorBasicSettings({
 
     try {
       const response = await fetch(
-        `/api/sectors/${sector.id}`,
+        `${apiBaseUrl}/${sector.id}`,
         {
           method: "PUT",
           headers: {

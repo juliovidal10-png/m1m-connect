@@ -28,11 +28,13 @@ type SectorUsersResponse = {
 type SectorUsersSettingsProps = {
   sectorId: string;
   onBack: () => void;
+  apiBaseUrl?: string;
 };
 
 export default function SectorUsersSettings({
   sectorId,
   onBack,
+  apiBaseUrl = "/api/sectors",
 }: SectorUsersSettingsProps) {
   const [sectorName, setSectorName] =
     useState("");
@@ -62,7 +64,7 @@ export default function SectorUsersSettings({
 
       try {
         const response = await fetch(
-          `/api/sectors/${sectorId}/users`,
+          `${apiBaseUrl}/${sectorId}/users`,
           {
             method: "GET",
             cache: "no-store",
@@ -110,7 +112,7 @@ export default function SectorUsersSettings({
         setIsLoading(false);
       }
     },
-    [sectorId],
+    [apiBaseUrl, sectorId],
   );
 
   useEffect(() => {
@@ -141,7 +143,7 @@ export default function SectorUsersSettings({
 
     try {
       const response = await fetch(
-        `/api/sectors/${sectorId}/users`,
+        `${apiBaseUrl}/${sectorId}/users`,
         {
           method: "PUT",
           headers: {

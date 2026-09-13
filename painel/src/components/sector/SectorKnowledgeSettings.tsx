@@ -14,6 +14,7 @@ type SectorKnowledgeSettingsProps = {
   onSaved?: (
     knowledge: string | null,
   ) => void;
+  apiBaseUrl?: string;
 };
 
 type SectorResponse = {
@@ -37,6 +38,7 @@ export default function SectorKnowledgeSettings({
   sectorName,
   onBack,
   onSaved,
+  apiBaseUrl = "/api/sectors",
 }: SectorKnowledgeSettingsProps) {
   const [knowledge, setKnowledge] =
     useState("");
@@ -60,7 +62,7 @@ export default function SectorKnowledgeSettings({
 
       try {
         const response = await fetch(
-          `/api/sectors/${sectorId}`,
+          `${apiBaseUrl}/${sectorId}`,
           {
             method: "GET",
             cache: "no-store",
@@ -91,7 +93,7 @@ export default function SectorKnowledgeSettings({
       } finally {
         setIsLoading(false);
       }
-    }, [sectorId]);
+    }, [apiBaseUrl, sectorId]);
 
   useEffect(() => {
     void loadKnowledge();
@@ -115,7 +117,7 @@ export default function SectorKnowledgeSettings({
 
     try {
       const response = await fetch(
-        `/api/sectors/${sectorId}`,
+        `${apiBaseUrl}/${sectorId}`,
         {
           method: "PUT",
           headers: {

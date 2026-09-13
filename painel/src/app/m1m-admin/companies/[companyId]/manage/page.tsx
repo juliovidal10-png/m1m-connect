@@ -8,6 +8,7 @@ import CompanyProfileSettings from "@/components/config/CompanyProfileSettings";
 import CompanySchedulesSettings from "@/components/config/CompanySchedulesSettings";
 import CompanySettings from "@/components/config/CompanySettings";
 import PaymentSettings from "@/components/config/PaymentSettings";
+import SectorsSettings from "@/components/config/SectorsSettings";
 
 type CompanyResponse = {
   company?: {
@@ -23,7 +24,8 @@ type ActiveSection =
   | "company"
   | "companyProfile"
   | "companySchedules"
-  | "payments";
+  | "payments"
+  | "sectors";
 
 const sections: Array<{
   id: Exclude<ActiveSection, "overview">;
@@ -53,6 +55,12 @@ const sections: Array<{
     title: "Pagamentos",
     description:
       "Formas de pagamento, PIX, dados bancários e orientações comerciais.",
+  },
+  {
+    id: "sectors",
+    title: "Setores",
+    description:
+      "Cadastre setores, responsáveis, conhecimento e regras de encaminhamento.",
   },
 ];
 
@@ -222,11 +230,19 @@ export default function M1MAdminManageCompanyPage() {
                 apiUrl={`/api/admin/companies/${companyId}/schedules`}
               />
             </div>
-          ) : (
+          ) : activeSection === "payments" ? (
             <div className="mt-7">
               <PaymentSettings
                 onBack={backToOverview}
                 apiUrl={`/api/admin/companies/${companyId}/payment-settings`}
+              />
+            </div>
+          ) : (
+            <div className="mt-7">
+              <SectorsSettings
+                onBack={backToOverview}
+                apiBaseUrl={`/api/admin/companies/${companyId}/sectors`}
+                workspaceBaseUrl={`/m1m-admin/companies/${companyId}/manage/sectors`}
               />
             </div>
           )}
