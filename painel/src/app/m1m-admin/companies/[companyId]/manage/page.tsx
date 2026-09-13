@@ -10,6 +10,7 @@ import CompanySettings from "@/components/config/CompanySettings";
 import PaymentSettings from "@/components/config/PaymentSettings";
 import SectorsSettings from "@/components/config/SectorsSettings";
 import UsersSettings from "@/components/config/UsersSettings";
+import WhatsAppConnectionSettings from "@/components/whatsapp/WhatsAppConnectionSettings";
 
 type CompanyResponse = {
   company?: {
@@ -27,7 +28,8 @@ type ActiveSection =
   | "companySchedules"
   | "payments"
   | "sectors"
-  | "users";
+  | "users"
+  | "whatsapp";
 
 const sections: Array<{
   id: Exclude<ActiveSection, "overview">;
@@ -69,6 +71,12 @@ const sections: Array<{
     title: "Usuários",
     description:
       "Cadastre colaboradores, defina acessos e gere convites de primeiro acesso.",
+  },
+  {
+    id: "whatsapp",
+    title: "WhatsApp",
+    description:
+      "Conecte ou desconecte o número oficial desta empresa pelo M1M Admin.",
   },
 ];
 
@@ -253,11 +261,19 @@ export default function M1MAdminManageCompanyPage() {
                 workspaceBaseUrl={`/m1m-admin/companies/${companyId}/manage/sectors`}
               />
             </div>
-          ) : (
+          ) : activeSection === "users" ? (
             <div className="mt-7">
               <UsersSettings
                 onBack={backToOverview}
                 apiBaseUrl={`/api/admin/companies/${companyId}/users`}
+              />
+            </div>
+          ) : (
+            <div className="mt-7">
+              <WhatsAppConnectionSettings
+                onBack={backToOverview}
+                eyebrow="M1M Admin"
+                apiBaseUrl={`/api/admin/companies/${companyId}/whatsapp`}
               />
             </div>
           )}
