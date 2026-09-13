@@ -120,7 +120,7 @@ export default function M1MAdminManageCompanyPage() {
     setActiveSection("overview");
 
   return (
-    <main className="min-h-screen bg-[#f6f6f7] px-4 py-6 text-[#171717] sm:px-6 lg:px-8">
+    <main className="h-full overflow-y-auto bg-[#f6f6f7] px-4 py-6 text-[#171717] sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
