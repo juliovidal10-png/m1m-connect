@@ -46,6 +46,7 @@ type CompanySchedulesResponse = {
 
 type CompanySchedulesSettingsProps = {
   onBack: () => void;
+  apiUrl?: string;
 };
 
 const weekdayLabels: Record<Weekday, string> = {
@@ -60,6 +61,7 @@ const weekdayLabels: Record<Weekday, string> = {
 
 export default function CompanySchedulesSettings({
   onBack,
+  apiUrl = "/api/company/schedules",
 }: CompanySchedulesSettingsProps) {
   const [companyName, setCompanyName] =
     useState("");
@@ -86,7 +88,7 @@ export default function CompanySchedulesSettings({
 
       try {
         const response = await fetch(
-          "/api/company/schedules",
+          apiUrl,
           {
             method: "GET",
             cache: "no-store",
@@ -150,7 +152,7 @@ export default function CompanySchedulesSettings({
       } finally {
         setIsLoading(false);
       }
-    }, []);
+    }, [apiUrl]);
 
   useEffect(() => {
     void loadSchedules();
@@ -235,7 +237,7 @@ export default function CompanySchedulesSettings({
 
     try {
       const response = await fetch(
-        "/api/company/schedules",
+        apiUrl,
         {
           method: "PUT",
           headers: {

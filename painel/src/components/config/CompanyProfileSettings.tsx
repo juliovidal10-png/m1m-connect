@@ -7,6 +7,7 @@ import {
 
 type CompanyProfileSettingsProps = {
   onBack: () => void;
+  apiUrl?: string;
 };
 
 type CompanyProfile = {
@@ -71,6 +72,7 @@ function toFormData(
 
 export default function CompanyProfileSettings({
   onBack,
+  apiUrl = "/api/company-profile",
 }: CompanyProfileSettingsProps) {
   const [form, setForm] =
     useState<CompanyProfileForm>(
@@ -97,7 +99,7 @@ export default function CompanyProfileSettings({
       try {
         const response =
           await fetch(
-            "/api/company-profile",
+            apiUrl,
             {
               method: "GET",
               cache: "no-store",
@@ -140,7 +142,7 @@ export default function CompanyProfileSettings({
     }
 
     void loadProfile();
-  }, []);
+  }, [apiUrl]);
 
   function updateField(
     field: keyof CompanyProfileForm,
@@ -171,7 +173,7 @@ export default function CompanyProfileSettings({
     try {
       const response =
         await fetch(
-          "/api/company-profile",
+          apiUrl,
           {
             method: "PUT",
             headers: {

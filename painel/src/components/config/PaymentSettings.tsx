@@ -7,6 +7,7 @@ import {
 
 type PaymentSettingsProps = {
   onBack: () => void;
+  apiUrl?: string;
 };
 
 type PaymentSettings = {
@@ -154,6 +155,7 @@ function formatCpfCnpjInput(value: string): string {
 }
 export default function PaymentSettings({
   onBack,
+  apiUrl = "/api/payment-settings",
 }: PaymentSettingsProps) {
   const [form, setForm] =
     useState<PaymentFormData>(
@@ -180,7 +182,7 @@ export default function PaymentSettings({
       try {
         const response =
           await fetch(
-            "/api/payment-settings",
+            apiUrl,
             {
               method: "GET",
               cache: "no-store",
@@ -223,7 +225,7 @@ export default function PaymentSettings({
     }
 
     void loadSettings();
-  }, []);
+  }, [apiUrl]);
 
   function updateField<
     Field extends keyof PaymentFormData,
@@ -274,7 +276,7 @@ export default function PaymentSettings({
     try {
       const response =
         await fetch(
-          "/api/payment-settings",
+          apiUrl,
           {
             method: "PUT",
             headers: {
