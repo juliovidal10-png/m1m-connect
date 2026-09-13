@@ -3029,6 +3029,16 @@ setCreatingCompany(
 
                             <button
                               type="button"
+                              onClick={() => {
+                                window.location.href =
+                                  `/m1m-admin/companies/${company.id}/manage`;
+                              }}
+                              className="h-10 rounded-xl bg-[#0A9090] px-4 text-xs font-bold text-white transition hover:bg-[#087B7B]"
+                            >
+                              Gerenciar
+                            </button>
+                            <button
+                              type="button"
                               onClick={() =>
                                 void openCompanyDetail(
                                   company.id,
