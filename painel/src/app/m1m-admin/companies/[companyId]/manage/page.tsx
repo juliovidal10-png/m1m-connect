@@ -34,7 +34,7 @@ export default function M1MAdminManageCompanyPage() {
 
         if (!response.ok || !data.company) {
           throw new Error(
-            data.error || "NÃ£o foi possÃ­vel carregar a empresa.",
+            data.error || "Não foi possível carregar a empresa.",
           );
         }
 
@@ -47,7 +47,7 @@ export default function M1MAdminManageCompanyPage() {
           setError(
             loadError instanceof Error
               ? loadError.message
-              : "NÃ£o foi possÃ­vel carregar a empresa.",
+              : "Não foi possível carregar a empresa.",
           );
         }
       } finally {
@@ -102,7 +102,7 @@ export default function M1MAdminManageCompanyPage() {
                 Contexto administrativo da empresa ativo.
               </p>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-black/45">
-                Este Ã© o ponto seguro de entrada da TF5. As configuraÃ§Ãµes operacionais serÃ£o conectadas nos prÃ³ximos blocos usando o companyId desta rota, sem trocar a sessÃ£o do cliente.
+                Este é o ponto seguro de entrada da TF5. As configurações operacionais serão conectadas nos próximos blocos usando o companyId desta rota, sem trocar a sessão do cliente.
               </p>
               <p className="mt-4 break-all text-xs font-medium text-black/35">
                 Empresa ID: {companyId}
