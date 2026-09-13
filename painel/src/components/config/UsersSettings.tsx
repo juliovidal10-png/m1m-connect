@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -72,7 +72,15 @@ function formatBrazilianPhoneInput(value: string): string {
 
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
-export default function UsersSettings() {
+type UsersSettingsProps = {
+  onBack?: () => void;
+  apiBaseUrl?: string;
+};
+
+export default function UsersSettings({
+  onBack,
+  apiBaseUrl = "/api/users",
+}: UsersSettingsProps) {
   const [users, setUsers] = useState<User[]>([]);
 
   const [form, setForm] = useState<UserFormData>(emptyForm);
@@ -96,7 +104,7 @@ export default function UsersSettings() {
     setError(null);
 
     try {
-      const response = await fetch("/api/users", {
+      const response = await fetch(apiBaseUrl, {
         method: "GET",
         cache: "no-store",
       });
@@ -125,7 +133,7 @@ export default function UsersSettings() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     void loadUsers();
@@ -221,7 +229,7 @@ export default function UsersSettings() {
       const isEditing = Boolean(editingUserId);
 
       const response = await fetch(
-        isEditing ? `/api/users/${editingUserId}` : "/api/users",
+        isEditing ? `${apiBaseUrl}/${editingUserId}` : apiBaseUrl,
         {
           method: isEditing ? "PUT" : "POST",
           headers: {
@@ -289,7 +297,7 @@ export default function UsersSettings() {
     clearFeedback();
 
     try {
-      const response = await fetch(`/api/users/${user.id}`, {
+      const response = await fetch(`${apiBaseUrl}/${user.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -353,7 +361,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
 
     try {
       const response = await fetch(
-        `/api/users/${encodeURIComponent(user.id)}`,
+        `${apiBaseUrl}/${encodeURIComponent(user.id)}`,
         {
           method: "DELETE",
         },
@@ -394,7 +402,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
 
     try {
       const response = await fetch(
-        `/api/users/${encodeURIComponent(user.id)}/first-access`,
+        `${apiBaseUrl}/${encodeURIComponent(user.id)}/first-access`,
         {
           method: "POST",
         },
@@ -438,8 +446,17 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
     }
   }
 
-  return (
+    return (
     <div>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
+        >
+          ← Voltar
+        </button>
+      )}
       <div className="mb-6 flex flex-col gap-5 rounded-2xl border border-teal-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm font-semibold text-teal-600">

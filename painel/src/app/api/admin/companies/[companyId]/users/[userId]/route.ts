@@ -9,6 +9,7 @@ import {
 import {
   adminAuthService,
 } from "@/services/admin/admin-auth.service";
+import { userService } from "@/services/user.service";
 
 type RouteContext = {
   params: Promise<{
@@ -226,6 +227,169 @@ export async function PATCH(
           error instanceof Error
             ? error.message
             : "Não foi possível atualizar o administrador.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+}
+function toSafeUser<
+  T extends {
+    id: string;
+    companyId: string;
+    name: string;
+    displayName: string | null;
+    email: string;
+    passwordHash: string | null;
+    jobTitle: string | null;
+    phone: string | null;
+    role: unknown;
+    useCustomPermissions: boolean;
+    permissions: unknown;
+    active: boolean;
+    isPrimary: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+>(user: T) {
+  return {
+    id: user.id,
+    companyId: user.companyId,
+    name: user.name,
+    displayName: user.displayName,
+    email: user.email,
+    hasPassword: Boolean(user.passwordHash),
+    jobTitle: user.jobTitle,
+    phone: user.phone,
+    role: user.role,
+    useCustomPermissions: user.useCustomPermissions,
+    permissions: user.permissions,
+    active: user.active,
+    isPrimary: user.isPrimary,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
+export async function PUT(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  if (
+    !adminAuthService.isAuthorizedRequest(
+      request,
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Acesso administrativo não autorizado.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  try {
+    const {
+      companyId,
+      userId,
+    } = await context.params;
+
+    const body =
+      await request.json();
+
+    const user =
+      await userService.updateUser(
+        companyId,
+        userId,
+        {
+          name: body.name,
+          displayName: body.displayName,
+          email: body.email,
+          jobTitle: body.jobTitle,
+          phone: body.phone,
+          role: body.role,
+          useCustomPermissions:
+            body.useCustomPermissions,
+          permissions: body.permissions,
+          active: body.active,
+        },
+      );
+
+    return NextResponse.json(
+      toSafeUser(user),
+    );
+  } catch (error) {
+    console.error(
+      "ERRO ADMIN COMPANY USER PUT:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao atualizar o usuário.",
+      },
+      {
+        status: 400,
+      },
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: RouteContext,
+) {
+  if (
+    !adminAuthService.isAuthorizedRequest(
+      request,
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Acesso administrativo não autorizado.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  try {
+    const {
+      companyId,
+      userId,
+    } = await context.params;
+
+    const deletedUser =
+      await userService.deleteUser(
+        companyId,
+        userId,
+      );
+
+    return NextResponse.json({
+      success: true,
+      user: toSafeUser(deletedUser),
+    });
+  } catch (error) {
+    console.error(
+      "ERRO ADMIN COMPANY USER DELETE:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Erro ao excluir o usuário.",
       },
       {
         status: 400,
