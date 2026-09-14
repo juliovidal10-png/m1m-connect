@@ -1703,6 +1703,10 @@ const menuAlreadyShownInCurrentCycle =
         companyId,
         responseId: aiResponse.responseId,
         needsHuman: aiResponse.needsHuman,
+        handoffReason: aiResponse.handoffReason,
+        subject: aiResponse.subject,
+        context: aiResponse.context,
+        responseText: aiResponse.text,
       });
 
       let customerResponseText =
