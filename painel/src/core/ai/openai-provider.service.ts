@@ -211,6 +211,41 @@ function extractCurrentCustomerMessage(userPrompt: string) {
     ? ""
     : userPrompt.slice(markerIndex + marker.length).trim();
 }
+function extractPreviousCustomerMessage(userPrompt: string) {
+  const marker = "MENSAGEM ATUAL DO CLIENTE:";
+  const markerIndex = userPrompt.lastIndexOf(marker);
+
+  if (markerIndex < 0) {
+    return "";
+  }
+
+  const previousCustomerMessages = userPrompt
+    .slice(0, markerIndex)
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("CLIENTE: "))
+    .map((line) => line.slice("CLIENTE: ".length).trim())
+    .filter(Boolean);
+
+  return previousCustomerMessages.at(-1) ?? "";
+}
+
+function extractNaturalGreeting(value: string) {
+  const normalized = normalizeBehaviorText(value);
+
+  if (/\bbom dia\b/.test(normalized)) {
+    return "Bom dia!";
+  }
+
+  if (/\bboa tarde\b/.test(normalized)) {
+    return "Boa tarde!";
+  }
+
+  if (/\bboa noite\b/.test(normalized)) {
+    return "Boa noite!";
+  }
+
+  return null;
+}
 
 function normalizeBehaviorText(value: string) {
   return value
@@ -390,7 +425,19 @@ function applyDeterministicConversationGuard(
   handoffReason: AIProviderHumanHandoffReason | "NONE" = "NONE",
 ) {
   if (handoffReason === "HUMAN_ACTION_REQUIRED") {
-    return "Entendi. Vou encaminhar seu pedido para a equipe responsável dar continuidade.";
+    const currentMessage =
+      extractCurrentCustomerMessage(userPrompt);
+    const previousCustomerMessage =
+      extractPreviousCustomerMessage(userPrompt);
+    const greeting =
+      extractNaturalGreeting(currentMessage) ??
+      extractNaturalGreeting(previousCustomerMessage);
+    const handoffMessage =
+      "Entendi. Vou encaminhar seu pedido para a equipe respons\u00e1vel dar continuidade.";
+
+    return greeting
+      ? `${greeting} ${handoffMessage}`
+      : handoffMessage;
   }
 
   const currentMessage = extractCurrentCustomerMessage(userPrompt);
