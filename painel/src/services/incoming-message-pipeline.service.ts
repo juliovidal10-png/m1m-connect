@@ -1290,7 +1290,8 @@ export const incomingMessagePipelineService = {
         }
       }
       if (
-        router.requiresSectorIdentification
+        router.requiresSectorIdentification &&
+        normalizedMessage.type === M1MMessageType.TEXT
       ) {
         const company =
           await prisma.m1MCompany.findUnique({
