@@ -387,7 +387,12 @@ function keepOnlyUnsupportedServiceAnswer(
 function applyDeterministicConversationGuard(
   replyText: string,
   userPrompt: string,
+  handoffReason: AIProviderHumanHandoffReason | "NONE" = "NONE",
 ) {
+  if (handoffReason === "HUMAN_ACTION_REQUIRED") {
+    return "Entendi. Vou encaminhar seu pedido para a equipe responsÃ¡vel dar continuidade.";
+  }
+
   const currentMessage = extractCurrentCustomerMessage(userPrompt);
 
   if (!currentMessage) {
@@ -886,6 +891,9 @@ export const openAIProviderService = {
     const guardedReplyText = applyDeterministicConversationGuard(
       guardedReplyTextRaw.trim(),
       userPrompt,
+      structuredResponse.needsHuman
+        ? structuredResponse.handoffReason
+        : "NONE",
     );
 
     if (!guardedReplyText) {
