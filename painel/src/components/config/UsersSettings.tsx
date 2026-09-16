@@ -99,6 +99,12 @@ export default function UsersSettings({
 
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [generatedInvite, setGeneratedInvite] = useState<{
+    userId: string;
+    url: string;
+    expiresAt: string;
+  } | null>(null);
+
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -421,6 +427,15 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
       }
 
       const inviteUrl = `${window.location.origin}/primeiro-acesso?token=${encodeURIComponent(token)}`;
+
+      setGeneratedInvite({
+        userId: user.id,
+        url: inviteUrl,
+        expiresAt:
+          typeof data?.expiresAt === "string"
+            ? data.expiresAt
+            : "",
+      });
 
       try {
         await navigator.clipboard.writeText(inviteUrl);
@@ -808,6 +823,50 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
                     )}
                   </div>
                 </div>
+                {generatedInvite?.userId === user.id && (
+                  <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50/60 p-4">
+                    <p className="text-sm font-bold text-teal-800">
+                      Convite gerado com sucesso.
+                    </p>
+
+                    <p className="mt-1 text-xs text-teal-700">
+                      Válido por 24 horas.
+                    </p>
+
+                    <div className="mt-3 rounded-lg border border-teal-200 bg-white px-3 py-2">
+                      <p className="break-all text-xs text-black/60">
+                        {generatedInvite.url}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void navigator.clipboard.writeText(generatedInvite.url)
+                        }
+                        className="rounded-lg border border-teal-200 bg-white px-3 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
+                      >
+                        Copiar link
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.open(
+                            generatedInvite.url,
+                            "_blank",
+                            "noopener,noreferrer",
+                          )
+                        }
+                        className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700"
+                      >
+                        Abrir link
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </article>
             );
           })}
