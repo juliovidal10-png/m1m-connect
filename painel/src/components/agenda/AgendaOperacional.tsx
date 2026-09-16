@@ -323,6 +323,26 @@ export default function AgendaOperacional() {
     setBulkFeedback,
   ] = useState("");
 
+  const [
+    bulkCustomerSearch,
+    setBulkCustomerSearch,
+  ] = useState("");
+
+  const [
+    bulkCustomerResults,
+    setBulkCustomerResults,
+  ] = useState<CustomerLookupRecord[]>([]);
+
+  const [
+    bulkSelectedCustomers,
+    setBulkSelectedCustomers,
+  ] = useState<CustomerLookupRecord[]>([]);
+
+  const [
+    isSearchingBulkCustomers,
+    setIsSearchingBulkCustomers,
+  ] = useState(false);
+
   const loadReminders =
     useCallback(async () => {
       setIsLoading(true);
@@ -368,6 +388,96 @@ export default function AgendaOperacional() {
     void loadReminders();
   }, [loadReminders]);
 
+  useEffect(() => {
+    const normalizedSearch =
+      bulkCustomerSearch.trim();
+
+    if (
+      normalizedSearch.length < 2
+    ) {
+      setBulkCustomerResults([]);
+      setIsSearchingBulkCustomers(false);
+      return;
+    }
+
+    const controller =
+      new AbortController();
+
+    const timeout =
+      window.setTimeout(
+        async () => {
+          setIsSearchingBulkCustomers(
+            true,
+          );
+
+          try {
+            const params =
+              new URLSearchParams({
+                search:
+                  normalizedSearch,
+              });
+
+            const response =
+              await fetch(
+                `/api/customers?${params.toString()}`,
+                {
+                  cache:
+                    "no-store",
+                  signal:
+                    controller.signal,
+                },
+              );
+
+            const data =
+              await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.error ||
+                  "Não foi possível pesquisar os clientes.",
+              );
+            }
+
+            const customers =
+              (Array.isArray(data)
+                ? data
+                : []) as CustomerLookupRecord[];
+
+            setBulkCustomerResults(
+              customers.slice(0, 8),
+            );
+          } catch (searchError) {
+            if (
+              searchError instanceof
+                DOMException &&
+              searchError.name ===
+                "AbortError"
+            ) {
+              return;
+            }
+
+            setBulkCustomerResults(
+              [],
+            );
+          } finally {
+            if (
+              !controller.signal
+                .aborted
+            ) {
+              setIsSearchingBulkCustomers(
+                false,
+              );
+            }
+          }
+        },
+        350,
+      );
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [bulkCustomerSearch]);
   const filteredReminders =
     useMemo(() => {
       const now = new Date();
@@ -653,6 +763,44 @@ export default function AgendaOperacional() {
     );
   }
 
+  function selectBulkCustomer(
+    customer: CustomerLookupRecord,
+  ) {
+    setBulkSelectedCustomers(
+      (currentCustomers) => {
+        if (
+          currentCustomers.some(
+            (currentCustomer) =>
+              currentCustomer.id ===
+              customer.id,
+          )
+        ) {
+          return currentCustomers;
+        }
+
+        return [
+          ...currentCustomers,
+          customer,
+        ];
+      },
+    );
+
+    setBulkCustomerSearch("");
+    setBulkCustomerResults([]);
+  }
+
+  function removeBulkCustomer(
+    customerId: string,
+  ) {
+    setBulkSelectedCustomers(
+      (currentCustomers) =>
+        currentCustomers.filter(
+          (customer) =>
+            customer.id !==
+            customerId,
+        ),
+    );
+  }
   async function createBulkReminders() {
     if (isCreatingBulk) {
       return;
@@ -663,7 +811,10 @@ export default function AgendaOperacional() {
         bulkCodes,
       );
 
-    if (codes.length === 0) {
+    if (
+      codes.length === 0 &&
+      bulkSelectedCustomers.length === 0
+    ) {
       setBulkFeedback(
         "Informe pelo menos um código de cliente válido.",
       );
@@ -761,7 +912,14 @@ export default function AgendaOperacional() {
             ),
         );
 
-      const foundCustomers =
+      const customersById =
+        new Map<
+          string,
+          CustomerLookupRecord
+        >();
+
+      for (
+        const customer of
         codes
           .map((code) =>
             customerByCode.get(
@@ -773,8 +931,28 @@ export default function AgendaOperacional() {
               customer,
             ): customer is CustomerLookupRecord =>
               Boolean(customer),
-          );
+          )
+      ) {
+        customersById.set(
+          customer.id,
+          customer,
+        );
+      }
 
+      for (
+        const customer of
+        bulkSelectedCustomers
+      ) {
+        customersById.set(
+          customer.id,
+          customer,
+        );
+      }
+
+      const foundCustomers =
+        Array.from(
+          customersById.values(),
+        );
       if (
         foundCustomers.length ===
         0
@@ -884,6 +1062,9 @@ export default function AgendaOperacional() {
 
       if (createdCount > 0) {
         setBulkCodes("");
+        setBulkSelectedCustomers([]);
+        setBulkCustomerSearch("");
+        setBulkCustomerResults([]);
         await loadReminders();
       }
     } catch (bulkError) {
@@ -1204,15 +1385,122 @@ export default function AgendaOperacional() {
             </p>
 
             <h2 className="text-lg font-bold text-[#171717]">
-              Adicionar clientes por código
+              Adicionar clientes por nome ou código
             </h2>
 
             <p className="text-xs leading-5 text-black/45">
-              Informe vários códigos separados por vírgula, espaço ou quebra de linha.
+              Pesquise pelo nome ou código do cliente. Para vários clientes, você também pode informar os códigos em lote.
             </p>
           </div>
 
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_1fr_180px_140px]">
+            <div className="grid gap-3">
+              <div className="relative">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">
+                    Pesquisar cliente
+                  </span>
+
+                  <input
+                    value={bulkCustomerSearch}
+                    onChange={(event) =>
+                      setBulkCustomerSearch(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Digite o nome ou código do cliente"
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
+
+                {isSearchingBulkCustomers ? (
+                  <p className="mt-2 text-xs text-black/45">
+                    Pesquisando clientes...
+                  </p>
+                ) : null}
+
+                {bulkCustomerResults.length > 0 ? (
+                  <div className="mt-2 overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm">
+                    {bulkCustomerResults.map(
+                      (customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() =>
+                            selectBulkCustomer(
+                              customer,
+                            )
+                          }
+                          className="flex w-full items-center justify-between gap-3 border-b border-black/5 px-3 py-2.5 text-left text-sm transition last:border-b-0 hover:bg-black/[0.03]"
+                        >
+                          <span className="min-w-0 truncate font-semibold text-[#171717]">
+                            {customer.displayName ||
+                              customer.name ||
+                              customer.phone ||
+                              "Cliente"}
+                          </span>
+
+                          <span className="shrink-0 text-xs text-black/45">
+                            {customer.customerCode !==
+                            null
+                              ? `Cliente #${String(
+                                  customer.customerCode,
+                                ).padStart(
+                                  6,
+                                  "0",
+                                )}`
+                              : "Sem código"}
+                          </span>
+                        </button>
+                      ),
+                    )}
+                  </div>
+                ) : null}
+              </div>
+
+              {bulkSelectedCustomers.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {bulkSelectedCustomers.map(
+                    (customer) => (
+                      <div
+                        key={customer.id}
+                        className="flex max-w-full items-center gap-2 rounded-lg border border-[#0A9090]/20 bg-[#0A9090]/5 px-2.5 py-2 text-xs"
+                      >
+                        <span className="truncate font-semibold text-[#171717]">
+                          {customer.displayName ||
+                            customer.name ||
+                            customer.phone ||
+                            "Cliente"}
+                          {customer.customerCode !==
+                          null
+                            ? ` — Cliente #${String(
+                                customer.customerCode,
+                              ).padStart(
+                                6,
+                                "0",
+                              )}`
+                            : ""}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeBulkCustomer(
+                              customer.id,
+                            )
+                          }
+                          className="shrink-0 font-bold text-black/40 transition hover:text-black"
+                          aria-label="Remover cliente"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              ) : null}
+            </div>
+
             <label className="block">
               <span className="mb-1.5 block text-xs font-bold text-black/55">
                 Códigos dos clientes
