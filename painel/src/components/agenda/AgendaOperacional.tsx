@@ -443,8 +443,50 @@ export default function AgendaOperacional() {
                 ? data
                 : []) as CustomerLookupRecord[];
 
+            const normalizedTerm =
+              normalizedSearch.toLocaleLowerCase(
+                "pt-BR",
+              );
+            const normalizedCode =
+              normalizedSearch
+                .replace(/^cliente\s*#?/i, "")
+                .replace(/^#/, "")
+                .replace(/^0+/, "");
+            const filteredCustomers =
+              customers.filter(
+                (customer) => {
+                  const customerName =
+                    (
+                      customer.displayName ||
+                      customer.name ||
+                      ""
+                    ).toLocaleLowerCase(
+                      "pt-BR",
+                    );
+                  const customerCode =
+                    customer.customerCode !==
+                    null
+                      ? String(
+                          customer.customerCode,
+                        )
+                      : "";
+                  return (
+                    customerName.includes(
+                      normalizedTerm,
+                    ) ||
+                    (
+                      normalizedCode !== "" &&
+                      customerCode ===
+                        normalizedCode
+                    )
+                  );
+                },
+              );
             setBulkCustomerResults(
-              customers.slice(0, 8),
+              filteredCustomers.slice(
+                0,
+                8,
+              ),
             );
           } catch (searchError) {
             if (
@@ -816,7 +858,7 @@ export default function AgendaOperacional() {
       bulkSelectedCustomers.length === 0
     ) {
       setBulkFeedback(
-        "Informe pelo menos um código de cliente válido.",
+        "Selecione pelo menos um cliente ou informe um código válido.",
       );
       return;
     }
@@ -1393,243 +1435,197 @@ export default function AgendaOperacional() {
             </p>
           </div>
 
-          <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_1fr_180px_140px]">
-            <div className="grid gap-3">
-              <div className="relative">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-bold text-black/55">
-                    Pesquisar cliente
-                  </span>
+          <div className="mt-4 grid gap-4">
+            <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr_180px_140px]">
+              <div className="grid content-start gap-3">
+                <div className="relative">
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-bold text-black/55">
+                      Cliente
+                    </span>
 
-                  <input
-                    value={bulkCustomerSearch}
-                    onChange={(event) =>
-                      setBulkCustomerSearch(
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Digite o nome ou código do cliente"
-                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                  />
-                </label>
+                    <input
+                      value={bulkCustomerSearch}
+                      onChange={(event) =>
+                        setBulkCustomerSearch(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Digite o nome ou código do cliente"
+                      className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                    />
+                  </label>
 
-                {isSearchingBulkCustomers ? (
-                  <p className="mt-2 text-xs text-black/45">
-                    Pesquisando clientes...
-                  </p>
-                ) : null}
+                  {isSearchingBulkCustomers ? (
+                    <p className="mt-2 text-xs text-black/45">
+                      Pesquisando clientes...
+                    </p>
+                  ) : null}
 
-                {bulkCustomerResults.length > 0 ? (
-                  <div className="mt-2 overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm">
-                    {bulkCustomerResults.map(
+                  {bulkCustomerResults.length > 0 ? (
+                    <div className="mt-2 overflow-hidden rounded-xl border border-black/10 bg-white shadow-sm">
+                      {bulkCustomerResults.map(
+                        (customer) => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() =>
+                              selectBulkCustomer(
+                                customer,
+                              )
+                            }
+                            className="flex w-full items-center justify-between gap-3 border-b border-black/5 px-3 py-2.5 text-left text-sm transition last:border-b-0 hover:bg-black/[0.03]"
+                          >
+                            <span className="min-w-0 truncate font-semibold text-[#171717]">
+                              {customer.displayName ||
+                                customer.name ||
+                                customer.phone ||
+                                "Cliente"}
+                            </span>
+
+                            <span className="shrink-0 text-xs text-black/45">
+                              {customer.customerCode !== null
+                                ? "Cliente #" + String(customer.customerCode).padStart(6, "0")
+                                : "Sem código"}
+                            </span>
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                {bulkSelectedCustomers.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {bulkSelectedCustomers.map(
                       (customer) => (
-                        <button
+                        <div
                           key={customer.id}
-                          type="button"
-                          onClick={() =>
-                            selectBulkCustomer(
-                              customer,
-                            )
-                          }
-                          className="flex w-full items-center justify-between gap-3 border-b border-black/5 px-3 py-2.5 text-left text-sm transition last:border-b-0 hover:bg-black/[0.03]"
+                          className="flex max-w-full items-center gap-2 rounded-lg border border-[#0A9090]/20 bg-[#0A9090]/5 px-2.5 py-2 text-xs"
                         >
-                          <span className="min-w-0 truncate font-semibold text-[#171717]">
+                          <span className="truncate font-semibold text-[#171717]">
                             {customer.displayName ||
                               customer.name ||
                               customer.phone ||
                               "Cliente"}
+                            {customer.customerCode !== null
+                              ? " — Cliente #" + String(customer.customerCode).padStart(6, "0")
+                              : ""}
                           </span>
 
-                          <span className="shrink-0 text-xs text-black/45">
-                            {customer.customerCode !==
-                            null
-                              ? `Cliente #${String(
-                                  customer.customerCode,
-                                ).padStart(
-                                  6,
-                                  "0",
-                                )}`
-                              : "Sem código"}
-                          </span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              removeBulkCustomer(
+                                customer.id,
+                              )
+                            }
+                            className="shrink-0 font-bold text-black/40 transition hover:text-black"
+                            aria-label="Remover cliente"
+                          >
+                            ×
+                          </button>
+                        </div>
                       ),
                     )}
                   </div>
                 ) : null}
+
+                <details className="rounded-xl border border-dashed border-black/10 bg-black/[0.015]">
+                  <summary className="cursor-pointer select-none px-3 py-2.5 text-xs font-semibold text-black/50">
+                    Adicionar vários por código
+                  </summary>
+
+                  <div className="border-t border-black/5 p-3">
+                    <textarea
+                      value={bulkCodes}
+                      onChange={(event) =>
+                        setBulkCodes(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Ex.: 14, 22, 35 ou Cliente #000014"
+                      rows={2}
+                      className="w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                    />
+
+                    <p className="mt-1.5 text-[11px] leading-4 text-black/40">
+                      Separe os códigos por vírgula, espaço ou quebra de linha.
+                    </p>
+                  </div>
+                </details>
               </div>
 
-              {bulkSelectedCustomers.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {bulkSelectedCustomers.map(
-                    (customer) => (
-                      <div
-                        key={customer.id}
-                        className="flex max-w-full items-center gap-2 rounded-lg border border-[#0A9090]/20 bg-[#0A9090]/5 px-2.5 py-2 text-xs"
-                      >
-                        <span className="truncate font-semibold text-[#171717]">
-                          {customer.displayName ||
-                            customer.name ||
-                            customer.phone ||
-                            "Cliente"}
-                          {customer.customerCode !==
-                          null
-                            ? ` — Cliente #${String(
-                                customer.customerCode,
-                              ).padStart(
-                                6,
-                                "0",
-                              )}`
-                            : ""}
-                        </span>
+              <div className="grid content-start gap-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">
+                    Compromisso
+                  </span>
+                  <input
+                    value={bulkTitle}
+                    onChange={(event) => setBulkTitle(event.target.value)}
+                    placeholder="Ex.: Ligar para confirmar pedido"
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeBulkCustomer(
-                              customer.id,
-                            )
-                          }
-                          className="shrink-0 font-bold text-black/40 transition hover:text-black"
-                          aria-label="Remover cliente"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ),
-                  )}
-                </div>
-              ) : null}
-            </div>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">
+                    Observação
+                  </span>
+                  <input
+                    value={bulkDescription}
+                    onChange={(event) => setBulkDescription(event.target.value)}
+                    placeholder="Opcional"
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
+              </div>
 
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-bold text-black/55">
-                Códigos dos clientes
-              </span>
+              <div className="grid content-start gap-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">Data</span>
+                  <input
+                    type="date"
+                    value={bulkDate}
+                    onChange={(event) => setBulkDate(event.target.value)}
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
 
-              <textarea
-                value={bulkCodes}
-                onChange={(event) =>
-                  setBulkCodes(
-                    event.target.value,
-                  )
-                }
-                placeholder="14, 22, 35&#10;ou Cliente #000014"
-                rows={4}
-                className="w-full resize-y rounded-xl border border-black/10 bg-[#fafafa] px-3 py-2.5 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-              />
-            </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">Responsável</span>
+                  <input
+                    value={bulkResponsible}
+                    onChange={(event) => setBulkResponsible(event.target.value)}
+                    placeholder="Opcional"
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
+              </div>
 
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-black/55">
-                  Compromisso
-                </span>
+              <div className="grid content-start gap-3">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-bold text-black/55">Horário</span>
+                  <input
+                    type="time"
+                    value={bulkTime}
+                    onChange={(event) => setBulkTime(event.target.value)}
+                    className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
+                  />
+                </label>
 
-                <input
-                  value={bulkTitle}
-                  onChange={(event) =>
-                    setBulkTitle(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Ex.: Ligar para confirmar pedido"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-black/55">
-                  Observação
-                </span>
-
-                <input
-                  value={
-                    bulkDescription
-                  }
-                  onChange={(event) =>
-                    setBulkDescription(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Opcional"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                />
-              </label>
-            </div>
-
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-black/55">
-                  Data
-                </span>
-
-                <input
-                  type="date"
-                  value={bulkDate}
-                  onChange={(event) =>
-                    setBulkDate(
-                      event.target.value,
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-black/55">
-                  Responsável
-                </span>
-
-                <input
-                  value={
-                    bulkResponsible
-                  }
-                  onChange={(event) =>
-                    setBulkResponsible(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Opcional"
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                />
-              </label>
-            </div>
-
-            <div className="grid content-start gap-3">
-              <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-black/55">
-                  Horário
-                </span>
-
-                <input
-                  type="time"
-                  value={bulkTime}
-                  onChange={(event) =>
-                    setBulkTime(
-                      event.target.value,
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-black/10 bg-[#fafafa] px-3 text-sm outline-none transition focus:border-[#0A9090] focus:ring-4 focus:ring-[#0A9090]/10"
-                />
-              </label>
-
-              <button
-                type="button"
-                disabled={
-                  isCreatingBulk
-                }
-                onClick={() =>
-                  void createBulkReminders()
-                }
-                className="h-11 rounded-xl bg-[#0A9090] px-4 text-sm font-bold text-white transition hover:bg-[#087B7B] disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                {isCreatingBulk
-                  ? "Adicionando..."
-                  : "Adicionar à agenda"}
-              </button>
+                <button
+                  type="button"
+                  disabled={isCreatingBulk}
+                  onClick={() => void createBulkReminders()}
+                  className="h-11 rounded-xl bg-[#0A9090] px-4 text-sm font-bold text-white transition hover:bg-[#087B7B] disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {isCreatingBulk ? "Adicionando..." : "Adicionar à agenda"}
+                </button>
+              </div>
             </div>
           </div>
-
           {bulkFeedback && (
             <div className="mt-4 rounded-xl bg-black/[0.035] px-4 py-3 text-sm font-medium text-black/65">
               {bulkFeedback}
