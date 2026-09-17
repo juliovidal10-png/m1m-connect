@@ -835,6 +835,148 @@ export const openAIProviderService = {
         rawText,
       );
 
+    let effectiveStructuredResponse =
+      structuredResponse;
+
+    if (!structuredResponse.needsHuman) {
+      const operationalGuardResponse =
+        await client.responses.create({
+          model,
+          instructions: [
+            "Voce e uma salvaguarda operacional de atendimento via WhatsApp.",
+            "Sua unica funcao e verificar se a decisao anterior de NAO encaminhar para atendimento humano contradiz as regras oficiais disponiveis no PROMPT DO SISTEMA / CONTEXTO AUTORIZADO.",
+            "Use somente o contexto e as regras oficiais fornecidos. Nao crie regras, nao classifique setor e nao use conhecimento externo.",
+            "Defina requiresHumanAction=true somente quando houver evidencia suficiente, nas regras/contexto oficiais e no pedido concreto do cliente, de que atender ao pedido exige uma acao ou execucao que a IA nao pode realizar diretamente e que depende da equipe humana.",
+            "Diferencie pedido de execucao de pergunta informativa. Se o cliente estiver apenas perguntando sobre servico, produto, funcionamento, disponibilidade ou informacao que possa ser respondida com o contexto autorizado, retorne false.",
+            "Nao transforme todo pedido de um setor em atendimento humano. A decisao deve decorrer da solicitacao concreta combinada com as regras oficiais daquele contexto.",
+            "Considere o historico apenas para compreender referencias e continuidade do pedido atual.",
+            "Se nao houver evidencia suficiente de necessidade de execucao humana, retorne false.",
+            "Quando requiresHumanAction=true, produza subject e context curtos e objetivos para continuidade pelo atendente humano.",
+            "Retorne apenas o JSON exigido.",
+          ].join("\n"),
+          input: [
+            "PROMPT DO SISTEMA / CONTEXTO AUTORIZADO:",
+            systemPrompt,
+            "",
+            "MENSAGEM / CONTEXTO DO CLIENTE:",
+            userPrompt,
+          ].join("\n"),
+          reasoning: {
+            effort: "minimal",
+          },
+          max_output_tokens: 180,
+          text: {
+            format: {
+              type: "json_schema",
+              name: "m1m_operational_handoff_guard",
+              strict: true,
+              description:
+                "Salvaguarda para detectar necessidade de execucao humana ignorada pela decisao inicial.",
+              schema: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  requiresHumanAction: {
+                    type: "boolean",
+                    description:
+                      "True somente quando as regras oficiais e o pedido concreto indicarem que a solicitacao exige execucao pela equipe humana.",
+                  },
+                  subject: {
+                    type: ["string", "null"],
+                    description:
+                      "Assunto objetivo para o atendente quando requiresHumanAction for true; caso contrario, null.",
+                  },
+                  context: {
+                    type: ["string", "null"],
+                    description:
+                      "Resumo objetivo do pedido para continuidade humana quando requiresHumanAction for true; caso contrario, null.",
+                  },
+                },
+                required: [
+                  "requiresHumanAction",
+                  "subject",
+                  "context",
+                ],
+              },
+            },
+          },
+        });
+
+      const operationalGuardRawText =
+        operationalGuardResponse.output_text?.trim();
+
+      if (!operationalGuardRawText) {
+        throw new Error(
+          "A OpenAI nao retornou a salvaguarda operacional.",
+        );
+      }
+
+      let operationalGuardParsed: unknown;
+
+      try {
+        operationalGuardParsed =
+          JSON.parse(operationalGuardRawText);
+      } catch {
+        throw new Error(
+          "A OpenAI retornou uma salvaguarda operacional invalida.",
+        );
+      }
+
+      if (
+        !operationalGuardParsed ||
+        typeof operationalGuardParsed !== "object"
+      ) {
+        throw new Error(
+          "A OpenAI retornou uma salvaguarda operacional invalida.",
+        );
+      }
+
+      const operationalGuardRecord =
+        operationalGuardParsed as Record<string, unknown>;
+
+      if (
+        typeof operationalGuardRecord.requiresHumanAction !==
+        "boolean"
+      ) {
+        throw new Error(
+          "A OpenAI retornou uma decisao operacional invalida.",
+        );
+      }
+
+      const operationalSubject =
+        typeof operationalGuardRecord.subject === "string"
+          ? operationalGuardRecord.subject.trim() || null
+          : null;
+
+      const operationalContext =
+        typeof operationalGuardRecord.context === "string"
+          ? operationalGuardRecord.context.trim() || null
+          : null;
+
+      if (
+        !operationalGuardRecord.requiresHumanAction &&
+        (operationalSubject !== null ||
+          operationalContext !== null)
+      ) {
+        throw new Error(
+          "A salvaguarda operacional retornou dados de handoff sem necessidade de acao humana.",
+        );
+      }
+
+      if (operationalGuardRecord.requiresHumanAction) {
+        effectiveStructuredResponse = {
+          replyText:
+            structuredResponse.replyText,
+          needsHuman: true,
+          handoffReason:
+            "HUMAN_ACTION_REQUIRED",
+          subject:
+            operationalSubject,
+          context:
+            operationalContext,
+        };
+      }
+    }
     const guardResponse =
       await client.responses.create({
         model,
@@ -938,8 +1080,8 @@ export const openAIProviderService = {
     const guardedReplyText = applyDeterministicConversationGuard(
       guardedReplyTextRaw.trim(),
       userPrompt,
-      structuredResponse.needsHuman
-        ? structuredResponse.handoffReason
+      effectiveStructuredResponse.needsHuman
+        ? effectiveStructuredResponse.handoffReason
         : "NONE",
     );
 
@@ -964,18 +1106,18 @@ export const openAIProviderService = {
         null,
     };
 
-    if (structuredResponse.needsHuman) {
+    if (effectiveStructuredResponse.needsHuman) {
       return {
         ...usage,
         text:
           guardedReplyText,
         needsHuman: true,
         handoffReason:
-          structuredResponse.handoffReason,
+          effectiveStructuredResponse.handoffReason,
         subject:
-          structuredResponse.subject,
+          effectiveStructuredResponse.subject,
         context:
-          structuredResponse.context,
+          effectiveStructuredResponse.context,
       };
     }
 
