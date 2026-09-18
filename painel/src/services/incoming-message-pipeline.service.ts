@@ -1848,6 +1848,52 @@ const menuAlreadyShownInCurrentCycle =
         handoffReason: aiResponse.handoffReason,
       });
 
+      if (
+        router.state === "IA" &&
+        tf6F2CurrentAttendanceBeforeSend?.state === "HUMANO"
+      ) {
+        m1mT2Trace("TF6_F3_STALE_AI_RESPONSE_BLOCKED", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+          currentAttendanceState:
+            tf6F2CurrentAttendanceBeforeSend.state,
+          currentResponsibleId:
+            tf6F2CurrentAttendanceBeforeSend.responsibleId ?? null,
+          currentSectorId:
+            tf6F2CurrentAttendanceBeforeSend.sectorId ?? null,
+          needsHuman: aiResponse.needsHuman,
+          handoffReason: aiResponse.handoffReason,
+        });
+
+        m1mT2Trace("TF6_F2_PROCESSING_END", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+          action: "STALE_AI_RESPONSE_BLOCKED",
+        });
+
+        return {
+          processed: true,
+          action: "STALE_AI_RESPONSE_BLOCKED" as const,
+          messageId: storedMessage.id,
+          router,
+          availability,
+          ai: {
+            model: aiResponse.model,
+            responseId: aiResponse.responseId,
+            needsHuman: aiResponse.needsHuman,
+            handoffReason: aiResponse.handoffReason,
+            subject: aiResponse.subject,
+            context: aiResponse.context,
+          },
+        };
+      }
+
       try {
         await automaticMessageService.sendText({
           companyId,
