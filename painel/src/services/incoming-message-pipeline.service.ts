@@ -313,6 +313,15 @@ export const incomingMessagePipelineService = {
       processingClaimed,
     });
 
+    if (processingClaimed) {
+      m1mT2Trace("TF6_F2_PROCESSING_START", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: storedMessage.attendanceId ?? null,
+      });
+    }
+
     if (
       processingClaimed &&
       !normalizedMessage.fromMe &&
@@ -796,6 +805,13 @@ export const incomingMessagePipelineService = {
         companyId,
       });
 
+      m1mT2Trace("TF6_F2_ROUTER_START", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: storedMessage.attendanceId ?? null,
+      });
+
       let router =
         await routerService.execute({
           companyId,
@@ -817,6 +833,16 @@ export const incomingMessagePipelineService = {
         routerState: router.state,
         attendanceId: router.attendanceId,
         sectorId: router.sectorId,
+      });
+
+      m1mT2Trace("TF6_F2_ROUTER_END", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: router.attendanceId,
+        routerState: router.state,
+        sectorId: router.sectorId,
+        responsibleId: router.responsibleId ?? null,
       });
 
       // NEXT_CONVERSATION_12H
@@ -1592,6 +1618,15 @@ const menuAlreadyShownInCurrentCycle =
           }
         }
 
+        m1mT2Trace("TF6_F2_PROCESSING_END", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+          action: "HUMAN_ATTENDANCE_ACTIVE",
+        });
+
         return {
           processed: true,
           action:
@@ -1687,6 +1722,15 @@ const menuAlreadyShownInCurrentCycle =
         sectorId: router.sectorId,
       });
 
+      m1mT2Trace("TF6_F2_AI_START", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: router.attendanceId,
+        routerState: router.state,
+        sectorId: router.sectorId,
+      });
+
       const aiResponse =
         await openAIProviderService.generateResponse({
           systemPrompt:
@@ -1706,6 +1750,18 @@ const menuAlreadyShownInCurrentCycle =
         needsHuman: aiResponse.needsHuman,
         handoffReason: aiResponse.handoffReason,
         });
+
+      m1mT2Trace("TF6_F2_AI_END", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: router.attendanceId,
+        routerState: router.state,
+        sectorId: router.sectorId,
+        responseId: aiResponse.responseId,
+        needsHuman: aiResponse.needsHuman,
+        handoffReason: aiResponse.handoffReason,
+      });
 
       let customerResponseText =
         sanitizeGeneralCompanyScheduleResponse(
@@ -1762,20 +1818,74 @@ const menuAlreadyShownInCurrentCycle =
         sectorId: router.sectorId,
       });
 
-      await automaticMessageService.sendText({
+      const tf6F2CurrentAttendanceBeforeSend =
+        router.attendanceId
+          ? await prisma.m1MAttendance.findUnique({
+              where: {
+                id: router.attendanceId,
+              },
+              select: {
+                state: true,
+                responsibleId: true,
+                sectorId: true,
+              },
+            })
+          : null;
+
+      m1mT2Trace("TF6_F2_SEND_ATTEMPT", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
         companyId,
-        customerId:
-          storedMessage.customerId,
-        attendanceId:
-          router.attendanceId,
-    instanceName: normalizedInstanceName,
-        remoteJid:
-          normalizedMessage.remoteJid,
-        text:
-          customerResponseText,
-      sourceMessageId:
-          storedMessage.id,
+        attendanceId: router.attendanceId,
+        routerStateSnapshot: router.state,
+        currentAttendanceState:
+          tf6F2CurrentAttendanceBeforeSend?.state ?? null,
+        currentResponsibleId:
+          tf6F2CurrentAttendanceBeforeSend?.responsibleId ?? null,
+        currentSectorId:
+          tf6F2CurrentAttendanceBeforeSend?.sectorId ?? null,
+        needsHuman: aiResponse.needsHuman,
+        handoffReason: aiResponse.handoffReason,
       });
+
+      try {
+        await automaticMessageService.sendText({
+          companyId,
+          customerId:
+            storedMessage.customerId,
+          attendanceId:
+            router.attendanceId,
+      instanceName: normalizedInstanceName,
+          remoteJid:
+            normalizedMessage.remoteJid,
+          text:
+            customerResponseText,
+        sourceMessageId:
+            storedMessage.id,
+        });
+
+        m1mT2Trace("TF6_F2_SEND_SUCCESS", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+        });
+      } catch (error) {
+        m1mT2Trace("TF6_F2_SEND_FAILURE", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        });
+
+        throw error;
+      }
 
       m1mT2Trace("AFTER_SEND_AI_RESPONSE", {
         messageId: storedMessage.id,
@@ -1786,18 +1896,42 @@ const menuAlreadyShownInCurrentCycle =
         sectorId: router.sectorId,
       });
       if (aiResponse.needsHuman) {
-        await attendanceService.requestHumanAttendanceByAI({
+        m1mT2Trace("TF6_F2_HANDOFF_START", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
           companyId,
-          attendanceId:
-            router.attendanceId,
+          attendanceId: router.attendanceId,
+          routerStateSnapshot: router.state,
+          sectorId: router.sectorId,
+          handoffReason: aiResponse.handoffReason,
+        });
+
+        const tf6F2HumanAttendance =
+          await attendanceService.requestHumanAttendanceByAI({
+            companyId,
+            attendanceId:
+              router.attendanceId,
+            sectorId:
+              router.sectorId,
+            handoffReason:
+              aiResponse.handoffReason,
+            subject:
+              aiResponse.subject,
+            context:
+              aiResponse.context,
+          });
+
+        m1mT2Trace("TF6_F2_HUMAN_PERSISTED", {
+          messageId: storedMessage.id,
+          customerId: storedMessage.customerId,
+          companyId,
+          attendanceId: router.attendanceId,
+          attendanceState:
+            tf6F2HumanAttendance.state,
+          responsibleId:
+            tf6F2HumanAttendance.responsibleId ?? null,
           sectorId:
-            router.sectorId,
-          handoffReason:
-            aiResponse.handoffReason,
-          subject:
-            aiResponse.subject,
-          context:
-            aiResponse.context,
+            tf6F2HumanAttendance.sectorId ?? null,
         });
       }
 
@@ -1805,6 +1939,15 @@ const menuAlreadyShownInCurrentCycle =
         messageId: storedMessage.id,
         customerId: storedMessage.customerId,
         companyId,
+      });
+
+      m1mT2Trace("TF6_F2_PROCESSING_END", {
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: router.attendanceId,
+        routerStateSnapshot: router.state,
+        action: "AI_RESPONSE_SENT",
       });
 
       return {
