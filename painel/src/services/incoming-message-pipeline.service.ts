@@ -1282,6 +1282,22 @@ export const incomingMessagePipelineService = {
               Boolean(conversationalHistory) &&
               !ambiguousSectorAffirmation);
 
+          m1mT2Trace("CONVERSATION_INTENT_RESULT", {
+            evolutionMessageId: normalizedMessage.evolutionMessageId,
+            remoteJid: normalizedMessage.remoteJid,
+            instanceName: normalizedInstanceName,
+            messageId: storedMessage.id,
+            customerId: storedMessage.customerId,
+            companyId,
+            attendanceId: router.attendanceId,
+            currentMessage: conversationalMessage,
+            hasConversationHistory: Boolean(conversationalHistory),
+            intent: conversationalIntent.intent,
+            shouldHandleConversationalIntent,
+            ambiguousSectorAffirmation,
+            model: conversationalIntent.model,
+            responseId: conversationalIntent.responseId,
+          });
           if (shouldHandleConversationalIntent) {
             const replyText = conversationalIntent.replyText;
 
