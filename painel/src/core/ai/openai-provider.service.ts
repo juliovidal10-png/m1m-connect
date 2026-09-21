@@ -846,12 +846,16 @@ export const openAIProviderService = {
             "Voce e uma salvaguarda operacional de atendimento via WhatsApp.",
             "Sua unica funcao e verificar se a decisao anterior de NAO encaminhar para atendimento humano contradiz as regras oficiais disponiveis no PROMPT DO SISTEMA / CONTEXTO AUTORIZADO.",
             "Use somente o contexto e as regras oficiais fornecidos. Nao crie regras, nao classifique setor e nao use conhecimento externo.",
-            "Defina requiresHumanAction=true somente quando houver evidencia suficiente, nas regras/contexto oficiais e no pedido concreto do cliente, de que atender ao pedido exige uma acao ou execucao que a IA nao pode realizar diretamente e que depende da equipe humana.",
-            "Diferencie pedido de execucao de pergunta informativa. Se o cliente estiver apenas perguntando sobre servico, produto, funcionamento, disponibilidade ou informacao que possa ser respondida com o contexto autorizado, retorne false.",
-            "Nao transforme todo pedido de um setor em atendimento humano. A decisao deve decorrer da solicitacao concreta combinada com as regras oficiais daquele contexto.",
-            "Considere o historico apenas para compreender referencias e continuidade do pedido atual.",
-            "Se nao houver evidencia suficiente de necessidade de execucao humana, retorne false.",
-            "Quando requiresHumanAction=true, produza subject e context curtos e objetivos para continuidade pelo atendente humano.",
+            "Escolha decision=NO_HANDOFF quando a resposta estiver sustentada pelo contexto autorizado ou quando faltar apenas um dado necessario que o proprio cliente possa legitimamente fornecer.",
+            "Escolha decision=INFORMATION_UNAVAILABLE somente quando TODAS estas condicoes forem atendidas: a intencao do cliente esta suficientemente clara; responder corretamente depende de um fato ou estado operacional necessario; esse fato ou estado nao esta positivamente sustentado pelas fontes autorizadas; nenhuma capacidade efetivamente disponibilizada neste fluxo permite consulta-lo; e a lacuna nao pode ser resolvida apenas perguntando ao proprio cliente um dado que ele possa legitimamente fornecer.",
+            "Nao pressuponha acesso a sistemas, fontes, cadastros, estados internos ou ferramentas que nao tenham sido efetivamente disponibilizados no PROMPT DO SISTEMA / CONTEXTO AUTORIZADO. O fato de a empresa possivelmente possuir uma informacao nao significa que a IA consiga consulta-la.",
+            "Escolha decision=HUMAN_ACTION_REQUIRED somente quando houver evidencia suficiente de que atender ao pedido exige uma acao ou execucao que a IA nao pode realizar diretamente e que depende da equipe humana.",
+            "Diferencie pedido de execucao de pergunta informativa. Informacao respondida pelas fontes autorizadas deve permanecer NO_HANDOFF.",
+            "Nao promova handoff apenas por incerteza, por o pedido pertencer a determinado setor ou por existir alguma informacao faltante.",
+            "Se o dado faltante puder legitimamente ser fornecido pelo proprio cliente e for necessario para compreender ou prosseguir, preserve NO_HANDOFF para permitir uma unica pergunta necessaria.",
+            "Se a intencao ja estiver clara e faltar um estado operacional interno nao consultavel, nao repita ao cliente a intencao ja compreendida apenas por nao possuir a resposta.",
+            "Considere o historico apenas para compreender referencias, continuidade e informacoes que o cliente ja forneceu; o historico nao cria acesso a fatos operacionais internos.",
+            "Quando decision for INFORMATION_UNAVAILABLE ou HUMAN_ACTION_REQUIRED, produza subject e context curtos e objetivos para continuidade humana. Registre somente o que o cliente quer e o que precisa ser verificado ou executado, sem transformar informacao desconhecida em fato.",
             "Retorne apenas o JSON exigido.",
           ].join("\n"),
           input: [
@@ -861,119 +865,81 @@ export const openAIProviderService = {
             "MENSAGEM / CONTEXTO DO CLIENTE:",
             userPrompt,
           ].join("\n"),
-          reasoning: {
-            effort: "minimal",
-          },
+          reasoning: { effort: "minimal" },
           max_output_tokens: 180,
           text: {
             format: {
               type: "json_schema",
               name: "m1m_operational_handoff_guard",
               strict: true,
-              description:
-                "Salvaguarda para detectar necessidade de execucao humana ignorada pela decisao inicial.",
+              description: "Salvaguarda para detectar necessidade de informacao operacional indisponivel ou execucao humana ignorada pela decisao inicial.",
               schema: {
                 type: "object",
                 additionalProperties: false,
                 properties: {
-                  requiresHumanAction: {
-                    type: "boolean",
-                    description:
-                      "True somente quando as regras oficiais e o pedido concreto indicarem que a solicitacao exige execucao pela equipe humana.",
+                  decision: {
+                    type: "string",
+                    enum: ["NO_HANDOFF", "INFORMATION_UNAVAILABLE", "HUMAN_ACTION_REQUIRED"],
+                    description: "Decisao operacional da salvaguarda.",
                   },
                   subject: {
                     type: ["string", "null"],
-                    description:
-                      "Assunto objetivo para o atendente quando requiresHumanAction for true; caso contrario, null.",
+                    description: "Assunto objetivo para continuidade humana quando decision nao for NO_HANDOFF; caso contrario, null.",
                   },
                   context: {
                     type: ["string", "null"],
-                    description:
-                      "Resumo objetivo do pedido para continuidade humana quando requiresHumanAction for true; caso contrario, null.",
+                    description: "Resumo objetivo para continuidade humana quando decision nao for NO_HANDOFF; caso contrario, null.",
                   },
                 },
-                required: [
-                  "requiresHumanAction",
-                  "subject",
-                  "context",
-                ],
+                required: ["decision", "subject", "context"],
               },
             },
           },
         });
 
-      const operationalGuardRawText =
-        operationalGuardResponse.output_text?.trim();
-
+      const operationalGuardRawText = operationalGuardResponse.output_text?.trim();
       if (!operationalGuardRawText) {
-        throw new Error(
-          "A OpenAI nao retornou a salvaguarda operacional.",
-        );
+        throw new Error("A OpenAI nao retornou a salvaguarda operacional.");
       }
-
       let operationalGuardParsed: unknown;
-
       try {
-        operationalGuardParsed =
-          JSON.parse(operationalGuardRawText);
+        operationalGuardParsed = JSON.parse(operationalGuardRawText);
       } catch {
-        throw new Error(
-          "A OpenAI retornou uma salvaguarda operacional invalida.",
-        );
+        throw new Error("A OpenAI retornou uma salvaguarda operacional invalida.");
       }
-
+      if (!operationalGuardParsed || typeof operationalGuardParsed !== "object") {
+        throw new Error("A OpenAI retornou uma salvaguarda operacional invalida.");
+      }
+      const operationalGuardRecord = operationalGuardParsed as Record<string, unknown>;
+      const operationalDecision = operationalGuardRecord.decision;
       if (
-        !operationalGuardParsed ||
-        typeof operationalGuardParsed !== "object"
+        operationalDecision !== "NO_HANDOFF" &&
+        operationalDecision !== "INFORMATION_UNAVAILABLE" &&
+        operationalDecision !== "HUMAN_ACTION_REQUIRED"
       ) {
-        throw new Error(
-          "A OpenAI retornou uma salvaguarda operacional invalida.",
-        );
+        throw new Error("A OpenAI retornou uma decisao operacional invalida.");
       }
-
-      const operationalGuardRecord =
-        operationalGuardParsed as Record<string, unknown>;
-
-      if (
-        typeof operationalGuardRecord.requiresHumanAction !==
-        "boolean"
-      ) {
-        throw new Error(
-          "A OpenAI retornou uma decisao operacional invalida.",
-        );
-      }
-
       const operationalSubject =
         typeof operationalGuardRecord.subject === "string"
           ? operationalGuardRecord.subject.trim() || null
           : null;
-
       const operationalContext =
         typeof operationalGuardRecord.context === "string"
           ? operationalGuardRecord.context.trim() || null
           : null;
-
       if (
-        !operationalGuardRecord.requiresHumanAction &&
-        (operationalSubject !== null ||
-          operationalContext !== null)
+        operationalDecision === "NO_HANDOFF" &&
+        (operationalSubject !== null || operationalContext !== null)
       ) {
-        throw new Error(
-          "A salvaguarda operacional retornou dados de handoff sem necessidade de acao humana.",
-        );
+        throw new Error("A salvaguarda operacional retornou dados de handoff sem necessidade de atendimento humano.");
       }
-
-      if (operationalGuardRecord.requiresHumanAction) {
+      if (operationalDecision !== "NO_HANDOFF") {
         effectiveStructuredResponse = {
-          replyText:
-            structuredResponse.replyText,
+          replyText: structuredResponse.replyText,
           needsHuman: true,
-          handoffReason:
-            "HUMAN_ACTION_REQUIRED",
-          subject:
-            operationalSubject,
-          context:
-            operationalContext,
+          handoffReason: operationalDecision,
+          subject: operationalSubject,
+          context: operationalContext,
         };
       }
     }
