@@ -259,6 +259,12 @@ export async function POST(
       "[M1M WEBHOOK] Mensagem recebida:",
       diagnostic,
     );
+    console.log("[M1M AI DIAG]", {
+      stage: "WEBHOOK_RECEIVED",
+      evolutionMessageId: diagnostic.messageId || null,
+      fromMe: diagnostic.fromMe,
+    });
+
 
     const dryRun =
       request.headers.get(
@@ -287,6 +293,11 @@ export async function POST(
         result,
       },
     );
+    console.log("[M1M AI DIAG]", {
+      stage: "PIPELINE_RESULT",
+      evolutionMessageId: diagnostic.messageId || null,
+    });
+
 
     return NextResponse.json({
       received: true,

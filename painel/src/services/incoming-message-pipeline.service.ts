@@ -252,6 +252,13 @@ export const incomingMessagePipelineService = {
       fromMe: normalizedMessage.fromMe,
       messageType: normalizedMessage.type,
     });
+    console.log("[M1M AI DIAG]", {
+      stage: "PIPELINE_ENTRY",
+      evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+      fromMe: normalizedMessage.fromMe,
+      messageType: normalizedMessage.type,
+    });
+
 
     if (!normalizedInstanceName) {
       throw new Error(
@@ -312,6 +319,13 @@ export const incomingMessagePipelineService = {
       customerId: storedMessage.customerId,
       processingClaimed,
     });
+    console.log("[M1M AI DIAG]", {
+      stage: "PROCESSING_CLAIM_RESULT",
+      evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+      messageId: storedMessage.id,
+      processingClaimed,
+    });
+
 
     if (processingClaimed) {
       m1mT2Trace("TF6_F2_PROCESSING_START", {
@@ -406,6 +420,12 @@ export const incomingMessagePipelineService = {
         await messageService.markAsProcessed(
           storedMessage.id,
         );
+
+        console.log("[M1M AI DIAG]", {
+          stage: "CONSECUTIVE_MESSAGE_SUPERSEDED",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+        });
 
         return {
           processed: true,
@@ -834,6 +854,17 @@ export const incomingMessagePipelineService = {
         attendanceId: router.attendanceId,
         sectorId: router.sectorId,
       });
+      console.log("[M1M AI DIAG]", {
+        stage: "ROUTER_RESULT",
+        evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+        messageId: storedMessage.id,
+        routerState: router.state,
+        attendanceId: router.attendanceId,
+        responsibleId: router.responsibleId ?? null,
+        sectorId: router.sectorId,
+        requiresSectorIdentification: router.requiresSectorIdentification,
+      });
+
 
       m1mT2Trace("TF6_F2_ROUTER_END", {
         messageId: storedMessage.id,
@@ -1053,6 +1084,13 @@ export const incomingMessagePipelineService = {
         });
 
       if (customerAiControl?.aiEnabled === false) {
+        console.log("[M1M AI DIAG]", {
+          stage: "CUSTOMER_AI_DISABLED",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+        });
         return {
           processed: true,
           action:
@@ -1298,6 +1336,15 @@ export const incomingMessagePipelineService = {
             model: conversationalIntent.model,
             responseId: conversationalIntent.responseId,
           });
+          console.log("[M1M AI DIAG]", {
+            stage: "CONVERSATION_INTENT_RESULT",
+            evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+            messageId: storedMessage.id,
+            attendanceId: router.attendanceId,
+            intent: conversationalIntent.intent,
+            shouldHandleConversationalIntent,
+          });
+
           if (shouldHandleConversationalIntent) {
             const replyText = conversationalIntent.replyText;
 
@@ -1643,6 +1690,16 @@ const menuAlreadyShownInCurrentCycle =
           action: "HUMAN_ATTENDANCE_ACTIVE",
         });
 
+        console.log("[M1M AI DIAG]", {
+          stage: "HUMAN_ATTENDANCE_ACTIVE",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+          responsibleId: router.responsibleId ?? null,
+          sectorId: router.sectorId,
+        });
+
         return {
           processed: true,
           action:
@@ -1671,6 +1728,21 @@ const menuAlreadyShownInCurrentCycle =
         !messageContent ||
         !router.sectorId
       ) {
+        console.log("[M1M AI DIAG]", {
+          stage: "AI_RESPONSE_SKIPPED",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+          sectorId: router.sectorId,
+          reason:
+            normalizedMessage.type !== M1MMessageType.TEXT
+              ? "UNSUPPORTED_MESSAGE_TYPE"
+              : !messageContent
+                ? "EMPTY_MESSAGE"
+                : "SECTOR_NOT_DEFINED",
+        });
+
         return {
           processed: true,
           action:
@@ -1737,6 +1809,15 @@ const menuAlreadyShownInCurrentCycle =
         attendanceId: router.attendanceId,
         sectorId: router.sectorId,
       });
+      console.log("[M1M AI DIAG]", {
+        stage: "BEFORE_AI",
+        evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+        messageId: storedMessage.id,
+        attendanceId: router.attendanceId,
+        routerState: router.state,
+        sectorId: router.sectorId,
+      });
+
 
       m1mT2Trace("TF6_F2_AI_START", {
         messageId: storedMessage.id,
@@ -1766,6 +1847,15 @@ const menuAlreadyShownInCurrentCycle =
         needsHuman: aiResponse.needsHuman,
         handoffReason: aiResponse.handoffReason,
         });
+      console.log("[M1M AI DIAG]", {
+        stage: "AFTER_AI",
+        evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+        messageId: storedMessage.id,
+        attendanceId: router.attendanceId,
+        needsHuman: aiResponse.needsHuman,
+        handoffReason: aiResponse.handoffReason,
+      });
+
 
       m1mT2Trace("TF6_F2_AI_END", {
         messageId: storedMessage.id,
@@ -1868,6 +1958,16 @@ const menuAlreadyShownInCurrentCycle =
         router.state === "IA" &&
         tf6F2CurrentAttendanceBeforeSend?.state === "HUMANO"
       ) {
+                console.log("[M1M AI DIAG]", {
+          stage: "STALE_AI_RESPONSE_BLOCKED",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+          responsibleId: tf6F2CurrentAttendanceBeforeSend.responsibleId ?? null,
+          sectorId: tf6F2CurrentAttendanceBeforeSend.sectorId ?? null,
+        });
+
         m1mT2Trace("TF6_F3_STALE_AI_RESPONSE_BLOCKED", {
           messageId: storedMessage.id,
           customerId: storedMessage.customerId,
@@ -1910,6 +2010,15 @@ const menuAlreadyShownInCurrentCycle =
         };
       }
 
+      console.log("[M1M AI DIAG]", {
+        stage: "SEND_ATTEMPT",
+        evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+        messageId: storedMessage.id,
+        attendanceId: router.attendanceId,
+        routerState: router.state,
+        sectorId: router.sectorId,
+      });
+
       try {
         await automaticMessageService.sendText({
           companyId,
@@ -1933,6 +2042,14 @@ const menuAlreadyShownInCurrentCycle =
           attendanceId: router.attendanceId,
           routerStateSnapshot: router.state,
         });
+        console.log("[M1M AI DIAG]", {
+          stage: "SEND_SUCCESS",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+        });
+
       } catch (error) {
         m1mT2Trace("TF6_F2_SEND_FAILURE", {
           messageId: storedMessage.id,
@@ -1945,6 +2062,15 @@ const menuAlreadyShownInCurrentCycle =
               ? error.message
               : String(error),
         });
+        console.log("[M1M AI DIAG]", {
+          stage: "SEND_FAILURE",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+          errorType: error instanceof Error ? error.name : "UNKNOWN",
+        });
+
 
         throw error;
       }
