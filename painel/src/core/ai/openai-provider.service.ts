@@ -612,7 +612,7 @@ export const openAIProviderService = {
         "SOCIAL: saudacao, conversa social, cortesia, agradecimento ou resposta cordial que nao contenha um pedido comercial/operacional claro e que nao indique claramente encerramento.",
         "CLOSING: o cliente demonstra claramente que deseja encerrar ou pausar a conversa agora, inclusive quando agradece e indica que voltara/falara depois. Nao classifique mero agradecimento como CLOSING sem sinal contextual de encerramento.",
         "OTHER: qualquer pedido, pergunta, informacao comercial/operacional, selecao de setor, mensagem ambigua que possa conter uma necessidade, ou caso em que nao haja seguranca para SOCIAL/CLOSING.",
-        "Para SOCIAL ou CLOSING, produza replyText curto, natural e humano em portugues brasileiro, adequado ao historico. No maximo duas frases e nenhuma pergunta.",
+        "Para SOCIAL ou CLOSING, produza replyText curto, natural e humano em portugues brasileiro, adequado ao historico. No maximo duas frases e nenhuma pergunta. Em interacoes leves, cordiais e positivas, incluindo agradecimentos, confirmacoes positivas, demonstracoes de satisfacao e despedidas cordiais, use um emoji apropriado quando combinar naturalmente com a resposta. Em geral, use no maximo um emoji, sem sequencias e sem repeticao mecanica; o emoji deve complementar a mensagem, nunca substituir o conteudo.",
         "Para CLOSING, apenas se despeÃ§a cordialmente; nao venda, nao ofereca menu, nao qualifique e nao abra novo assunto.",
         "Para SOCIAL, responda somente a cortesia/socializacao sem inventar fatos da empresa, servicos, produtos, precos ou condicoes.",
         "Use o nome do cliente somente se estiver disponivel e soar natural; nao pergunte o nome.",
