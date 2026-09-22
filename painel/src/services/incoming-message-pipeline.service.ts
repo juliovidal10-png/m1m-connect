@@ -183,7 +183,7 @@ function isControlledHumanHandoffCourtesy(
     .replace(/\s+/g, " ")
     .trim();
 
-  return /^(obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa])$/.test(
+  return /^(?:(?:certo(?: entendi)?|entendi)\s+)?(?:obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa])(?:\s+pela\s+(?:atencao|ajuda))?$/.test(
     normalized,
   );
 }
@@ -1584,6 +1584,102 @@ const menuAlreadyShownInCurrentCycle =
           isControlledHumanHandoffCourtesy(
             normalizedMessage.content,
           );
+
+        if (
+          isPureCourtesy &&
+          router.attendanceId &&
+          router.responsibleId
+        ) {
+          const assignedHumanAttendance =
+            await prisma.m1MAttendance.findUnique({
+              where: {
+                id: router.attendanceId,
+              },
+              select: {
+                assignedAt: true,
+                responsibleId: true,
+              },
+            });
+
+          const elapsedSinceHumanAssignmentMs =
+            assignedHumanAttendance?.assignedAt
+              ? storedMessage.sentAt.getTime() -
+                assignedHumanAttendance.assignedAt.getTime()
+              : Number.POSITIVE_INFINITY;
+
+          const previousInboundAfterHumanAssignment =
+            assignedHumanAttendance?.responsibleId &&
+            assignedHumanAttendance.assignedAt &&
+            elapsedSinceHumanAssignmentMs >= 0 &&
+            elapsedSinceHumanAssignmentMs <= courtesyWindowMs
+              ? await prisma.m1MMessage.count({
+                  where: {
+                    companyId,
+                    customerId:
+                      storedMessage.customerId,
+                    attendanceId:
+                      router.attendanceId,
+                    fromMe: false,
+                    id: {
+                      not: storedMessage.id,
+                    },
+                    sentAt: {
+                      gte: assignedHumanAttendance.assignedAt,
+                      lt: storedMessage.sentAt,
+                    },
+                  },
+                })
+              : 1;
+
+          if (
+            assignedHumanAttendance?.responsibleId &&
+            assignedHumanAttendance.assignedAt &&
+            elapsedSinceHumanAssignmentMs >= 0 &&
+            elapsedSinceHumanAssignmentMs <= courtesyWindowMs &&
+            previousInboundAfterHumanAssignment === 0
+          ) {
+            const courtesyMessage =
+              "Por nada! 😊";
+
+            if (options?.dryRun) {
+              return {
+                processed: true,
+                action:
+                  "HUMAN_ASSIGNED_COURTESY_SIMULATED" as const,
+                messageId:
+                  storedMessage.id,
+                router,
+                simulatedMessage:
+                  courtesyMessage,
+              };
+            }
+
+            await automaticMessageService.sendText({
+              companyId,
+              customerId:
+                storedMessage.customerId,
+              attendanceId:
+                router.attendanceId,
+              instanceName:
+                normalizedInstanceName,
+              remoteJid:
+                normalizedMessage.remoteJid,
+              text:
+                courtesyMessage,
+              sourceMessageId:
+                storedMessage.id,
+            });
+
+            return {
+              processed: true,
+              action:
+                "HUMAN_ASSIGNED_COURTESY_SENT" as const,
+              messageId:
+                storedMessage.id,
+              router,
+            };
+          }
+        }
 
         if (
           isPureCourtesy &&
