@@ -835,6 +835,13 @@ export const openAIProviderService = {
         rawText,
       );
 
+    const containsEmoji = (value: string) =>
+      /\p{Extended_Pictographic}/u.test(value);
+
+    console.info("[M1M AI DIAG] EMOJI_CANDIDATE", {
+      candidateHasEmoji: containsEmoji(structuredResponse.replyText),
+    });
+
     let effectiveStructuredResponse =
       structuredResponse;
 
@@ -1043,13 +1050,23 @@ export const openAIProviderService = {
         "A OpenAI retornou uma revisao factual invalida.",
       );
     }
+    const guardReplyText = guardedReplyTextRaw.trim();
+
+    console.info("[M1M AI DIAG] EMOJI_GUARD", {
+      guardHasEmoji: containsEmoji(guardReplyText),
+    });
+
     const guardedReplyText = applyDeterministicConversationGuard(
-      guardedReplyTextRaw.trim(),
+      guardReplyText,
       userPrompt,
       effectiveStructuredResponse.needsHuman
         ? effectiveStructuredResponse.handoffReason
         : "NONE",
     );
+
+    console.info("[M1M AI DIAG] EMOJI_FINAL", {
+      finalHasEmoji: containsEmoji(guardedReplyText),
+    });
 
     if (!guardedReplyText) {
       throw new Error(
