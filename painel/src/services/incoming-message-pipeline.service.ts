@@ -183,8 +183,63 @@ function isControlledHumanHandoffCourtesy(
     .replace(/\s+/g, " ")
     .trim();
 
-  return /^(?:(?:certo(?: entendi)?|entendi)\s+)?(?:obrigad[oa]|muito obrigad[oa]|muitissimo obrigad[oa]|valeu|vlw|agradeco|agradecido|agradecida|grato|grata|brigad[oa])(?:\s+pela\s+(?:atencao|ajuda))?$/.test(
-    normalized,
+  if (!normalized) {
+    return false;
+  }
+
+  const tokens = normalized.split(" ");
+
+  const courtesyCoreTokens = new Set([
+    "obrigado",
+    "obrigada",
+    "brigado",
+    "brigada",
+    "valeu",
+    "vlw",
+    "agradeco",
+    "agradecido",
+    "agradecida",
+    "grato",
+    "grata",
+  ]);
+
+  const courtesyContextTokens = new Set([
+    "muito",
+    "muitissimo",
+    "pela",
+    "pelo",
+    "a",
+    "atencao",
+    "ajuda",
+    "amigo",
+    "amiga",
+    "meu",
+    "minha",
+    "blz",
+    "beleza",
+    "perfeito",
+    "perfeita",
+    "show",
+    "certo",
+    "entendi",
+    "ok",
+    "okay",
+    "tudo",
+    "bem",
+  ]);
+
+  const hasCourtesyCore = tokens.some((token) =>
+    courtesyCoreTokens.has(token),
+  );
+
+  if (!hasCourtesyCore) {
+    return false;
+  }
+
+  return tokens.every(
+    (token) =>
+      courtesyCoreTokens.has(token) ||
+      courtesyContextTokens.has(token),
   );
 }
 function isReceiptMediaType(
