@@ -284,6 +284,7 @@ function isItemActive(
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const [
     agendaSummary,
@@ -322,6 +323,14 @@ export default function Sidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileOpen]);
   async function handleLogout() {
     try {
       await fetch("/api/auth/logout", {
@@ -344,7 +353,19 @@ export default function Sidebar() {
     );
 
   return (
-    <aside className="grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white">
+    <>
+      {!mobileOpen && (
+        <button type="button" aria-label="Abrir menu de navegacao" aria-expanded={mobileOpen} aria-controls="m1m-sidebar-navigation" onClick={() => setMobileOpen(true)} className="fixed left-4 top-4 z-30 flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-white text-black shadow-sm md:hidden">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5"><path d="M5 7h14M5 12h14M5 17h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        </button>
+      )}
+      {mobileOpen && (
+        <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/30 md:hidden" />
+      )}
+      <aside id="m1m-sidebar-navigation" className={`fixed inset-y-0 left-0 z-50 grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-black/60 transition hover:bg-black/[0.04] hover:text-black md:hidden">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+        </button>
       <div className="flex h-[94px] w-full shrink-0 items-center justify-center px-4">
         <img
           src="/m1m-sidebar-logo.svg"
@@ -403,6 +424,7 @@ export default function Sidebar() {
                     <Link
                       key={item.label}
                       href={item.href}
+                      onClick={() => setMobileOpen(false)}
                       className={
                         active
                           ? `${baseClassName} bg-black/[0.07] font-semibold text-black`
@@ -479,6 +501,8 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => {
+            setMobileOpen(false);
+
             if (isItemActive(pathname, "/ajuda")) {
               router.back();
               return;
@@ -542,7 +566,8 @@ export default function Sidebar() {
           }
         />
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
