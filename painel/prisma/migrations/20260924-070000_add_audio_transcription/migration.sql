@@ -1,1 +1,1 @@
-ALTER TABLE "M1MMessage" ADD COLUMN "audioTranscription" TEXT;
+ALTER TABLE "m1m_messages" ADD COLUMN "audioTranscription" TEXT;
