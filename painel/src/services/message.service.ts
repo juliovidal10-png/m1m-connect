@@ -146,6 +146,16 @@ export const messageService = {
     );
   },
 
+  async setAudioTranscription(
+    messageId: string,
+    audioTranscription: string,
+  ) {
+    return messageRepository.setAudioTranscription(
+      messageId,
+      audioTranscription,
+    );
+  },
+
   async listMessagesByAttendance(
     attendanceId: string,
   ) {

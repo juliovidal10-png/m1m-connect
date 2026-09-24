@@ -208,6 +208,20 @@ export const messageRepository = {
     });
   },
 
+  async setAudioTranscription(
+    messageId: string,
+    audioTranscription: string,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        id: messageId,
+      },
+      data: {
+        audioTranscription,
+      },
+    });
+  },
+
   async listMessagesByAttendance(
     attendanceId: string,
   ) {

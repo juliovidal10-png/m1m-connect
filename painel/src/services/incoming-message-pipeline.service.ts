@@ -102,15 +102,29 @@ function buildAIConversationHistory(
   currentMessageId: string,
 ) {
   return messages
-    .filter(
-      (message) =>
-        message.id !== currentMessageId &&
-        message.type === M1MMessageType.TEXT &&
-        Boolean(message.content?.trim()),
-    )
+    .filter((message) => {
+      if (message.id === currentMessageId) {
+        return false;
+      }
+
+      if (message.type === M1MMessageType.TEXT) {
+        return Boolean(message.content?.trim());
+      }
+
+      if (message.type === M1MMessageType.AUDIO) {
+        return Boolean(message.audioTranscription?.trim());
+      }
+
+      return false;
+    })
     .map((message) => {
       const role = message.fromMe ? "ATENDIMENTO" : "CLIENTE";
-      return `${role}: ${message.content!.trim()}`;
+      const historyContent =
+        message.type === M1MMessageType.AUDIO
+          ? message.audioTranscription!.trim()
+          : message.content!.trim();
+
+      return `${role}: ${historyContent}`;
     })
     .join("\n");
 }
@@ -1195,6 +1209,11 @@ export const incomingMessagePipelineService = {
 
         audioTranscription =
           transcription.text.trim();
+
+        await messageService.setAudioTranscription(
+          storedMessage.id,
+          audioTranscription,
+        );
 
         router =
           await routerService.execute({

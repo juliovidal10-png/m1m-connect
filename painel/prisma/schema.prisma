@@ -518,6 +518,7 @@ model M1MMessage {
   authorId            String?
   authorName          String?
   content             String?
+  audioTranscription  String?
   mediaUrl            String?
   mimeType            String?
   rawPayload          Json?
