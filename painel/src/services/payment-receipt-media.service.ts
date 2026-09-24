@@ -1,18 +1,8 @@
 import path from "node:path";
 
+import { evolutionMediaService } from "@/services/evolution-media.service";
 import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 
-const API_URL =
-  process.env.EVOLUTION_API_URL;
-
-const API_KEY =
-  process.env.EVOLUTION_API_KEY;
-
-type EvolutionMediaResponse = {
-  fileName?: string | null;
-  mimetype?: string | null;
-  base64?: string | null;
-};
 
 type PersistMediaInput = {
   instanceName: string;
@@ -79,97 +69,6 @@ function extensionFromMimeType(
   );
 }
 
-function removeDataUrlPrefix(
-  value: string,
-) {
-  const commaIndex =
-    value.indexOf(",");
-
-  if (
-    value.startsWith("data:") &&
-    commaIndex >= 0
-  ) {
-    return value.slice(
-      commaIndex + 1,
-    );
-  }
-
-  return value;
-}
-
-async function recoverMedia(
-  instanceName: string,
-  message: unknown,
-) {
-  if (!API_URL || !API_KEY) {
-    throw new Error(
-      "Evolution API não configurada.",
-    );
-  }
-
-  const response =
-    await fetch(
-      `${API_URL}/chat/getBase64FromMediaMessage/${instanceName}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-          apikey:
-            API_KEY,
-        },
-        body:
-          JSON.stringify({
-            message,
-            convertToMp4: false,
-          }),
-        cache:
-          "no-store",
-      },
-    );
-
-  const responseText =
-    await response.text();
-
-  let data:
-    EvolutionMediaResponse = {};
-
-  if (responseText.trim()) {
-    data =
-      JSON.parse(
-        responseText,
-      ) as EvolutionMediaResponse;
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      `Evolution retornou ${response.status} ao recuperar a mídia.`,
-    );
-  }
-
-  const base64 =
-    normalizeOptionalText(
-      data.base64,
-    );
-
-  if (!base64) {
-    throw new Error(
-      "A Evolution não retornou o conteúdo da mídia.",
-    );
-  }
-
-  return {
-    base64,
-    fileName:
-      normalizeOptionalText(
-        data.fileName,
-      ),
-    mimeType:
-      normalizeOptionalText(
-        data.mimetype,
-      ),
-  };
-}
 
 export const paymentReceiptMediaService = {
   async persistFromEvolution(
@@ -190,10 +89,11 @@ export const paymentReceiptMediaService = {
     }
 
     const media =
-      await recoverMedia(
+      await evolutionMediaService.recover({
         instanceName,
-        input.message,
-      );
+        message: input.message,
+        convertToMp4: false,
+      });
 
     const mimeType =
       media.mimeType ||
@@ -231,19 +131,7 @@ export const paymentReceiptMediaService = {
 
     const uniqueFileName =
       `${sanitizeFileName(messageId)}-${safeFileName}`;
-const fileBuffer =
-      Buffer.from(
-        removeDataUrlPrefix(
-          media.base64,
-        ),
-        "base64",
-      );
-
-    if (fileBuffer.length === 0) {
-      throw new Error(
-        "A mídia recuperada está vazia.",
-      );
-    }
+    const fileBuffer = media.buffer;
     const stored =
       await receiptStorageService.save({
         fileName: uniqueFileName,

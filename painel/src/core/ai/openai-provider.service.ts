@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 
 export type AIProviderInput = {
   systemPrompt: string;
@@ -1098,6 +1098,97 @@ export const openAIProviderService = {
       handoffReason: "NONE",
       subject: null,
       context: null,
+    };
+  },
+  async transcribeAudio(input: {
+    buffer: Buffer;
+    mimeType: string;
+    durationSeconds?: number | null;
+  }): Promise<{
+    text: string;
+    model: string;
+  }> {
+    if (
+      !Buffer.isBuffer(input.buffer) ||
+      input.buffer.length === 0
+    ) {
+      throw new Error(
+        "O audio para transcricao esta vazio.",
+      );
+    }
+
+    if (
+      input.durationSeconds !== undefined &&
+      input.durationSeconds !== null &&
+      (
+        !Number.isFinite(input.durationSeconds) ||
+        input.durationSeconds <= 0
+      )
+    ) {
+      throw new Error(
+        "A duracao do audio para transcricao e invalida.",
+      );
+    }
+
+    const normalizedMimeType =
+      input.mimeType
+        ?.split(";")[0]
+        ?.trim()
+        .toLowerCase();
+
+    const extensionByMimeType: Record<string, string> = {
+      "audio/flac": "flac",
+      "audio/m4a": "m4a",
+      "audio/mp4": "mp4",
+      "audio/mpeg": "mp3",
+      "audio/mpga": "mpga",
+      "audio/ogg": "ogg",
+      "audio/wav": "wav",
+      "audio/webm": "webm",
+    };
+
+    const extension =
+      normalizedMimeType
+        ? extensionByMimeType[normalizedMimeType]
+        : undefined;
+
+    if (!normalizedMimeType || !extension) {
+      throw new Error(
+        "O formato do audio nao e suportado para transcricao.",
+      );
+    }
+
+    const model =
+      process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() ||
+      "gpt-4o-mini-transcribe";
+
+    const client = getClient();
+    const file = await toFile(
+      input.buffer,
+      `audio.${extension}`,
+      {
+        type: normalizedMimeType,
+      },
+    );
+
+    const response =
+      await client.audio.transcriptions.create({
+        file,
+        model,
+      });
+
+    const text =
+      response.text?.trim();
+
+    if (!text) {
+      throw new Error(
+        "A OpenAI retornou uma transcricao vazia.",
+      );
+    }
+
+    return {
+      text,
+      model,
     };
   },
 };

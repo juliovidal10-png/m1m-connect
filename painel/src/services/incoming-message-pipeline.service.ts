@@ -55,6 +55,9 @@ import {
 import {
   paymentReceiptMediaService,
 } from "@/services/payment-receipt-media.service";
+import {
+  evolutionMediaService,
+} from "@/services/evolution-media.service";
 import { receiptStorageService } from "@/services/storage/receipt-storage.service";
 import {
   sectorAvailabilityService,
@@ -896,7 +899,9 @@ export const incomingMessagePipelineService = {
             normalizedMessage.remoteJid,
       instanceName: normalizedInstanceName,
           messageContent:
-            normalizedMessage.content,
+            normalizedMessage.type === M1MMessageType.AUDIO
+              ? null
+              : normalizedMessage.content,
           payload:
             rawMessage,
         });
@@ -1071,8 +1076,9 @@ export const incomingMessagePipelineService = {
                   normalizedInstanceName,
 
                 messageContent:
-
-                  normalizedMessage.content,
+                  normalizedMessage.type === M1MMessageType.AUDIO
+                    ? null
+                    : normalizedMessage.content,
 
                 payload:
 
@@ -1154,6 +1160,73 @@ export const incomingMessagePipelineService = {
             storedMessage.id,
           router,
         };
+      }
+
+      let audioTranscription: string | null = null;
+
+      if (
+        normalizedMessage.type === M1MMessageType.AUDIO &&
+        router.state === "IA"
+      ) {
+        const recoveredAudio =
+          await evolutionMediaService.recover({
+            instanceName: normalizedInstanceName,
+            message: rawMessage,
+            convertToMp4: false,
+          });
+
+        const audioMimeType =
+          recoveredAudio.mimeType ||
+          storedMessage.mimeType?.trim() ||
+          normalizedMessage.mimeType?.trim() ||
+          null;
+
+        if (!audioMimeType) {
+          throw new Error(
+            "O tipo MIME do audio nao foi identificado.",
+          );
+        }
+
+        const transcription =
+          await openAIProviderService.transcribeAudio({
+            buffer: recoveredAudio.buffer,
+            mimeType: audioMimeType,
+          });
+
+        audioTranscription =
+          transcription.text.trim();
+
+        router =
+          await routerService.execute({
+            companyId,
+            customerId:
+              storedMessage.customerId,
+            remoteJid:
+              normalizedMessage.remoteJid,
+            instanceName:
+              normalizedInstanceName,
+            messageContent:
+              audioTranscription,
+            payload:
+              rawMessage,
+          });
+
+        if (router.attendanceId) {
+          await messageService.attachMessageToAttendance(
+            storedMessage.id,
+            router.attendanceId,
+          );
+        }
+
+        console.log("[M1M AI DIAG]", {
+          stage: "AUDIO_TRANSCRIBED_AND_ROUTED",
+          evolutionMessageId: normalizedMessage.evolutionMessageId ?? null,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+          routerState: router.state,
+          sectorId: router.sectorId,
+          transcriptionModel: transcription.model,
+        });
       }
 
       if (
@@ -1871,11 +1944,19 @@ const menuAlreadyShownInCurrentCycle =
         );
 
       const messageContent =
-        normalizedMessage.content?.trim();
+        normalizedMessage.type === M1MMessageType.AUDIO
+          ? audioTranscription?.trim()
+          : normalizedMessage.content?.trim();
+
+      const isSupportedAIMessageType =
+        normalizedMessage.type === M1MMessageType.TEXT ||
+        (
+          normalizedMessage.type === M1MMessageType.AUDIO &&
+          Boolean(audioTranscription)
+        );
 
       if (
-        normalizedMessage.type !==
-          M1MMessageType.TEXT ||
+        !isSupportedAIMessageType ||
         !messageContent ||
         !router.sectorId
       ) {
@@ -1887,7 +1968,7 @@ const menuAlreadyShownInCurrentCycle =
           routerState: router.state,
           sectorId: router.sectorId,
           reason:
-            normalizedMessage.type !== M1MMessageType.TEXT
+            !isSupportedAIMessageType
               ? "UNSUPPORTED_MESSAGE_TYPE"
               : !messageContent
                 ? "EMPTY_MESSAGE"
@@ -1899,8 +1980,7 @@ const menuAlreadyShownInCurrentCycle =
           action:
             "AI_RESPONSE_SKIPPED" as const,
           reason:
-            normalizedMessage.type !==
-            M1MMessageType.TEXT
+            !isSupportedAIMessageType
               ? "UNSUPPORTED_MESSAGE_TYPE"
               : !messageContent
                 ? "EMPTY_MESSAGE"
