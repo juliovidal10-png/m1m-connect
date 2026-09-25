@@ -15,139 +15,282 @@ type FaqCategory = {
 
 const categories: FaqCategory[] = [
   {
-    title: "WhatsApp",
-    items: [
-      {
-        question: "Meu WhatsApp aparece como desconectado. O que faço?",
-        answer: <>Acesse <strong>Configurações → WhatsApp</strong> e verifique o status da conexão. Se estiver <strong>Desconectado</strong>, inicie a reconexão e escaneie o QR Code utilizando o WhatsApp da empresa. Aguarde até o status aparecer como <strong>Conectado</strong> antes de testar novamente.</>,
-      },
-      {
-        question: "Preciso escanear o QR Code todos os dias?",
-        answer: <>Não. O QR Code é necessário apenas para conectar ou reconectar o WhatsApp da empresa quando a sessão estiver desconectada.</>,
-      },
-      {
-        question: "Os colaboradores precisam escanear QR Code?",
-        answer: <>Não. O QR Code é utilizado para conectar o <strong>WhatsApp da empresa</strong>. Os colaboradores acessam o M1M Connect com seus próprios usuários e senhas.</>,
-      },
-      {
-        question: "Troquei de celular ou meu WhatsApp desconectou. O que faço?",
-        answer: <>Acesse a configuração do WhatsApp e verifique o status. Se a conexão estiver desativada, realize novamente a leitura do QR Code utilizando o WhatsApp da empresa.</>,
-      },
-    ],
-  },
-  {
-    title: "Atendimento",
-    items: [
-      {
-        question: "Como assumir uma conversa?",
-        answer: <>Abra a conversa disponível e utilize a opção de assumir atendimento. A partir desse momento, o atendimento fica vinculado ao usuário responsável conforme as regras da plataforma.</>,
-      },
-      {
-        question: "Como transferir uma conversa?",
-        answer: <>Dentro da conversa, utilize a opção de transferência disponível e escolha o setor ou responsável permitido.</>,
-      },
-      {
-        question: "Como finalizar um atendimento?",
-        answer: <>Utilize a ação de finalizar disponível na conversa. Após a finalização, o atendimento deixa de permanecer como conversa ativa do responsável.</>,
-      },
-      {
-        question: "Por que não estou vendo determinada conversa?",
-        answer: <>A visualização depende das permissões e dos setores aos quais seu usuário está vinculado. Sem acesso global às conversas, você verá apenas os atendimentos encaminhados aos seus setores. Se acredita que deveria visualizar uma conversa, procure o gestor da sua empresa.</>,
-      },
-    ],
-  },
-  {
-    title: "IA",
-    items: [
-      {
-        question: "Por que a IA não respondeu?",
-        answer: <>Primeiro verifique se o WhatsApp da empresa está conectado. Se a conexão estiver normal e a IA continuar sem responder, entre em contato com o suporte da M1M. Não é necessário alterar nenhuma configuração técnica por conta própria.</>,
-      },
-      {
-        question: "O que acontece quando um atendente assume a conversa?",
-        answer: <>Quando um atendimento humano assume a conversa, a IA deixa de atuar conforme as regras configuradas para a empresa.</>,
-      },
-      {
-        question: "Posso falar com um atendente mesmo depois de a IA iniciar o atendimento?",
-        answer: <>Sim. Quando necessário, a conversa pode seguir para atendimento humano conforme o fluxo configurado para a empresa.</>,
-      },
-    ],
-  },
-  {
-    title: "Usuários",
-    items: [
-      {
-        question: "Como cadastrar um colaborador?",
-        answer: <>O usuário com permissão de gestão pode acessar <strong>Configurações → Usuários e Permissões</strong> e utilizar <strong>Novo Usuário</strong>. Após o cadastro, o colaborador fica disponível para ser vinculado aos setores da empresa.</>,
-      },
-      {
-        question: "O colaborador precisa usar o WhatsApp pessoal?",
-        answer: <>Não. O atendimento é realizado pelo M1M Connect utilizando o WhatsApp conectado da empresa.</>,
-      },      {
-        question: "Como funciona o primeiro acesso do colaborador?",
-        answer: <>Depois do cadastro, o gestor utiliza <strong>Gerar/Copiar convite</strong> para obter o link individual. O colaborador abre esse link, cria a própria senha, ativa a conta e depois acessa normalmente pela tela de login.</>,
-      },
-      {
-        question: "Onde encontro o convite de acesso do colaborador?",
-        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, o botão <strong>Gerar/Copiar convite</strong> aparece enquanto o colaborador ainda está pendente e não concluiu o primeiro acesso.</>,
-      },
-      {
-        question: "Como vincular um colaborador a um setor?",
-        answer: <>Acesse <strong>Configurações → Setores</strong>, abra o setor desejado e escolha <strong>Responsáveis</strong>. Selecione o colaborador e salve. Um novo colaborador não é vinculado automaticamente a nenhum setor.</>,
-      },
-      {
-        question: "Como desativar um colaborador?",
-        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, localize o colaborador e utilize <strong>Inativar</strong>. O acesso é bloqueado sem excluir o cadastro.</>,
-      },
-      {
-        question: "Posso excluir um colaborador?",
-        answer: <>Sim, exceto o usuário principal da empresa. Em <strong>Configurações → Usuários e Permissões</strong>, utilize <strong>Excluir</strong> e confirme a ação. Use essa opção somente quando realmente quiser remover o cadastro.</>,
-      },
-      {
-        question: "Esqueci minha senha. O que faço?",
-        answer: <>Na tela de login, clique em <strong>Esqueci minha senha</strong>, informe o e-mail cadastrado no M1M Connect e selecione <strong>Enviar instruções</strong>. Você receberá por e-mail um link para criar uma nova senha. O link é válido por 60 minutos e pode ser utilizado apenas uma vez. Se o link expirar ou já tiver sido utilizado, solicite um novo.</>,
-      },
-      {
-        question: "Como redefino minha senha?",
-        answer: <>Abra o e-mail de recuperação enviado pelo M1M Connect e clique em <strong>Redefinir minha senha</strong>. Crie a nova senha e conclua a alteração. Depois, volte ao login e acesse normalmente com a nova senha.</>,
-      },
-    ],
-  },
-  {
     title: "Acesso",
     items: [
       {
-        question: "Meu período de teste terminou. O que faço?",
-        answer: <>Entre em contato com o suporte da M1M para verificar a continuidade do acesso ao M1M Connect.</>,
+        question: "Como funciona o primeiro acesso ao M1M Connect?",
+        answer: <>Depois que o usuário é cadastrado, o gestor pode gerar um convite individual em <strong>Configurações → Usuários e Permissões</strong>. O colaborador abre o link, cria a própria senha e depois acessa normalmente pela tela de login. O convite é válido por 24 horas, e a geração de um novo convite invalida o anterior.</>,
       },
       {
-        question: "Minha empresa foi reativada, mas o WhatsApp não voltou a funcionar. O que faço?",
-        answer: <>Após uma reativação, verifique em <strong>Configurações → WhatsApp</strong> se o status aparece como <strong>Conectado</strong>. Caso apareça como <strong>Desconectado</strong>, realize novamente a conexão utilizando o QR Code. Depois, envie uma mensagem de teste.</>,
+        question: "Esqueci minha senha. Como recuperar o acesso?",
+        answer: <>Na tela de login, clique em <strong>Esqueci minha senha</strong>, informe o e-mail cadastrado e selecione <strong>Enviar instruções</strong>. O link enviado por e-mail é válido por 60 minutos e pode ser utilizado apenas uma vez. Abra o link, crie a nova senha e depois volte ao login. Se o link expirar ou já tiver sido utilizado, solicite um novo.</>,
       },
       {
-        question: "Minha conta aparece como inativa. O que faço?",
-        answer: <>Procure o gestor responsável pela sua empresa. Se o problema estiver relacionado ao acesso da própria empresa ao M1M Connect, entre em contato com o suporte da M1M.</>,
+        question: "Meu período de teste terminou. O que acontece?",
+        answer: <>Quando o período de teste termina, o acesso operacional da empresa ao M1M Connect é bloqueado, mas os dados da empresa permanecem preservados. Entre em contato com o suporte da M1M para verificar a continuidade e a reativação do acesso.</>,
+      },
+      {
+        question: "Minha empresa foi reativada. Preciso criar uma nova conta ou senha?",
+        answer: <>Não apenas por causa da reativação. A empresa e os usuários existentes são preservados. A reativação, por si só, não exige novo cadastro, novo convite ou redefinição de senha.</>,
+      },
+      {
+        question: "Depois da reativação, preciso conectar o WhatsApp novamente?",
+        answer: <>Não necessariamente. A reativação do acesso não desconecta automaticamente a sessão do WhatsApp. Acesse <strong>Configurações → WhatsApp</strong> e verifique o status. Se estiver <strong>Conectado</strong>, não é necessário gerar outro QR Code. Se estiver <strong>Desconectado</strong>, faça a reconexão.</>,
       },
     ],
   },
   {
-    title: "Comprovantes",
+    title: "WhatsApp",
     items: [
       {
-        question: "O cliente enviou um comprovante. Onde ele aparece?",
-        answer: <>O comprovante recebido aparece no fluxo correspondente ao cliente e nas áreas da plataforma destinadas à análise de comprovantes, conforme as permissões do usuário.</>,
+        question: "Como conectar o WhatsApp da empresa?",
+        answer: <>Acesse <strong>Configurações → WhatsApp</strong> e utilize <strong>Conectar WhatsApp</strong>. Gere o QR Code e, no WhatsApp da empresa, abra <strong>Dispositivos conectados → Conectar um dispositivo</strong> para fazer a leitura. Aguarde o status aparecer como <strong>Conectado</strong>.</>,
       },
       {
-        question: "Todo usuário pode analisar comprovantes?",
-        answer: <>Não necessariamente. A visualização e a análise dependem das permissões e do setor configurado para cada usuário.</>,
+        question: "Meu WhatsApp aparece como desconectado. O que faço?",
+        answer: <>Acesse <strong>Configurações → WhatsApp</strong> e verifique o <strong>Status da conexão</strong>. Se estiver <strong>Desconectado</strong>, inicie a conexão e faça a leitura do QR Code com o WhatsApp da empresa. Se as ações de conexão não estiverem disponíveis para seu usuário, procure o gestor da empresa.</>,
       },
       {
-        question: "O M1M Connect responde automaticamente ao cliente após analisar um comprovante?",
-        answer: <>A análise do comprovante, por si só, não envia uma confirmação automática ao cliente. Quando o responsável utiliza a ação para <strong>solicitar um novo comprovante</strong>, o M1M Connect envia ao cliente a mensagem correspondente pelo WhatsApp.</>,
+        question: "Preciso escanear o QR Code todos os dias?",
+        answer: <>Não. O QR Code é necessário para conectar ou reconectar o WhatsApp quando a sessão estiver desconectada. Se o status estiver como <strong>Conectado</strong>, não é necessário escanear outro QR Code.</>,
+      },
+      {
+        question: "Os colaboradores precisam conectar o próprio WhatsApp?",
+        answer: <>Não. A conexão utilizada pelo M1M Connect é o <strong>WhatsApp da empresa</strong>. Os colaboradores acessam a plataforma com seus próprios usuários e senhas.</>,
+      },
+      {
+        question: "Como desconectar ou reconectar o WhatsApp?",
+        answer: <>Em <strong>Configurações → WhatsApp</strong>, consulte o status da conexão. Para encerrar a sessão, utilize <strong>Desconectar WhatsApp</strong>. Se depois o status estiver <strong>Desconectado</strong>, gere um QR Code e faça a leitura pelo WhatsApp da empresa para conectar novamente.</>,
+      },
+    ],
+  },
+  {
+    title: "Conversas e atendimento",
+    items: [
+      {
+        question: "Como assumir um atendimento?",
+        answer: <>Abra uma conversa disponível e utilize <strong>Assumir atendimento</strong>. Quando a ação é concluída, o usuário que assumiu passa a ser o responsável pelo atendimento. A opção depende do estado da conversa, da existência de responsável e das permissões do usuário.</>,
+      },
+      {
+        question: "Como saber quem é o responsável pelo atendimento?",
+        answer: <>As informações do cliente e o <strong>Cliente 360°</strong> mostram o responsável quando houver um atendimento humano atribuído. Quando não houver responsável, a plataforma pode indicar <strong>Sem responsável</strong>.</>,
+      },
+      {
+        question: "Como transferir uma conversa para outro setor?",
+        answer: <>Na conversa, utilize <strong>Transferir</strong> e escolha o setor disponível em <strong>Transferir para</strong>. A transferência atual é feita para outro setor e libera o responsável do atendimento. A ação depende da permissão do usuário.</>,
+      },
+      {
+        question: "Como finalizar um atendimento?",
+        answer: <>Durante um atendimento humano, utilize <strong>Finalizar</strong>. A finalização encerra o atendimento atual e libera o responsável. O comportamento da IA depois disso depende da configuração definida em <strong>Configurações → Atendimento Humano</strong>.</>,
+      },
+      {
+        question: "Por que não estou vendo determinada conversa?",
+        answer: <>A visualização depende das permissões, do setor e da responsabilidade pelo atendimento. Sem acesso global às conversas, o usuário vê atendimentos em estado humano dos setores aos quais está vinculado quando estão sem responsável ou atribuídos ao próprio usuário. Se acredita que deveria visualizar uma conversa, procure o gestor da empresa.</>,
+      },
+      {
+        question: "Por que uma ação de atendimento não aparece para mim?",
+        answer: <>As ações disponíveis dependem do estado do atendimento e das permissões do usuário. Por isso, opções como <strong>Assumir atendimento</strong>, <strong>Transferir</strong> e <strong>Finalizar</strong> podem não aparecer em todas as conversas.</>,
+      },
+    ],
+  },
+  {
+    title: "IA e atendimento humano",
+    items: [
+      {
+        question: "O que acontece quando um atendente assume a conversa?",
+        answer: <>Quando um colaborador assume a conversa, o atendimento passa para o fluxo humano, o usuário fica responsável e a IA deixa de seguir o fluxo normal de respostas enquanto o atendimento humano estiver ativo.</>,
+      },
+      {
+        question: "Por que a IA não respondeu?",
+        answer: <>Verifique primeiro se a conversa está em atendimento humano. Nesse estado, a IA não segue o fluxo normal de respostas. Verifique também em <strong>Configurações → WhatsApp</strong> se a conexão está ativa. Se a conversa não estiver em atendimento humano, o WhatsApp estiver conectado e o problema continuar, entre em contato com o suporte da M1M.</>,
+      },
+      {
+        question: "Quando a IA volta depois do atendimento humano?",
+        answer: <>Isso depende da configuração da empresa em <strong>Configurações → Atendimento Humano</strong>. A empresa define como a IA deve ficar disponível novamente após a finalização do atendimento humano.</>,
+      },
+      {
+        question: "O cliente pode falar com um atendente depois de a IA iniciar o atendimento?",
+        answer: <>Sim. A conversa pode seguir para atendimento humano conforme o fluxo da empresa. Quando um colaborador assume o atendimento, a conversa passa para o fluxo humano.</>,
+      },
+    ],
+  },
+  {
+    title: "Contatos e Cliente 360°",
+    items: [
+      {
+        question: "O que encontro no Cliente 360°?",
+        answer: <>O <strong>Cliente 360°</strong> reúne informações do cliente, como dados cadastrais, responsável, situação do atendimento, observações, retornos, comprovantes e histórico. Também oferece acesso à conversa relacionada.</>,
+      },
+      {
+        question: "Como editar o nome ou o código de um cliente?",
+        answer: <>Abra o cliente no <strong>Cliente 360°</strong>. Usuários com permissão para editar o CRM podem alterar o nome operacional e o código do cliente. Se os campos estiverem bloqueados, a própria área informa que o usuário não possui permissão para editar o CRM daquele cliente.</>,
+      },
+      {
+        question: "Como registrar uma observação interna sobre o cliente?",
+        answer: <>No <strong>Cliente 360°</strong>, utilize <strong>Observações do Cliente</strong> e depois <strong>Salvar observações</strong>. Essa área é destinada a informações internas usadas pela equipe.</>,
+      },
+      {
+        question: "Onde vejo o histórico do cliente?",
+        answer: <>No <strong>Cliente 360°</strong>, consulte <strong>Histórico</strong>. A área apresenta a linha do tempo das interações registradas para o cliente.</>,
+      },
+      {
+        question: "Como agendar um retorno para um cliente?",
+        answer: <>No <strong>Cliente 360°</strong>, utilize <strong>Agendar retorno</strong>. A área permite informar título, data, horário e responsável pelo retorno.</>,
+      },
+      {
+        question: "Onde vejo os comprovantes de um cliente?",
+        answer: <>No <strong>Cliente 360°</strong>, a área <strong>Comprovantes</strong> mostra os comprovantes vinculados ao cliente e permite abrir o comprovante.</>,
+      },
+    ],
+  },
+  {
+    title: "Agenda Operacional",
+    items: [
+      {
+        question: "Para que serve a Agenda Operacional?",
+        answer: <>A <strong>Agenda Operacional</strong> reúne compromissos e retornos da operação. Ela permite acompanhar itens por situação e data e acessar o cliente ou a conversa relacionada.</>,
+      },
+      {
+        question: "Como acompanhar compromissos de hoje, amanhã ou atrasados?",
+        answer: <>Na <strong>Agenda Operacional</strong>, utilize os filtros <strong>Hoje</strong>, <strong>Amanhã</strong>, <strong>Atrasadas</strong>, <strong>Por data</strong> ou <strong>Todas</strong>. O <strong>Dashboard Operacional</strong> também mostra a quantidade de compromissos de hoje e de pendências atrasadas.</>,
+      },
+      {
+        question: "Como concluir um compromisso?",
+        answer: <>Localize o item na <strong>Agenda Operacional</strong> e utilize a ação de conclusão disponível. A Agenda também oferece acesso ao contato e à conversa relacionados ao compromisso.</>,
+      },
+    ],
+  },
+  {
+    title: "Financeiro e comprovantes",
+    items: [
+      {
+        question: "Onde aparecem os comprovantes enviados pelos clientes?",
+        answer: <>Os comprovantes recebidos podem ser acompanhados em <strong>Financeiro</strong>, na tela <strong>Financeiro Operacional</strong>. Os comprovantes vinculados a um cliente também podem ser consultados no <strong>Cliente 360°</strong>.</>,
+      },
+      {
+        question: "Como funciona o Financeiro Operacional?",
+        answer: <>O <strong>Financeiro Operacional</strong> permite pesquisar e acompanhar comprovantes utilizando os filtros <strong>Ativos</strong>, <strong>Recebidos</strong>, <strong>Em análise</strong>, <strong>Aprovados</strong>, <strong>Rejeitados</strong>, <strong>Finalizados</strong> e <strong>Todos</strong>.</>,
+      },
+      {
+        question: "Quais ações existem para um comprovante?",
+        answer: <>As ações disponíveis variam conforme o status do comprovante. A tela possui ações como <strong>Visualizar</strong>, <strong>Iniciar análise</strong>, <strong>Aprovar</strong>, <strong>Rejeitar</strong>, <strong>Solicitar novo</strong> e <strong>Finalizar</strong>, além de atalhos para <strong>Cliente 360°</strong> e <strong>Conversa</strong>.</>,
+      },
+      {
+        question: "O que acontece quando solicito um novo comprovante?",
+        answer: <>Ao utilizar <strong>Solicitar novo</strong>, o M1M Connect registra a solicitação de um novo comprovante e envia ao cliente a mensagem correspondente pelo WhatsApp.</>,
+      },
+      {
+        question: "Analisar um comprovante envia confirmação automática ao cliente?",
+        answer: <>Não. A análise do comprovante, por si só, não envia uma confirmação automática ao cliente. A ação <strong>Solicitar novo</strong> possui um envio específico de mensagem pelo WhatsApp.</>,
+      },
+      {
+        question: "Todo usuário pode acessar e analisar comprovantes?",
+        answer: <>Não. O acesso aos comprovantes depende das permissões do usuário. Se a área necessária não estiver disponível, procure o gestor responsável pelos acessos da empresa.</>,
+      },
+    ],
+  },
+  {
+    title: "Usuários e permissões",
+    items: [
+      {
+        question: "Como cadastrar um colaborador?",
+        answer: <>Um usuário com permissão para gerenciar colaboradores pode acessar <strong>Configurações → Usuários e Permissões</strong> e utilizar <strong>Novo usuário</strong>. O novo colaborador não é vinculado automaticamente a um setor.</>,
+      },
+      {
+        question: "Onde encontro o convite de primeiro acesso?",
+        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, o convite fica disponível para o colaborador que ainda não concluiu o primeiro acesso. O link individual é válido por 24 horas, e gerar um novo convite invalida o anterior.</>,
+      },
+      {
+        question: "Como vincular um colaborador a um setor?",
+        answer: <>Acesse <strong>Configurações → Setores</strong>, abra o setor desejado e escolha <strong>Responsáveis</strong>. Selecione os colaboradores e utilize <strong>Salvar responsáveis</strong>.</>,
+      },
+      {
+        question: "Como ativar ou inativar um colaborador?",
+        answer: <>Em <strong>Configurações → Usuários e Permissões</strong>, localize o colaborador e utilize <strong>Ativar</strong> ou <strong>Inativar</strong>. A inativação bloqueia o acesso sem excluir o cadastro.</>,
+      },
+      {
+        question: "Posso excluir um colaborador?",
+        answer: <>Sim, exceto o usuário principal da empresa. Em <strong>Configurações → Usuários e Permissões</strong>, utilize <strong>Excluir</strong> e confirme a ação.</>,
+      },
+      {
+        question: "Por que não consigo acessar determinada função?",
+        answer: <>Algumas áreas e ações dependem das permissões atribuídas ao usuário. Se uma função esperada não estiver disponível, procure o gestor responsável pelos acessos e permissões da empresa.</>,
+      },
+    ],
+  },
+  {
+    title: "Setores",
+    items: [
+      {
+        question: "Como configurar um setor?",
+        answer: <>Acesse <strong>Configurações → Setores</strong> e abra o setor desejado. A configuração atual permite ajustar dados e organização, palavras-chave, conhecimento e responsáveis.</>,
+      },
+      {
+        question: "Como definir os responsáveis de um setor?",
+        answer: <>Dentro da configuração do setor, abra <strong>Responsáveis</strong>, selecione os colaboradores que poderão atender e assumir conversas naquele setor e utilize <strong>Salvar responsáveis</strong>.</>,
+      },
+      {
+        question: "Para que servem as palavras-chave do setor?",
+        answer: <>As <strong>Palavras-chave</strong> são palavras ou expressões usadas para indicar que o cliente deseja tratar de assuntos relacionados a determinado setor e ajudam no roteamento automático.</>,
+      },
+      {
+        question: "O que é o Conhecimento do setor?",
+        answer: <>O <strong>Conhecimento do setor</strong> reúne informações específicas daquela área, como assuntos atendidos, informações importantes, produtos ou serviços, perguntas frequentes, prazos, entregas, garantias, regras e orientações.</>,
+      },
+      {
+        question: "Cada setor possui um horário próprio?",
+        answer: <>A interface atual utiliza o <strong>Horário Geral</strong> da empresa. Essa configuração é aplicada automaticamente a todos os setores.</>,
+      },
+    ],
+  },
+  {
+    title: "Configurações",
+    items: [
+      {
+        question: "Onde altero os dados da empresa?",
+        answer: <>Acesse <strong>Configurações → Empresa</strong>. Essa área reúne dados institucionais, endereço e canais oficiais da empresa.</>,
+      },
+      {
+        question: "Qual é a diferença entre Empresa e Conhecimento da Empresa?",
+        answer: <><strong>Empresa</strong> reúne dados institucionais, endereço e canais oficiais. <strong>Conhecimento da Empresa</strong> é a área destinada às informações essenciais do negócio usadas no contexto da IA.</>,
+      },
+      {
+        question: "Onde configuro os horários de atendimento?",
+        answer: <>Acesse <strong>Configurações → Horário Geral</strong>. Nessa área são definidos os dias e horários padrão de atendimento da empresa. A configuração é aplicada automaticamente aos setores.</>,
+      },
+      {
+        question: "Onde configuro a mensagem fora do expediente?",
+        answer: <>Acesse <strong>Configurações → Mensagens Automáticas</strong>. Essa área é destinada às mensagens enviadas fora do expediente.</>,
+      },
+      {
+        question: "Onde configuro formas de pagamento e orientações financeiras?",
+        answer: <>Acesse <strong>Configurações → Pagamentos</strong>. Essa área reúne formas de pagamento, condições e orientações comerciais usadas no atendimento.</>,
+      },
+      {
+        question: "Onde configuro o comportamento da IA após o atendimento humano?",
+        answer: <>Acesse <strong>Configurações → Atendimento Humano</strong>. Nessa área a empresa define o comportamento da IA depois que um colaborador assume a conversa e como ela deve ficar disponível novamente após a finalização. Também existe configuração de mensagem de encerramento.</>,
+      },
+    ],
+  },
+  {
+    title: "Dashboard e CRM",
+    items: [
+      {
+        question: "Para que serve o Dashboard Operacional?",
+        answer: <>O <strong>Dashboard Operacional</strong> mostra uma visão rápida do que precisa de atenção na empresa. Ele apresenta <strong>Agenda de hoje</strong>, <strong>Pendências atrasadas</strong>, <strong>Contatos</strong>, <strong>IA atendendo</strong>, <strong>Atendimento humano</strong> e <strong>Comprovantes ativos</strong>, além dos próximos compromissos do dia.</>,
+      },
+      {
+        question: "O que significam IA atendendo e Atendimento humano no Dashboard?",
+        answer: <><strong>IA atendendo</strong> contabiliza os contatos atualmente com status <strong>IA</strong>. <strong>Atendimento humano</strong> contabiliza os contatos atualmente com status <strong>HUMANO</strong>.</>,
+      },
+      {
+        question: "Para que serve o CRM?",
+        answer: <>O <strong>CRM</strong> permite pesquisar clientes por informações como nome, telefone, empresa, cidade ou código e consultar dados operacionais do cliente. A partir dele, é possível acessar o <strong>Cliente 360°</strong> e a conversa relacionada.</>,
       },
     ],
   },
 ];
+
 
 function normalize(value: string) {
   return value
