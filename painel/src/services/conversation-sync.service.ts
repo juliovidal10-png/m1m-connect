@@ -1009,9 +1009,28 @@ export const conversationSyncService = {
        * Se for manual, assume o atendimento.
        * Mensagens automaticas do M1M continuam ignoradas.
        */
-      if (
-        !existingMessage &&
+      const registeredManualAuthor =
         message.fromMe
+          ? manualOutgoingAuthorRegistryService.get(
+              instanceName,
+              message.evolutionMessageId,
+            )
+          : null;
+
+      /*
+       * A Evolution pode persistir a mensagem OUT pelo webhook antes
+       * de /api/chat/send registrar a autoria autenticada. No sync
+       * seguinte, a mensagem ja existe, mas o registry conhece o atendente.
+       */
+      if (
+        message.fromMe &&
+        (
+          !existingMessage ||
+          (
+            registeredManualAuthor &&
+            !storedMessage.authorId
+          )
+        )
       ) {
         const isAutomatic =
           automaticOutgoingRegistryService.isAutomatic(
@@ -1023,10 +1042,7 @@ export const conversationSyncService = {
 
         if (!isAutomatic) {
           const manualAuthor =
-            manualOutgoingAuthorRegistryService.get(
-              instanceName,
-              message.evolutionMessageId,
-            );
+            registeredManualAuthor;
 
           if (!manualAuthor) {
             await prisma.m1MMessage.update({
