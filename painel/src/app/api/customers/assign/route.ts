@@ -320,17 +320,43 @@ export async function POST(
 
     const body = await request.json();
 
+    let customerId =
+      getTrimmedString(body.customerId);
+
+    if (!customerId) {
+      const remoteJid =
+        getTrimmedString(body.remoteJid);
+
+      if (!remoteJid) {
+        return NextResponse.json(
+          {
+            error:
+              "Cliente ou conversa não identificado.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const materializedCustomer =
+        await customerService.saveCustomer({
+          companyId,
+          remoteJid,
+        });
+
+      customerId = materializedCustomer.id;
+    }
+
     const existingAttendance =
       await attendanceService.getOpenAttendanceByCustomer(
         companyId,
-        body.customerId,
+        customerId,
       );
 
     const attendance =
       existingAttendance ??
       (await attendanceService.startAttendance(
         companyId,
-        body.customerId,
+        customerId,
       ));
 
     const assumption =
@@ -346,7 +372,7 @@ export async function POST(
     const customer =
       await customerService.assignResponsible({
         companyId,
-        customerId: body.customerId,
+        customerId,
         responsibleId,
       });
 

@@ -3913,6 +3913,10 @@ const loadContacts =
                 selectedChat.crmCustomerId ||
                 null
               }
+              remoteJid={
+                selectedChat.canonicalJid ||
+                selectedChat.remoteJid
+              }
               responsibleId={
                 selectedChat.attendanceResponsibleId ||
                 null

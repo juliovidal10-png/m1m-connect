@@ -18,6 +18,7 @@ type ChatConversationHeaderProps = {
   attendanceSectorId?: string | null;
   attendanceSectorName?: string | null;
   customerId?: string | null;
+  remoteJid?: string | null;
   responsibleId?: string | null;
   onAttendanceChanged?: () => Promise<void> | void;
   lastInteraction?: string | null;
@@ -99,6 +100,7 @@ export default function ChatConversationHeader({
   attendanceSectorId,
   attendanceSectorName,
   customerId,
+  remoteJid,
   responsibleId,
   onAttendanceChanged,
   lastInteraction,
@@ -314,6 +316,7 @@ export default function ChatConversationHeader({
               attendanceState={attendanceState}
               currentSectorId={attendanceSectorId}
               customerId={customerId}
+              remoteJid={remoteJid}
               responsibleId={responsibleId}
               onChanged={onAttendanceChanged}
             />

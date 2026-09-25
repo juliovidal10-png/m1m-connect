@@ -21,6 +21,7 @@ type Props = {
   attendanceState?: string | null;
   currentSectorId?: string | null;
   customerId?: string | null;
+  remoteJid?: string | null;
   responsibleId?: string | null;
   onChanged?: () => Promise<void> | void;
 };
@@ -40,6 +41,7 @@ export default function AttendanceActions({
   attendanceState,
   currentSectorId,
   customerId,
+  remoteJid,
   responsibleId,
   onChanged,
 }: Props) {
@@ -91,7 +93,7 @@ export default function AttendanceActions({
 
   const canAssume = useMemo(
     () =>
-      Boolean(customerId) &&
+      Boolean(customerId || remoteJid) &&
       attendanceState !== "FINALIZADO" &&
       !responsibleId &&
       hasPermission(
@@ -101,6 +103,7 @@ export default function AttendanceActions({
     [
       attendanceState,
       customerId,
+      remoteJid,
       responsibleId,
       user,
     ],
@@ -108,11 +111,12 @@ export default function AttendanceActions({
 
   const canTransfer = useMemo(
     () =>
+      Boolean(attendanceId) &&
       hasPermission(
         user,
         "TRANSFER_ATTENDANCE",
       ),
-    [user],
+    [attendanceId, user],
   );
 
   const canFinish = useMemo(
@@ -135,7 +139,6 @@ export default function AttendanceActions({
   );
 
   if (
-    !attendanceId ||
     attendanceState === "FINALIZADO" ||
     (!canAssume && !canTransfer && !canFinish)
   ) {
@@ -143,7 +146,7 @@ export default function AttendanceActions({
   }
 
   async function assume() {
-    if (!customerId || busy) return;
+    if ((!customerId && !remoteJid) || busy) return;
 
     setBusy(true);
     setError("");
@@ -159,6 +162,7 @@ export default function AttendanceActions({
           },
           body: JSON.stringify({
             customerId,
+            remoteJid,
           }),
         },
       );
