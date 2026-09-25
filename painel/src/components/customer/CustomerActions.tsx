@@ -62,6 +62,7 @@ function AssumeIcon() {
 
 export default function CustomerActions({
   attendanceStatus,
+  responsible,
   isAssigning,
   isSaving,
   isLoadingCustomer,
@@ -81,7 +82,8 @@ export default function CustomerActions({
   return (
     <footer className="border-t border-black/5 bg-white p-4">
       <div className="space-y-3">
-        {canAssumeAttendance && (
+        {canAssumeAttendance &&
+          (!isHuman || !responsible) && (
           <button
             type="button"
             onClick={onAssign}

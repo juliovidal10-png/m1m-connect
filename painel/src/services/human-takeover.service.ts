@@ -40,11 +40,16 @@ export const humanTakeoverService = {
               input.evolutionMessageId,
           });
 
-    const customer =
-      await customerRepository.markAsHuman(
-        input.companyId,
-        input.customerId,
-      );
+    const customer = input.responsibleId
+      ? await customerRepository.assignResponsible(
+          input.companyId,
+          input.customerId,
+          input.responsibleId,
+        )
+      : await customerRepository.markAsHuman(
+          input.companyId,
+          input.customerId,
+        );
 
     return {
       attendanceId:
