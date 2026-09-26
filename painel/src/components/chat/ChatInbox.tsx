@@ -1049,6 +1049,7 @@ export default function ChatInbox() {
                   ? "IN_SERVICE"
                   : "WAITING"
                 : "OTHER",
+            attendanceState: chat.attendanceState,
             onSelect: () => {
             const currentIdentity =
               selectedChat?.canonicalJid ||

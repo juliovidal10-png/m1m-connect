@@ -14,6 +14,7 @@ export type ChatConversationSidebarItem = {
   unreadCount: number;
   isSelected: boolean;
   queueCategory: "WAITING" | "IN_SERVICE" | "OTHER";
+  attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
   onSelect: () => void;
 };
 
@@ -60,10 +61,66 @@ export default function ChatConversationSidebar({
     initialQueueResolvedRef.current = true;
   }, [isLoading, waitingCount]);
 
-  const visibleItems = items.filter((item) => {
-    if (item.queueCategory === "OTHER") return true;
-    return item.queueCategory === activeQueue;
-  });
+  const aiItems = items.filter(
+    (item) => item.attendanceState === "IA",
+  );
+  const otherItems = items.filter(
+    (item) =>
+      item.queueCategory === "OTHER" &&
+      item.attendanceState !== "IA",
+  );
+  const visibleQueueItems = items.filter(
+    (item) => item.queueCategory === activeQueue,
+  );
+
+  const renderItem = (item: ChatConversationSidebarItem) => (
+    <button
+      key={item.key}
+      type="button"
+      onClick={item.onSelect}
+      className={`flex w-full items-start gap-3.5 border-b border-black/5 px-4 py-3.5 text-left transition-all duration-150 ${
+        item.isSelected
+          ? "bg-[#ECF8F8] shadow-[inset_3px_0_0_#0A9090]"
+          : "hover:bg-black/[0.025]"
+      }`}
+    >
+      {item.profilePicUrl ? (
+        <img
+          src={item.profilePicUrl}
+          alt=""
+          className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-black/5"
+        />
+      ) : (
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] font-bold text-[#087B7B] ring-1 ring-[#0A9090]/10">
+          {item.name.charAt(0)}
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <p className="truncate text-[15px] font-semibold text-[#171717]">
+            {item.name}
+          </p>
+
+          <span className="shrink-0 text-[11px] font-medium text-black/35">
+            {item.updatedAt}
+          </span>
+        </div>
+
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <p className="line-clamp-2 min-h-[20px] text-[13px] leading-5 text-black/45">
+            {item.preview}
+          </p>
+
+          {item.unreadCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white shadow-sm">
+              {item.unreadCount}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
 
   return (
     <aside
@@ -134,60 +191,34 @@ export default function ChatConversationSidebar({
 
       {!isLoading &&
         searchQuery.trim() &&
-        visibleItems.length === 0 && (
+        aiItems.length === 0 &&
+        otherItems.length === 0 &&
+        visibleQueueItems.length === 0 && (
           <p className="p-4 text-sm text-black/45">
             Nenhuma conversa encontrada.
           </p>
         )}
 
-      {visibleItems.map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          onClick={item.onSelect}
-          className={`flex w-full items-start gap-3.5 border-b border-black/5 px-4 py-3.5 text-left transition-all duration-150 ${
-            item.isSelected
-              ? "bg-[#ECF8F8] shadow-[inset_3px_0_0_#0A9090]"
-              : "hover:bg-black/[0.025]"
-          }`}
-        >
-          {item.profilePicUrl ? (
-            <img
-              src={item.profilePicUrl}
-              alt=""
-              className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-black/5"
-            />
-          ) : (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#ECF8F8] font-bold text-[#087B7B] ring-1 ring-[#0A9090]/10">
-              {item.name.charAt(0)}
-            </div>
-          )}
+      {aiItems.length > 0 && (
+        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
+          Atendimentos da IA
+        </div>
+      )}
+      {aiItems.map(renderItem)}
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <p className="truncate text-[15px] font-semibold text-[#171717]">
-                {item.name}
-              </p>
+      {otherItems.length > 0 && (
+        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
+          Outras conversas
+        </div>
+      )}
+      {otherItems.map(renderItem)}
 
-              <span className="shrink-0 text-[11px] font-medium text-black/35">
-                {item.updatedAt}
-              </span>
-            </div>
-
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <p className="line-clamp-2 min-h-[20px] text-[13px] leading-5 text-black/45">
-                {item.preview}
-              </p>
-
-              {item.unreadCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white shadow-sm">
-                  {item.unreadCount}
-                </span>
-              )}
-            </div>
-          </div>
-        </button>
-      ))}
+      {visibleQueueItems.length > 0 && (
+        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
+          {activeQueue === "WAITING" ? "Aguardando" : "Em atendimento"}
+        </div>
+      )}
+      {visibleQueueItems.map(renderItem)}
 
       {isLoadingMore && !searchQuery.trim() && (
         <p className="p-4 text-center text-sm text-black/45">
