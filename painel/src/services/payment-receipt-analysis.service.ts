@@ -179,11 +179,11 @@ function buildInstructions() {
     "Nunca invente dados e nunca use conhecimento externo para completar campos ausentes.",
     "Retorne SOMENTE um objeto JSON válido, sem markdown e sem explicações.",
     'Formato exato: {"isPaymentReceipt":boolean,"amount":number|null,"paymentMethod":string|null,"identifiedBank":string|null,"paidAt":string|null}.',
-    "isPaymentReceipt: true somente quando a imagem/documento for claramente um comprovante, recibo ou confirmação de pagamento/transferência; para fotos comuns, produtos, pessoas, conversas, orçamentos, cobranças ainda não pagas ou documentos sem evidência de pagamento, use false.",
+    "isPaymentReceipt: true somente quando houver evidência positiva e clara de que um pagamento, transferência ou quitação foi efetivamente realizado/concluído. A mera presença de valor, banco, PIX, boleto, cobrança, dados financeiros ou linguagem sobre pagamento não é suficiente. Diferencie documento/instrumento para pagamento de comprovante de pagamento realizado. Use false para boleto ainda a pagar, cobrança, fatura pendente, orçamento, holerite/contracheque, demonstrativo ou recibo salarial, e documentos que apenas informem valores, dados bancários ou obrigação de pagamento. Use true para PIX efetivamente realizado, transferência concluída, comprovante de boleto efetivamente pago e recibo que realmente documente quitação/pagamento realizado. Em caso de dúvida ou ausência de evidência suficiente de liquidação/pagamento realizado, use false.",
     "Quando isPaymentReceipt for false, mantenha amount, paymentMethod, identifiedBank e paidAt como null.",
     "amount: valor efetivamente pago/transferido, em reais, usando número decimal.",
     'paymentMethod: use valores curtos como "PIX", "TED", "DOC", "Transferência", "Depósito", "Boleto" ou null.',
-    "identifiedBank: nome da instituição financeira claramente identificada no comprovante; preserve o nome útil ao atendente.",
+    "identifiedBank: instituição financeira de origem/emissão da operação, ligada ao pagador/origem. Não use a instituição do beneficiário/destino apenas porque ela aparece no documento. Se a instituição de origem/emissão não puder ser determinada com segurança, use null. A ausência de identifiedBank, sozinha, não invalida um comprovante verdadeiro.",
     "paidAt: data e hora do pagamento em ISO 8601 quando ambas estiverem disponíveis; se houver apenas data, use YYYY-MM-DD; se não estiver claro, null.",
     "Se houver vários valores, priorize o valor efetivamente pago/transferido, não saldo, limite, tarifa ou valor anterior.",
   ].join("\n");
