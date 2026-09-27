@@ -111,11 +111,11 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 grid grid-cols-[0.72fr_1.15fr_1.55fr] gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
               onClick={() => setActiveQueue("ALL")}
-              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
                 activeQueue === "ALL"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -127,7 +127,7 @@ export default function ChatConversationSidebar({
             <button
               type="button"
               onClick={() => setActiveQueue("WAITING")}
-              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
                 activeQueue === "WAITING"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -139,7 +139,7 @@ export default function ChatConversationSidebar({
             <button
               type="button"
               onClick={() => setActiveQueue("IN_SERVICE")}
-              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
                 activeQueue === "IN_SERVICE"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
