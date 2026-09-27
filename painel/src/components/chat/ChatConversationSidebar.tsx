@@ -14,7 +14,6 @@ export type ChatConversationSidebarItem = {
   unreadCount: number;
   isSelected: boolean;
   queueCategory: "WAITING" | "IN_SERVICE" | "OTHER";
-  attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
   onSelect: () => void;
 };
 
@@ -44,34 +43,9 @@ export default function ChatConversationSidebar({
     (item) => item.queueCategory === "IN_SERVICE",
   ).length;
 
-  const [activeQueue, setActiveQueue] = useState<
-    "WAITING" | "IN_SERVICE"
-  >(waitingCount > 0 ? "WAITING" : "IN_SERVICE");
-  const manualQueueSelectionRef = useRef(false);
-  const initialQueueResolvedRef = useRef(false);
+  const [activeQueue, setActiveQueue] = useState<"ALL" | "WAITING" | "IN_SERVICE">("ALL");
 
-  useEffect(() => {
-    if (manualQueueSelectionRef.current) return;
-    if (initialQueueResolvedRef.current) return;
-    if (isLoading) return;
-
-    setActiveQueue(
-      waitingCount > 0 ? "WAITING" : "IN_SERVICE",
-    );
-    initialQueueResolvedRef.current = true;
-  }, [isLoading, waitingCount]);
-
-  const aiItems = items.filter(
-    (item) => item.attendanceState === "IA",
-  );
-  const otherItems = items.filter(
-    (item) =>
-      item.queueCategory === "OTHER" &&
-      item.attendanceState !== "IA",
-  );
-  const visibleQueueItems = items.filter(
-    (item) => item.queueCategory === activeQueue,
-  );
+  const visibleItems = activeQueue === "ALL" ? items : items.filter((item) => item.queueCategory === activeQueue);
 
   const renderItem = (item: ChatConversationSidebarItem) => (
     <button
@@ -137,13 +111,22 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
-              onClick={() => {
-                manualQueueSelectionRef.current = true;
-                setActiveQueue("WAITING");
-              }}
+              onClick={() => setActiveQueue("ALL")}
+              className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
+                activeQueue === "ALL"
+                  ? "bg-white text-[#0A9090] shadow-sm"
+                  : "text-black/45 hover:text-black/70"
+              }`}
+            >
+              Todas
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveQueue("WAITING")}
               className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
                 activeQueue === "WAITING"
                   ? "bg-white text-[#0A9090] shadow-sm"
@@ -155,10 +138,7 @@ export default function ChatConversationSidebar({
 
             <button
               type="button"
-              onClick={() => {
-                manualQueueSelectionRef.current = true;
-                setActiveQueue("IN_SERVICE");
-              }}
+              onClick={() => setActiveQueue("IN_SERVICE")}
               className={`rounded-lg px-2 py-2 text-[11px] font-bold uppercase tracking-wide transition ${
                 activeQueue === "IN_SERVICE"
                   ? "bg-white text-[#0A9090] shadow-sm"
@@ -189,36 +169,13 @@ export default function ChatConversationSidebar({
         </p>
       )}
 
-      {!isLoading &&
-        searchQuery.trim() &&
-        aiItems.length === 0 &&
-        otherItems.length === 0 &&
-        visibleQueueItems.length === 0 && (
-          <p className="p-4 text-sm text-black/45">
-            Nenhuma conversa encontrada.
-          </p>
-        )}
-
-      {aiItems.length > 0 && (
-        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
-          Atendimentos da IA
-        </div>
+      {!isLoading && searchQuery.trim() && visibleItems.length === 0 && (
+        <p className="p-4 text-sm text-black/45">
+          Nenhuma conversa encontrada.
+        </p>
       )}
-      {aiItems.map(renderItem)}
 
-      {otherItems.length > 0 && (
-        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
-          Outras conversas
-        </div>
-      )}
-      {otherItems.map(renderItem)}
-
-      {visibleQueueItems.length > 0 && (
-        <div className="px-4 pb-2 pt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-black/40">
-          {activeQueue === "WAITING" ? "Aguardando" : "Em atendimento"}
-        </div>
-      )}
-      {visibleQueueItems.map(renderItem)}
+      {visibleItems.map(renderItem)}
 
       {isLoadingMore && !searchQuery.trim() && (
         <p className="p-4 text-center text-sm text-black/45">
