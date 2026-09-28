@@ -69,7 +69,10 @@ export default function ChatCustomerQuickPanel({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ customerId }),
+          body: JSON.stringify({
+            customerId,
+            sourceSurface: "QUICK_PANEL",
+          }),
         },
       );
 

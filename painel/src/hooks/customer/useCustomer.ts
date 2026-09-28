@@ -457,6 +457,7 @@ export default function useCustomer({
               },
               body: JSON.stringify({
                 customerId,
+                sourceSurface: "CUSTOMER_360",
               }),
             },
           );

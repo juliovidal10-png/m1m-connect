@@ -35,6 +35,26 @@ import {
 type EvolutionResponseRecord =
   Record<string, unknown>;
 
+const ASSIGN_SOURCE_SURFACES = [
+  "CHAT_HEADER",
+  "QUICK_PANEL",
+  "CUSTOMER_360",
+] as const;
+
+type AssignSourceSurface =
+  (typeof ASSIGN_SOURCE_SURFACES)[number];
+
+function getAssignSourceSurface(
+  value: unknown,
+): AssignSourceSurface | null {
+  return typeof value === "string" &&
+    ASSIGN_SOURCE_SURFACES.some(
+      (surface) => surface === value,
+    )
+    ? (value as AssignSourceSurface)
+    : null;
+}
+
 function getEvolutionMessageId(
   value: unknown,
 ): string {
@@ -320,6 +340,11 @@ export async function POST(
 
     const body = await request.json();
 
+    const sourceSurface =
+      getAssignSourceSurface(
+        body.sourceSurface,
+      );
+
     let customerId =
       getTrimmedString(body.customerId);
 
@@ -364,6 +389,14 @@ export async function POST(
         companyId,
         attendance.id,
         responsibleId,
+        sourceSurface
+          ? {
+              source:
+                "CUSTOMERS_ASSIGN",
+              surface:
+                sourceSurface,
+            }
+          : undefined,
       );
 
     const assumedAttendance =

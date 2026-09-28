@@ -163,6 +163,7 @@ export default function AttendanceActions({
           body: JSON.stringify({
             customerId,
             remoteJid,
+            sourceSurface: "CHAT_HEADER",
           }),
         },
       );

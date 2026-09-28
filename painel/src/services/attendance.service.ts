@@ -286,6 +286,7 @@ export const attendanceService = {
     companyId: string,
     attendanceId: string,
     responsibleId: string,
+    metadata?: CreateAttendanceEventData["metadata"],
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
@@ -362,6 +363,7 @@ export const attendanceService = {
         M1MAttendanceActorType.USER,
       actorId:
         responsibleId,
+      metadata,
     });
 
     return {
