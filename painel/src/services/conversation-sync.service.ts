@@ -755,6 +755,86 @@ async function findEvolutionLidRemoteJid(
 
   return null;
 }
+async function findEvolutionOfficialRemoteJid(
+  remoteJid: string,
+  instanceName: string,
+): Promise<string | null> {
+  if (!remoteJid.endsWith("@lid")) {
+    return null;
+  }
+
+  let rawMessages: unknown[];
+
+  try {
+    rawMessages = (
+      await getMessages(
+        remoteJid,
+        instanceName,
+        1,
+      )
+    ) as unknown[];
+  } catch (error) {
+    console.warn(
+      "[M1M-IDENTITY] Falha ao resolver LID na Evolution.",
+      {
+        remoteJid,
+        instanceName,
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+    );
+
+    return null;
+  }
+
+  const officialRemoteJids =
+    new Set<string>();
+
+  for (const rawMessage of rawMessages) {
+    const payload =
+      getRecord(rawMessage);
+    const key =
+      getRecord(payload?.key);
+
+    const primaryRemoteJid =
+      getText(key?.remoteJid);
+    const alternateRemoteJid =
+      getText(key?.remoteJidAlt);
+
+    if (
+      primaryRemoteJid === remoteJid &&
+      alternateRemoteJid?.endsWith(
+        "@s.whatsapp.net",
+      )
+    ) {
+      officialRemoteJids.add(
+        alternateRemoteJid,
+      );
+    }
+
+    if (
+      alternateRemoteJid === remoteJid &&
+      primaryRemoteJid?.endsWith(
+        "@s.whatsapp.net",
+      )
+    ) {
+      officialRemoteJids.add(
+        primaryRemoteJid,
+      );
+    }
+  }
+
+  if (officialRemoteJids.size !== 1) {
+    return null;
+  }
+
+  return (
+    officialRemoteJids.values().next()
+      .value ?? null
+  );
+}
 export const conversationSyncService = {
   normalizeMessage(rawMessage: unknown) {
     return normalizeEvolutionMessage(rawMessage);
@@ -900,6 +980,23 @@ export const conversationSyncService = {
           !message.fromMe &&
           message.pushName,
       )?.pushName ?? null;
+
+    const provenLidRemoteJid =
+      canonicalRemoteJid.endsWith("@s.whatsapp.net")
+        ? storedLidRemoteJid ??
+          evolutionLidRemoteJid ??
+          (primaryLookupRemoteJid.endsWith("@lid")
+            ? primaryLookupRemoteJid
+            : null)
+        : null;
+
+    if (provenLidRemoteJid) {
+      await customerRepository.reconcileCanonicalIdentity({
+        companyId: resolvedCompanyId,
+        canonicalRemoteJid,
+        lidRemoteJid: provenLidRemoteJid,
+      });
+    }
 
     const customer =
       await customerRepository.upsert({
@@ -1343,18 +1440,44 @@ export const conversationSyncService = {
       );
     }
 
+    const canonicalCustomerRemoteJid =
+      message.remoteJid.endsWith("@lid")
+        ? (
+            await findEvolutionOfficialRemoteJid(
+              message.remoteJid,
+              instanceName,
+            )
+          ) ?? message.remoteJid
+        : message.remoteJid;
+
+    if (
+      canonicalCustomerRemoteJid !==
+        message.remoteJid &&
+      canonicalCustomerRemoteJid.endsWith(
+        "@s.whatsapp.net",
+      )
+    ) {
+      await customerRepository.reconcileCanonicalIdentity({
+        companyId: resolvedCompanyId,
+        canonicalRemoteJid:
+          canonicalCustomerRemoteJid,
+        lidRemoteJid:
+          message.remoteJid,
+      });
+    }
+
     const customer =
       await customerRepository.upsert({
         companyId: resolvedCompanyId,
-        remoteJid: message.remoteJid,
+        remoteJid:
+          canonicalCustomerRemoteJid,
         name: message.fromMe
           ? null
           : message.pushName,
         phone: extractPhone(
-          message.remoteJid,
+          canonicalCustomerRemoteJid,
         ),
       });
-
     const attendance =
       await attendanceService.getOpenAttendanceByCustomer(
         resolvedCompanyId,

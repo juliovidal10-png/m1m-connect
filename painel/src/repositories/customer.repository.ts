@@ -597,6 +597,64 @@ export const customerRepository = {
       },
     });
   },
+  async reconcileCanonicalIdentity(input: {
+    companyId: string;
+    canonicalRemoteJid: string;
+    lidRemoteJid: string;
+  }) {
+    const companyId = input.companyId.trim();
+    const canonicalRemoteJid =
+      input.canonicalRemoteJid.trim();
+    const lidRemoteJid =
+      input.lidRemoteJid.trim();
+
+    if (
+      !companyId ||
+      !isOfficialWhatsAppJid(canonicalRemoteJid) ||
+      !lidRemoteJid.endsWith("@lid") ||
+      canonicalRemoteJid === lidRemoteJid
+    ) {
+      return null;
+    }
+
+    const [canonicalCustomer, lidCustomer] =
+      await Promise.all([
+        this.findByRemoteJid(companyId, canonicalRemoteJid),
+        this.findByRemoteJid(companyId, lidRemoteJid),
+      ]);
+
+    if (!lidCustomer) {
+      return canonicalCustomer;
+    }
+
+    if (!canonicalCustomer) {
+      try {
+        return await prisma.m1MCustomer.update({
+          where: { id: lidCustomer.id },
+          data: {
+            remoteJid: canonicalRemoteJid,
+            phone:
+              lidCustomer.phone ||
+              extractIdentifier(canonicalRemoteJid) ||
+              null,
+          },
+        });
+      } catch (error) {
+        if (getPrismaErrorCode(error) !== "P2002") {
+          throw error;
+        }
+        return this.findByRemoteJid(
+          companyId,
+          canonicalRemoteJid,
+        );
+      }
+    }
+
+    // Ambos ja existem. O oficial e canonico.
+    // O residual sera saneado separadamente para
+    // preservar mensagens, atendimentos e demais relacoes.
+    return canonicalCustomer;
+  },
 
   async listByCompany(
     companyId: string,
