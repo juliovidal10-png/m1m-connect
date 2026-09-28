@@ -575,6 +575,13 @@ function getChatName(
     );
   }
 
+  const crmName =
+    chat.crmName?.trim();
+
+  if (isValidName(crmName)) {
+    return crmName as string;
+  }
+
   const contact = findContact(
     chat,
     contactsMap,
@@ -582,20 +589,6 @@ function getChatName(
 
   const contactName =
     contact?.pushName?.trim();
-
-  if (
-    contact?.isSaved &&
-    isValidName(contactName)
-  ) {
-    return contactName as string;
-  }
-
-  const crmName =
-    chat.crmName?.trim();
-
-  if (isValidName(crmName)) {
-    return crmName as string;
-  }
 
   if (isValidName(contactName)) {
     return contactName as string;
