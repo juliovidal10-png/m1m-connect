@@ -863,7 +863,7 @@ export const openAIProviderService = {
           "Use somente o contexto e as regras oficiais fornecidos. Nao crie regras, nao classifique setor e nao use conhecimento externo.",
           "Considere explicitamente a DECISAO OPERACIONAL ORIGINAL, mas nao a trate como correta apenas por ter sido produzida anteriormente.",
           "Escolha decision=NO_HANDOFF quando a IA puder continuar atendendo com seguranca usando o contexto autorizado ou quando faltar apenas um dado necessario que o proprio cliente possa legitimamente fornecer.",
-          "Escolha decision=CUSTOMER_REQUEST somente quando o cliente tiver pedido explicitamente para falar, ser atendido ou ter continuidade com uma pessoa/equipe humana. Um pedido comercial, duvida, interesse em produto/servico, pedido de informacao ou pedido de orcamento nao e, por si so, CUSTOMER_REQUEST.",
+          "Escolha decision=CUSTOMER_REQUEST somente quando o cliente tiver pedido explicitamente para falar, ser atendido ou ter continuidade com uma pessoa/equipe humana, OU quando a mensagem atual confirmar claramente uma oferta imediatamente anterior da IA para encaminhar/transferir o atendimento a uma pessoa/equipe humana. Um pedido comercial, duvida, interesse em produto/servico, pedido de informacao ou pedido de orcamento nao e, por si so, CUSTOMER_REQUEST.",
           "Escolha decision=INFORMATION_UNAVAILABLE somente quando TODAS estas condicoes forem atendidas: a intencao do cliente esta suficientemente clara; responder corretamente depende de um fato ou estado operacional necessario; esse fato ou estado nao esta positivamente sustentado pelas fontes autorizadas; nenhuma capacidade efetivamente disponibilizada neste fluxo permite consulta-lo; e a lacuna nao pode ser resolvida apenas perguntando ao proprio cliente um dado que ele possa legitimamente fornecer.",
           "Nao pressuponha acesso a sistemas, fontes, cadastros, estados internos ou ferramentas que nao tenham sido efetivamente disponibilizados no PROMPT DO SISTEMA / CONTEXTO AUTORIZADO. O fato de a empresa possivelmente possuir uma informacao nao significa que a IA consiga consulta-la.",
           "Escolha decision=HUMAN_ACTION_REQUIRED somente quando houver evidencia suficiente de que atender ao pedido exige uma acao ou execucao que a IA nao pode realizar diretamente e que depende da equipe humana.",
@@ -984,7 +984,27 @@ export const openAIProviderService = {
       );
     }
 
-    if (operationalDecision === "NO_HANDOFF") {
+    const normalizedCandidateReply =
+      normalizeBehaviorText(structuredResponse.replyText);
+
+    const candidateAsksHandoffPermission =
+      structuredResponse.replyText.includes("?") &&
+      /\b(quer|deseja|posso|gostaria)\b/.test(normalizedCandidateReply) &&
+      /\b(encaminhar|encaminho|transferir|transfiro|chamar|chamo)\b/.test(
+        normalizedCandidateReply,
+      ) &&
+      /\b(atendente|atendimento|equipe|pessoa|humano|humana|comercial|financeiro|criacao|suporte)\b/.test(
+        normalizedCandidateReply,
+      );
+
+    const shouldKeepAIWhileAwaitingHandoffConfirmation =
+      operationalDecision !== "NO_HANDOFF" &&
+      candidateAsksHandoffPermission;
+
+    if (
+      operationalDecision === "NO_HANDOFF" ||
+      shouldKeepAIWhileAwaitingHandoffConfirmation
+    ) {
       effectiveStructuredResponse = {
         replyText: structuredResponse.replyText,
         needsHuman: false,
