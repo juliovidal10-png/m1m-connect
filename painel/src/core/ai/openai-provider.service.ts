@@ -990,7 +990,7 @@ export const openAIProviderService = {
     const candidateAsksHandoffPermission =
       structuredResponse.replyText.includes("?") &&
       /\b(quer|deseja|posso|gostaria)\b/.test(normalizedCandidateReply) &&
-      /\b(encaminhar|encaminho|transferir|transfiro|chamar|chamo)\b/.test(
+      /\b(encaminh\w*|transfer\w*|cham\w*)\b/.test(
         normalizedCandidateReply,
       ) &&
       /\b(atendente|atendimento|equipe|pessoa|humano|humana|comercial|financeiro|criacao|suporte)\b/.test(
@@ -1148,7 +1148,7 @@ export const openAIProviderService = {
     const finalReplyAsksHandoffPermission =
       guardedReplyText.includes("?") &&
       /\b(quer|deseja|posso|gostaria)\b/.test(normalizedFinalReply) &&
-      /\b(encaminhar|encaminho|transferir|transfiro|chamar|chamo)\b/.test(
+      /\b(encaminh\w*|transfer\w*|cham\w*)\b/.test(
         normalizedFinalReply,
       ) &&
       /\b(atendente|atendimento|equipe|pessoa|humano|humana|comercial|financeiro|criacao|suporte|contato)\b/.test(
