@@ -591,6 +591,7 @@ export const openAIProviderService = {
   }): Promise<{
     intent: "SOCIAL" | "CLOSING" | "OTHER";
     replyText: string | null;
+    canHandleWithoutHistory: boolean;
     responseId: string;
     model: string;
   }> {
@@ -620,6 +621,7 @@ export const openAIProviderService = {
         "Para SOCIAL, responda somente a cortesia/socializacao sem inventar fatos da empresa, servicos, produtos, precos ou condicoes. Quando a mensagem for apenas agradecimento, confirmacao cordial ou interacao social ja resolvida, responda naturalmente e pare; nao acrescente oferta generica de ajuda, disponibilidade ou continuidade como 'se precisar', 'qualquer coisa', 'estou por aqui' ou 'e so chamar', salvo quando isso for realmente necessario pelo contexto.",
         "Use o nome do cliente somente se estiver disponivel e soar natural; nao pergunte o nome.",
         "Para OTHER, replyText deve ser string vazia.",
+        "Defina canHandleWithoutHistory=true somente quando a mensagem SOCIAL puder ser respondida com seguranca mesmo sendo a primeira mensagem de um novo atendimento, sem depender de conversa anterior. Agradecimento, cortesia ou socializacao autocontida podem ser true. Saudacao de abertura isolada como 'oi', 'ola', 'bom dia', 'boa tarde' ou 'boa noite' deve ser false para preservar o fluxo inicial da empresa. Para OTHER, use false.",
         "Nao decida setor e nao invente contexto.",
       ].join("\n"),
       input: [
@@ -655,8 +657,11 @@ export const openAIProviderService = {
               replyText: {
                 type: "string",
               },
+              canHandleWithoutHistory: {
+                type: "boolean",
+              },
             },
-            required: ["intent", "replyText"],
+            required: ["intent", "replyText", "canHandleWithoutHistory"],
           },
         },
       },
@@ -688,12 +693,15 @@ export const openAIProviderService = {
       parsed as Record<string, unknown>;
     const intent = record.intent;
     const replyText = record.replyText;
+    const canHandleWithoutHistory =
+      record.canHandleWithoutHistory;
 
     if (
       (intent !== "SOCIAL" &&
         intent !== "CLOSING" &&
         intent !== "OTHER") ||
-      typeof replyText !== "string"
+      typeof replyText !== "string" ||
+      typeof canHandleWithoutHistory !== "boolean"
     ) {
       throw new Error(
         "A OpenAI retornou uma classificacao conversacional invalida.",
@@ -718,6 +726,10 @@ export const openAIProviderService = {
         intent === "OTHER"
           ? null
           : normalizedReply,
+      canHandleWithoutHistory:
+        intent === "SOCIAL"
+          ? canHandleWithoutHistory
+          : false,
       responseId: response.id,
       model: response.model,
     };

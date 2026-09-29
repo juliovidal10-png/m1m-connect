@@ -1464,7 +1464,8 @@ export const incomingMessagePipelineService = {
           const shouldHandleConversationalIntent =
             conversationalIntent.intent === "CLOSING" ||
             (conversationalIntent.intent === "SOCIAL" &&
-              Boolean(conversationalHistory) &&
+              (Boolean(conversationalHistory) ||
+                conversationalIntent.canHandleWithoutHistory) &&
               !ambiguousSectorAffirmation);
 
           m1mT2Trace("CONVERSATION_INTENT_RESULT", {
@@ -1478,6 +1479,8 @@ export const incomingMessagePipelineService = {
             currentMessage: conversationalMessage,
             hasConversationHistory: Boolean(conversationalHistory),
             intent: conversationalIntent.intent,
+            canHandleWithoutHistory:
+              conversationalIntent.canHandleWithoutHistory,
             shouldHandleConversationalIntent,
             ambiguousSectorAffirmation,
             model: conversationalIntent.model,
