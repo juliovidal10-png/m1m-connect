@@ -1103,8 +1103,19 @@ export const openAIProviderService = {
       );
     }
 
+    const normalizedGuardedReplyText =
+      guardedReplyTextRaw.trim();
+
+    const internalMetadataLeakPattern =
+      /(?:^|\b)(?:resposta\s+(?:adequada|inadequada)|needsHuman\s*:|handoffReason\s*:|subject\s*:|context\s*:)/i;
+
+    const safeGuardedReplyText =
+      internalMetadataLeakPattern.test(normalizedGuardedReplyText)
+        ? effectiveStructuredResponse.replyText
+        : normalizedGuardedReplyText;
+
     const guardedReplyText = applyDeterministicConversationGuard(
-      guardedReplyTextRaw.trim(),
+      safeGuardedReplyText,
       userPrompt,
       effectiveStructuredResponse.needsHuman
         ? effectiveStructuredResponse.handoffReason
