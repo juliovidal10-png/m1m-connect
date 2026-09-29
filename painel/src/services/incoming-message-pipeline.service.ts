@@ -2048,6 +2048,85 @@ const menuAlreadyShownInCurrentCycle =
             },
           });
 
+
+      const sectorConversationalIntent =
+        await openAIProviderService.classifyConversationIntent({
+          currentMessage: messageContent,
+          conversationHistory: sectorConversationHistory,
+          customerName:
+            sectorConversationCustomer?.name?.trim() || null,
+        });
+
+      const shouldHandleSectorConversationalIntent =
+        sectorConversationalIntent.intent === "CLOSING" ||
+        (sectorConversationalIntent.intent === "SOCIAL" &&
+          (Boolean(sectorConversationHistory) ||
+            sectorConversationalIntent.canHandleWithoutHistory));
+
+      m1mT2Trace("SECTOR_CONVERSATION_INTENT_RESULT", {
+        evolutionMessageId: normalizedMessage.evolutionMessageId,
+        remoteJid: normalizedMessage.remoteJid,
+        instanceName: normalizedInstanceName,
+        messageId: storedMessage.id,
+        customerId: storedMessage.customerId,
+        companyId,
+        attendanceId: router.attendanceId,
+        sectorId: router.sectorId,
+        currentMessage: messageContent,
+        hasConversationHistory: Boolean(sectorConversationHistory),
+        intent: sectorConversationalIntent.intent,
+        canHandleWithoutHistory:
+          sectorConversationalIntent.canHandleWithoutHistory,
+        shouldHandleSectorConversationalIntent,
+        model: sectorConversationalIntent.model,
+        responseId: sectorConversationalIntent.responseId,
+      });
+
+      if (shouldHandleSectorConversationalIntent) {
+        const replyText = sectorConversationalIntent.replyText;
+
+        if (!replyText) {
+          throw new Error("Resposta conversacional setorial ausente.");
+        }
+
+        if (options?.dryRun) {
+          return {
+            processed: true,
+            action:
+              sectorConversationalIntent.intent === "CLOSING"
+                ? ("SECTOR_CONVERSATION_CLOSING_SIMULATED" as const)
+                : ("SECTOR_CONVERSATION_SOCIAL_SIMULATED" as const),
+            messageId: storedMessage.id,
+            router,
+            simulatedMessage: replyText,
+          };
+        }
+
+        await automaticMessageService.sendText({
+          companyId,
+          customerId: storedMessage.customerId,
+          attendanceId: router.attendanceId,
+          instanceName: normalizedInstanceName,
+          remoteJid: normalizedMessage.remoteJid,
+          text: replyText,
+          sourceMessageId: storedMessage.id,
+        });
+
+        return {
+          processed: true,
+          action:
+            sectorConversationalIntent.intent === "CLOSING"
+              ? ("SECTOR_CONVERSATION_CLOSING" as const)
+              : ("SECTOR_CONVERSATION_SOCIAL" as const),
+          messageId: storedMessage.id,
+          router,
+          ai: {
+            model: sectorConversationalIntent.model,
+            responseId: sectorConversationalIntent.responseId,
+          },
+        };
+      }
+
       const prompt =
         promptBuilderService.build({
           context,
