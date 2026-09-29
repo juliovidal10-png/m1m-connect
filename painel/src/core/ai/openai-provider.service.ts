@@ -1142,6 +1142,31 @@ export const openAIProviderService = {
         : "NONE",
     );
 
+    const normalizedFinalReply =
+      normalizeBehaviorText(guardedReplyText);
+
+    const finalReplyAsksHandoffPermission =
+      guardedReplyText.includes("?") &&
+      /\b(quer|deseja|posso|gostaria)\b/.test(normalizedFinalReply) &&
+      /\b(encaminhar|encaminho|transferir|transfiro|chamar|chamo)\b/.test(
+        normalizedFinalReply,
+      ) &&
+      /\b(atendente|atendimento|equipe|pessoa|humano|humana|comercial|financeiro|criacao|suporte|contato)\b/.test(
+        normalizedFinalReply,
+      );
+
+    if (
+      effectiveStructuredResponse.needsHuman &&
+      finalReplyAsksHandoffPermission
+    ) {
+      effectiveStructuredResponse = {
+        replyText: effectiveStructuredResponse.replyText,
+        needsHuman: false,
+        handoffReason: "NONE",
+        subject: null,
+        context: null,
+      };
+    }
 
     if (!guardedReplyText) {
       throw new Error(
