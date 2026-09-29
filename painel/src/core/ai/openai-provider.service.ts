@@ -854,6 +854,12 @@ export const openAIProviderService = {
       );
 
 
+    console.info("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
+      stage: "CANDIDATE_REPLY",
+      responseId: response.id,
+      replyText: structuredResponse.replyText,
+    }));
+
     let effectiveStructuredResponse =
       structuredResponse;
 
@@ -1129,6 +1135,12 @@ export const openAIProviderService = {
     const normalizedGuardedReplyText =
       guardedReplyTextRaw.trim();
 
+    console.info("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
+      stage: "REVIEWED_REPLY",
+      responseId: response.id,
+      replyText: normalizedGuardedReplyText,
+    }));
+
     const internalMetadataLeakPattern =
       /(?:^|\b)(?:resposta\s+(?:adequada|inadequada)|needsHuman\s*:|handoffReason\s*:|subject\s*:|context\s*:)/i;
 
@@ -1147,6 +1159,12 @@ export const openAIProviderService = {
 
     const normalizedFinalReply =
       normalizeBehaviorText(guardedReplyText);
+
+    console.info("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
+      stage: "FINAL_REPLY",
+      responseId: response.id,
+      replyText: guardedReplyText,
+    }));
 
     const finalReplyAsksHandoffPermission =
       guardedReplyText.includes("?") &&
