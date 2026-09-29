@@ -461,7 +461,10 @@ function applyDeterministicConversationGuard(
   }
 
   if (pureCourtesy) {
-    return "Por nada! Até mais!";
+    const withoutQuestions =
+      stripQuestionsForResolvedStage(replyText);
+
+    return withoutQuestions || "Por nada! Até mais!";
   }
 
   const withoutQuestions =
