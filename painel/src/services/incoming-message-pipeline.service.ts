@@ -2374,8 +2374,7 @@ const menuAlreadyShownInCurrentCycle =
             customerResponseText,
         sourceMessageId:
             storedMessage.id,
-          diagnosticMetadata:
-            aiResponse.tf6Naturalidade,
+
         });
 
         m1mT2Trace("TF6_F2_SEND_SUCCESS", {

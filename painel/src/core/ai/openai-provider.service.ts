@@ -22,15 +22,7 @@ type AIProviderUsage = {
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
-  tf6Naturalidade: {
-    candidateReply: string;
-    reviewedReply: string;
-    finalReply: string;
-    guardInputReply: string;
-    guardCurrentMessage: string;
-    guardPureCourtesy: boolean;
-    guardStrongConfirmation: boolean;
-    guardExpectedFirstRequest: string;  };
+
 };
 
 export type AIProviderResult =
@@ -876,15 +868,7 @@ export const openAIProviderService = {
       parseStructuredResponse(
         rawText,
       );
-
-
-    console.log("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
-      stage: "CANDIDATE_REPLY",
-      responseId: response.id,
-      replyText: structuredResponse.replyText,
-    }));
-
-    let effectiveStructuredResponse =
+let effectiveStructuredResponse =
       structuredResponse;
 
     const operationalGuardResponse =
@@ -1158,37 +1142,14 @@ export const openAIProviderService = {
 
     const normalizedGuardedReplyText =
       guardedReplyTextRaw.trim();
-
-    console.log("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
-      stage: "REVIEWED_REPLY",
-      responseId: response.id,
-      replyText: normalizedGuardedReplyText,
-    }));
-
-    const internalMetadataLeakPattern =
+const internalMetadataLeakPattern =
       /(?:^|\b)(?:resposta\s+(?:adequada|inadequada)|needsHuman\s*:|handoffReason\s*:|subject\s*:|context\s*:)/i;
 
     const safeGuardedReplyText =
       internalMetadataLeakPattern.test(normalizedGuardedReplyText)
         ? effectiveStructuredResponse.replyText
         : normalizedGuardedReplyText;
-
-    const tf6GuardCurrentMessage =
-      extractCurrentCustomerMessage(userPrompt);
-    const tf6GuardPureCourtesy =
-      isPureCourtesyWithoutNewRequest(tf6GuardCurrentMessage);
-    const tf6GuardStrongConfirmation =
-      isStrongContextualConfirmationWithoutNewRequest(
-        tf6GuardCurrentMessage,
-      );
-    const tf6GuardExpectedFirstRequest =
-      keepOnlyFirstRequestedInformation(
-        keepOnlyUnsupportedServiceAnswer(
-          safeGuardedReplyText,
-          tf6GuardCurrentMessage,
-        ),
-      );
-    const guardedReplyText = applyDeterministicConversationGuard(
+const guardedReplyText = applyDeterministicConversationGuard(
       safeGuardedReplyText,
       userPrompt,
       effectiveStructuredResponse.needsHuman
@@ -1198,14 +1159,7 @@ export const openAIProviderService = {
 
     const normalizedFinalReply =
       normalizeBehaviorText(guardedReplyText);
-
-    console.log("[M1M_TF6_NATURALIDADE_TRACE]", JSON.stringify({
-      stage: "FINAL_REPLY",
-      responseId: response.id,
-      replyText: guardedReplyText,
-    }));
-
-    const finalReplyAsksHandoffPermission =
+const finalReplyAsksHandoffPermission =
       guardedReplyText.includes("?") &&
       /\b(quer|deseja|posso|gostaria)\b/.test(normalizedFinalReply) &&
       /\b(encaminh\w*|transfer\w*|cham\w*)\b/.test(
@@ -1247,23 +1201,6 @@ export const openAIProviderService = {
       totalTokens:
         response.usage?.total_tokens ??
         null,
-          tf6Naturalidade: {
-        candidateReply:
-          structuredResponse.replyText,
-        reviewedReply:
-          normalizedGuardedReplyText,
-        finalReply:
-          guardedReplyText,
-        guardInputReply:
-          safeGuardedReplyText,
-        guardCurrentMessage:
-          tf6GuardCurrentMessage,
-        guardPureCourtesy:
-          tf6GuardPureCourtesy,
-        guardStrongConfirmation:
-          tf6GuardStrongConfirmation,
-        guardExpectedFirstRequest:
-          tf6GuardExpectedFirstRequest,      },
     };
 
     if (effectiveStructuredResponse.needsHuman) {
