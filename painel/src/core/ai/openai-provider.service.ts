@@ -372,6 +372,18 @@ function keepOnlyFirstRequestedInformation(
       `${question.slice(0, compoundMatch.index).trim()}?`;
   }
 
+  const menuInsideParenthesesPattern =
+    /\s*\(([^()]*(?:,|\/)[^()]*\bou\b[^()]*)\)\s*\?$/i;
+  const menuInsideParenthesesMatch =
+    menuInsideParenthesesPattern.exec(question);
+
+  if (
+    menuInsideParenthesesMatch &&
+    typeof menuInsideParenthesesMatch.index === "number"
+  ) {
+    question =
+      `${question.slice(0, menuInsideParenthesesMatch.index).trim()}?`;
+  }
   return [
     prefix,
     question,
