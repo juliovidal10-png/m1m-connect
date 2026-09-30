@@ -134,7 +134,10 @@ function appendConversationHistoryToUserPrompt(
   conversationHistory: string,
 ) {
   if (!conversationHistory) {
-    return userPrompt;
+    return [
+      "MENSAGEM ATUAL DO CLIENTE:",
+      userPrompt,
+    ].join("\n");
   }
 
   return [

@@ -345,12 +345,15 @@ function keepOnlyFirstRequestedInformation(
       .slice(0, firstQuestionMark + 1)
       .trim();
 
-  const questionStart =
-    Math.max(
-      throughFirstQuestion.lastIndexOf("."),
-      throughFirstQuestion.lastIndexOf("!"),
-      throughFirstQuestion.lastIndexOf("\n"),
-    ) + 1;
+  const sentenceBoundaryPattern =
+    /[.!](?=\s|$)|\n/g;
+  let questionStart = 0;
+
+  for (const match of throughFirstQuestion.matchAll(sentenceBoundaryPattern)) {
+    if (typeof match.index === "number") {
+      questionStart = match.index + match[0].length;
+    }
+  }
 
   const prefix =
     throughFirstQuestion
