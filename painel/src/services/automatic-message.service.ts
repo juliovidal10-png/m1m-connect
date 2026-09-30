@@ -27,6 +27,11 @@ type SendAutomaticMessageInput = {
   remoteJid: string;
   text: string;
   sourceMessageId?: string | null;
+  diagnosticMetadata?: {
+    candidateReply: string;
+    reviewedReply: string;
+    finalReply: string;
+  };
 };
 
 function isRecord(
@@ -205,6 +210,12 @@ export const automaticMessageService = {
               ? {
                   m1mSourceMessageId:
                     input.sourceMessageId,
+                }
+              : {}),
+            ...(input.diagnosticMetadata
+              ? {
+                  m1mTf6Naturalidade:
+                    input.diagnosticMetadata,
                 }
               : {}),
           } as Prisma.InputJsonValue,

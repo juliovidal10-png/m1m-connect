@@ -22,6 +22,11 @@ type AIProviderUsage = {
   inputTokens: number | null;
   outputTokens: number | null;
   totalTokens: number | null;
+  tf6Naturalidade: {
+    candidateReply: string;
+    reviewedReply: string;
+    finalReply: string;
+  };
 };
 
 export type AIProviderResult =
@@ -1208,6 +1213,14 @@ export const openAIProviderService = {
       totalTokens:
         response.usage?.total_tokens ??
         null,
+          tf6Naturalidade: {
+        candidateReply:
+          structuredResponse.replyText,
+        reviewedReply:
+          normalizedGuardedReplyText,
+        finalReply:
+          guardedReplyText,
+      },
     };
 
     if (effectiveStructuredResponse.needsHuman) {
