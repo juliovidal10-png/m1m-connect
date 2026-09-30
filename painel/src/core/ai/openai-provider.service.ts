@@ -26,7 +26,11 @@ type AIProviderUsage = {
     candidateReply: string;
     reviewedReply: string;
     finalReply: string;
-  };
+    guardInputReply: string;
+    guardCurrentMessage: string;
+    guardPureCourtesy: boolean;
+    guardStrongConfirmation: boolean;
+    guardExpectedFirstRequest: string;  };
 };
 
 export type AIProviderResult =
@@ -1166,6 +1170,21 @@ export const openAIProviderService = {
         ? effectiveStructuredResponse.replyText
         : normalizedGuardedReplyText;
 
+    const tf6GuardCurrentMessage =
+      extractCurrentCustomerMessage(userPrompt);
+    const tf6GuardPureCourtesy =
+      isPureCourtesyWithoutNewRequest(tf6GuardCurrentMessage);
+    const tf6GuardStrongConfirmation =
+      isStrongContextualConfirmationWithoutNewRequest(
+        tf6GuardCurrentMessage,
+      );
+    const tf6GuardExpectedFirstRequest =
+      keepOnlyFirstRequestedInformation(
+        keepOnlyUnsupportedServiceAnswer(
+          safeGuardedReplyText,
+          tf6GuardCurrentMessage,
+        ),
+      );
     const guardedReplyText = applyDeterministicConversationGuard(
       safeGuardedReplyText,
       userPrompt,
@@ -1232,7 +1251,16 @@ export const openAIProviderService = {
           normalizedGuardedReplyText,
         finalReply:
           guardedReplyText,
-      },
+        guardInputReply:
+          safeGuardedReplyText,
+        guardCurrentMessage:
+          tf6GuardCurrentMessage,
+        guardPureCourtesy:
+          tf6GuardPureCourtesy,
+        guardStrongConfirmation:
+          tf6GuardStrongConfirmation,
+        guardExpectedFirstRequest:
+          tf6GuardExpectedFirstRequest,      },
     };
 
     if (effectiveStructuredResponse.needsHuman) {
