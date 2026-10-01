@@ -875,35 +875,7 @@ export const openAIProviderService = {
       parseStructuredResponse(
         rawText,
       );
-    const tf8RuntimeTraceEnabled =
-      userPrompt.includes("[TF8-RUNTIME]");
 
-    const tf8RuntimeTrace = (
-      stage: string,
-      payload: unknown,
-    ) => {
-      if (!tf8RuntimeTraceEnabled) {
-        return;
-      }
-
-      console.log(
-        `[TF8-RUNTIME] ${stage}`,
-        JSON.stringify(payload, null, 2),
-      );
-    };
-
-    tf8RuntimeTrace("INPUT", {
-      systemPrompt,
-      userPrompt,
-    });
-
-    tf8RuntimeTrace("CANDIDATE", {
-      replyText: structuredResponse.replyText,
-      needsHuman: structuredResponse.needsHuman,
-      handoffReason: structuredResponse.handoffReason,
-      subject: structuredResponse.subject,
-      context: structuredResponse.context,
-    });
 let effectiveStructuredResponse =
       structuredResponse;
 
@@ -1075,13 +1047,7 @@ let effectiveStructuredResponse =
         context: operationalContext,
       };
     }
-    tf8RuntimeTrace("OPERATIONAL_DECISION", {
-      replyText: effectiveStructuredResponse.replyText,
-      needsHuman: effectiveStructuredResponse.needsHuman,
-      handoffReason: effectiveStructuredResponse.handoffReason,
-      subject: effectiveStructuredResponse.subject,
-      context: effectiveStructuredResponse.context,
-    });
+
     const guardResponse =
       await client.responses.create({
         model,
@@ -1304,12 +1270,7 @@ let effectiveStructuredResponse =
         ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
         : (guardRecord.replyText as string);
 
-    tf8RuntimeTrace("FACTUAL_GUARD_RAW", {
-      replyText: guardedReplyTextRaw,
-      factualClaims,
-      hasUnsupportedBusinessFact,
-      hasInvalidFactualEvidence,
-    });
+
     if (typeof guardedReplyTextRaw !== "string") {
       throw new Error(
         "A OpenAI retornou uma revisao factual invalida.",
@@ -1333,15 +1294,7 @@ const guardedReplyText = applyDeterministicConversationGuard(
         : "NONE",
     );
 
-    tf8RuntimeTrace("FINAL", {
-      guardedReplyTextRaw,
-      safeGuardedReplyText,
-      guardedReplyText,
-      needsHuman: effectiveStructuredResponse.needsHuman,
-      handoffReason: effectiveStructuredResponse.handoffReason,
-      subject: effectiveStructuredResponse.subject,
-      context: effectiveStructuredResponse.context,
-    });
+
     const normalizedFinalReply =
       normalizeBehaviorText(guardedReplyText);
 const finalReplyAsksHandoffPermission =
