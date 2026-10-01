@@ -1094,7 +1094,7 @@ let effectiveStructuredResponse =
           "Preserve fatos empresariais sustentados pela FONTE FACTUAL AUTORIZADA, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas. A revisao nao pode introduzir nenhuma nova proposicao factual sobre a empresa que nao esteja sustentada nessa fonte.",
           "Para CADA proposicao factual sobre a empresa que permanecer em replyText, registre-a em factualClaims e copie em evidence um trecho LITERAL, CONTINUO e DIRETO da FONTE FACTUAL AUTORIZADA. Nao use como evidence a mensagem do cliente, o historico, a resposta candidata ou conhecimento geral.",
           "A evidence precisa sustentar diretamente a proposicao especifica. Uma categoria generica nao sustenta automaticamente subservicos, funcionalidades, capacidades, integracoes ou entregas especificas.",
-          "Defina hasUnsupportedBusinessFact=true quando o pedido ou a resposta candidata envolver fato empresarial especifico sem sustentacao direta na fonte. Nesse caso, replyText deve tratar o ponto como nao confirmado, sem negar por ausencia e sem inventar alternativa.",
+          "Defina hasUnsupportedBusinessFact=true quando o pedido ou a resposta candidata envolver fato empresarial especifico sem sustentacao direta na fonte. Esse sinal descreve contaminacao no pedido ou na candidata e NAO deve apagar fatos sustentados: remova ou trate como nao confirmado somente o ponto sem sustentacao, preserve no replyText os fatos diretamente sustentados e nao invente alternativa.",
           "A resposta deve responder primeiro ao ponto do cliente. Evite interrogatorio, rajada de perguntas e qualificacao desnecessaria.",
           "Use no maximo UMA pergunta na resposta final, e somente quando ela for indispensavel para cumprir o pedido atual. Se a pergunta do cliente ja puder ser respondida suficientemente, responda e pare: nao acrescente oferta de detalhamento, qualificacao, pergunta comercial ou convite generico para continuar.",
           "Nao transforme uma resposta adequada em menu, apresentacao institucional ou nova saudacao.",
@@ -1215,6 +1215,12 @@ let effectiveStructuredResponse =
     const hasUnsupportedBusinessFact =
       guardRecord.hasUnsupportedBusinessFact as boolean;
 
+    const normalizeEvidenceWhitespace = (value: string) =>
+      value.replace(/\s+/g, " ").trim();
+
+    const normalizedAuthorizedContext =
+      normalizeEvidenceWhitespace(authorizedContext);
+
     const normalizeEvidenceTokens = (value: string) =>
       value
         .normalize("NFD")
@@ -1249,7 +1255,7 @@ let effectiveStructuredResponse =
         if (
           !claim ||
           !evidence ||
-          !authorizedContext.includes(evidence)
+          !normalizedAuthorizedContext.includes(normalizeEvidenceWhitespace(evidence))
         ) {
           return true;
         }
@@ -1263,35 +1269,12 @@ let effectiveStructuredResponse =
               !evidenceStopWords.has(token),
           );
 
-        const missingClaimTokens = claimDistinctiveTokens.filter(
+        return claimDistinctiveTokens.some(
           (token) => !evidenceTokens.has(token),
         );
-        const evidenceExistsLiterally =
-          authorizedContext.includes(evidence);
-
-        if (userPrompt.includes("[TF8-RUNTIME]")) {
-          console.log(
-            "[TF8-RUNTIME] EVIDENCE_DIAG",
-            JSON.stringify(
-              {
-                claim,
-                evidence,
-                evidenceExistsLiterally,
-                claimDistinctiveTokens,
-                missingClaimTokens,
-                evidenceJson: JSON.stringify(evidence),
-              },
-              null,
-              2,
-            ),
-          );
-        }
-
-        return missingClaimTokens.length > 0;
       });
 
     const guardedReplyTextRaw =
-      hasUnsupportedBusinessFact ||
       hasInvalidFactualEvidence
         ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
         : (guardRecord.replyText as string);
