@@ -1229,11 +1229,29 @@ let effectiveStructuredResponse =
       "seus", "empresa", "plataforma", "servico", "servicos",
     ]);
 
-    const authorizedEvidenceSegments =
+    const authorizedContextLines =
       authorizedContext
         .split(/\r?\n/)
         .map((line) => line.trim())
         .filter(Boolean);
+
+    const authorizedEvidenceSegments: string[] = [];
+    for (let index = 0; index < authorizedContextLines.length; index += 1) {
+      const line = authorizedContextLines[index];
+      const nextLine = authorizedContextLines[index + 1];
+
+      if (
+        line.startsWith("P:") &&
+        typeof nextLine === "string" &&
+        nextLine.startsWith("R:")
+      ) {
+        authorizedEvidenceSegments.push(`${line} ${nextLine}`);
+        index += 1;
+        continue;
+      }
+
+      authorizedEvidenceSegments.push(line);
+    }
 
     const isClaimSupportedByAuthorizedSource = (claim: string) => {
       const claimDistinctiveTokens =
