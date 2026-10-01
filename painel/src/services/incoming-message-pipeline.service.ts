@@ -1314,6 +1314,8 @@ export const incomingMessagePipelineService = {
             await openAIProviderService.generateResponse({
               systemPrompt:
                 companyPrompt.systemPrompt,
+              authorizedContext:
+                companyPrompt.authorizedContext,
               userPrompt:
                 appendConversationHistoryToUserPrompt(
                   companyPrompt.userPrompt,
@@ -2173,6 +2175,8 @@ const menuAlreadyShownInCurrentCycle =
         await openAIProviderService.generateResponse({
           systemPrompt:
             prompt.systemPrompt,
+          authorizedContext:
+            prompt.authorizedContext,
           userPrompt:
             appendConversationHistoryToUserPrompt(
               prompt.userPrompt,

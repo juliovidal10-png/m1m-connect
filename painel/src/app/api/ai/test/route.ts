@@ -39,6 +39,8 @@ export async function POST() {
         ].join("\n"),
         userPrompt:
           "Confirme a conexão.",
+        authorizedContext:
+          "Rota técnica de teste de conectividade da IA. Nenhum fato empresarial é fornecido neste teste.",
       });
 
     return NextResponse.json({

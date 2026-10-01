@@ -12,6 +12,7 @@ export type PromptBuilderInput = {
 export type PromptBuilderResult = {
   systemPrompt: string;
   userPrompt: string;
+  authorizedContext: string;
 };
 
 function normalizeText(
@@ -249,6 +250,40 @@ export const promptBuilderService = {
       sector,
     } = input.context;
 
+    const authorizedContext = [
+      "EMPRESA",
+      `Nome: ${company.name}`,
+      `Segmento: ${normalizeText(company.segment) || "Não informado."}`,
+      `Apresentação cadastral: ${normalizeText(company.presentation) || "Não informada."}`,
+      `Localização: ${buildCompanyLocation(input.context)}`,
+      `Link da localização: ${normalizeText(company.locationLink) || "Não informado."}`,
+      `Telefone: ${normalizeText(company.phone) || "Não informado."}`,
+      `WhatsApp: ${normalizeText(company.whatsapp) || "Não informado."}`,
+      `E-mail: ${normalizeText(company.email) || "Não informado."}`,
+      `Site: ${normalizeText(company.website) || "Não informado."}`,
+      `Instagram: ${normalizeText(company.instagram) || "Não informado."}`,
+      "",
+      "HORÁRIOS OFICIAIS DE ATENDIMENTO",
+      buildSchedules(input.context),
+      "",
+      "PAGAMENTO — DADOS OFICIAIS PARA ATENDIMENTO",
+      buildPaymentSettings(input.context),
+      "",
+      "BASE DE CONHECIMENTO DA EMPRESA",
+      buildCompanyKnowledge(input.context),
+      "",
+      "SETOR ATUAL",
+      `Nome: ${sector.name}`,
+      `Descrição: ${normalizeText(sector.description) || "Não informada."}`,
+      "",
+      "BASE DE CONHECIMENTO DO SETOR",
+      normalizeText(sector.knowledge) ||
+        "Nenhuma informação específica cadastrada.",
+      "",
+      "RESPONSÁVEIS DO SETOR",
+      buildResponsibles(input.context),
+    ].join("\n");
+
     const systemPrompt = [
       `Você é o atendimento oficial da ${company.name}, atuando no setor ${sector.name}.`,
       "Você fala em nome da equipe da empresa e nunca utiliza nome próprio como se fosse um atendente humano específico.",
@@ -364,6 +399,7 @@ export const promptBuilderService = {
         executionDirective,
       ].join("\n"),
       userPrompt: customerMessage,
+      authorizedContext,
     };
   },
 };

@@ -94,6 +94,8 @@ export async function POST(
           prompt.systemPrompt,
         userPrompt:
           prompt.userPrompt,
+        authorizedContext:
+          prompt.authorizedContext,
       });
 
     return NextResponse.json({

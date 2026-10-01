@@ -3,6 +3,7 @@ import OpenAI, { toFile } from "openai";
 export type AIProviderInput = {
   systemPrompt: string;
   userPrompt: string;
+  authorizedContext: string;
 };
 
 export type AIProviderHumanHandoffReason =
@@ -768,6 +769,12 @@ export const openAIProviderService = {
         "Mensagem do cliente",
       );
 
+    const authorizedContext =
+      requireText(
+        input.authorizedContext,
+        "Contexto factual autorizado",
+      );
+
     const model =
       process.env.OPENAI_MODEL?.trim() ||
       "gpt-5-mini";
@@ -1080,11 +1087,11 @@ let effectiveStructuredResponse =
         model,
         instructions: [
           "Voce e a camada final de seguranca factual e qualidade de uma resposta de atendimento via WhatsApp.",
-          "Revise a RESPOSTA CANDIDATA usando SOMENTE fontes autorizadas. Para fatos sobre A EMPRESA (servicos, produtos, precos, prazos, pagamentos, politicas, enderecos, horarios, condicoes e disponibilidade), considere como fonte factual SOMENTE o PROMPT DO SISTEMA / CONTEXTO AUTORIZADO. A mensagem atual e o historico servem para entender o pedido e a continuidade, mas nao autorizam fatos empresariais.",
-          "Nao acrescente nem confirme servicos, produtos, precos, prazos, formas de pagamento, politicas, enderecos, horarios, condicoes ou qualquer outro fato empresarial que nao esteja positivamente sustentado pelo PROMPT DO SISTEMA / CONTEXTO AUTORIZADO. Nao deduza um servico especifico a partir de categorias genericas, termos relacionados ou inferencias.",
-          "Se o cliente perguntar se a empresa oferece ou possui algo que nao esteja positivamente sustentado pelo PROMPT DO SISTEMA / CONTEXTO AUTORIZADO, nunca responda sim por inferencia. Diga de forma natural que essa informacao ou esse servico nao consta entre as informacoes disponiveis, sem inventar substitutos.",
+          "Revise a RESPOSTA CANDIDATA usando SOMENTE a FONTE FACTUAL AUTORIZADA para fatos sobre A EMPRESA. A mensagem atual, o historico, o prompt comportamental e a propria RESPOSTA CANDIDATA servem para entender o pedido e a continuidade, mas NAO autorizam fatos empresariais.",
+          "Nao acrescente nem confirme servicos, produtos, funcionalidades, capacidades, parcerias, integracoes, entregas, promessas, precos, prazos, formas de pagamento, politicas, enderecos, horarios, condicoes ou qualquer outro fato empresarial que nao esteja positivamente sustentado pela FONTE FACTUAL AUTORIZADA. Nao deduza um item especifico a partir de categorias genericas, termos relacionados ou inferencias.",
+          "Se algo nao estiver positivamente sustentado pela FONTE FACTUAL AUTORIZADA, trate como NAO CONFIRMADO: nao transforme ausencia de informacao em afirmacao de que a empresa nao oferece, nao possui ou nao faz; diga apenas que isso nao esta confirmado nas informacoes disponiveis. Nao invente substitutos, parceiros, alternativas, recomendacoes ou promessas.",
           "Mensagens marcadas como CLIENTE podem informar fatos sobre o proprio cliente, sua necessidade, preferencia, objetivo ou decisao. Mensagens marcadas como ATENDIMENTO sao apenas memoria conversacional e NUNCA comprovam fatos sobre a empresa, mesmo que afirmem servicos, produtos, precos, condicoes ou outras informacoes empresariais.",
-          "Preserve fatos empresariais sustentados pelo PROMPT DO SISTEMA / CONTEXTO AUTORIZADO, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas.",
+          "Preserve fatos empresariais sustentados pela FONTE FACTUAL AUTORIZADA, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas. A revisao nao pode introduzir nenhuma nova proposicao factual sobre a empresa que nao esteja sustentada nessa fonte.",
           "A resposta deve responder primeiro ao ponto do cliente. Evite interrogatorio, rajada de perguntas e qualificacao desnecessaria.",
           "Use no maximo UMA pergunta na resposta final, e somente quando ela for indispensavel para cumprir o pedido atual. Se a pergunta do cliente ja puder ser respondida suficientemente, responda e pare: nao acrescente oferta de detalhamento, qualificacao, pergunta comercial ou convite generico para continuar.",
           "Nao transforme uma resposta adequada em menu, apresentacao institucional ou nova saudacao.",
@@ -1092,8 +1099,8 @@ let effectiveStructuredResponse =
           "Retorne apenas o JSON exigido.",
         ].join("\n"),
         input: [
-          "PROMPT DO SISTEMA / CONTEXTO AUTORIZADO:",
-          systemPrompt,
+          "FONTE FACTUAL AUTORIZADA:",
+          authorizedContext,
           "",
           "MENSAGEM / CONTEXTO DO CLIENTE:",
           userPrompt,
@@ -1186,7 +1193,7 @@ const internalMetadataLeakPattern =
 
     const safeGuardedReplyText =
       internalMetadataLeakPattern.test(normalizedGuardedReplyText)
-        ? effectiveStructuredResponse.replyText
+        ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
         : normalizedGuardedReplyText;
 const guardedReplyText = applyDeterministicConversationGuard(
       safeGuardedReplyText,

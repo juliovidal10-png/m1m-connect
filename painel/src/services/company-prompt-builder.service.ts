@@ -237,6 +237,29 @@ export const companyPromptBuilderService = {
       company,
     } = input.context;
 
+    const authorizedContext = [
+      "DADOS ESTRUTURADOS DA EMPRESA",
+      `Nome: ${company.name}`,
+      `Segmento: ${normalizeText(company.segment) || "Não informado."}`,
+      `Apresentação: ${normalizeText(company.presentation) || "Não informada."}`,
+      `Localização: ${buildCompanyLocation(input.context)}`,
+      `Link da localização: ${normalizeText(company.locationLink) || "Não informado."}`,
+      `Telefone: ${normalizeText(company.phone) || "Não informado."}`,
+      `WhatsApp: ${normalizeText(company.whatsapp) || "Não informado."}`,
+      `E-mail: ${normalizeText(company.email) || "Não informado."}`,
+      `Site: ${normalizeText(company.website) || "Não informado."}`,
+      `Instagram: ${normalizeText(company.instagram) || "Não informado."}`,
+      "",
+      "HORÁRIOS GERAIS DA EMPRESA",
+      buildSchedules(input.context, input.customerMessage),
+      "",
+      "PAGAMENTO",
+      buildPaymentSettings(input.context),
+      "",
+      "BASE DE CONHECIMENTO DA EMPRESA",
+      buildKnowledge(input.context),
+    ].join("\n");
+
     const systemPrompt = [
       `Você é o atendimento oficial da ${company.name}.`,
       "Você está respondendo uma pergunta institucional da empresa, sem vincular o atendimento a um setor específico.",
@@ -296,6 +319,7 @@ export const companyPromptBuilderService = {
       systemPrompt,
       userPrompt:
         input.customerMessage,
+      authorizedContext,
     };
   },
 };
