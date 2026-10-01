@@ -1263,9 +1263,31 @@ let effectiveStructuredResponse =
               !evidenceStopWords.has(token),
           );
 
-        return claimDistinctiveTokens.some(
+        const missingClaimTokens = claimDistinctiveTokens.filter(
           (token) => !evidenceTokens.has(token),
         );
+        const evidenceExistsLiterally =
+          authorizedContext.includes(evidence);
+
+        if (userPrompt.includes("[TF8-RUNTIME]")) {
+          console.log(
+            "[TF8-RUNTIME] EVIDENCE_DIAG",
+            JSON.stringify(
+              {
+                claim,
+                evidence,
+                evidenceExistsLiterally,
+                claimDistinctiveTokens,
+                missingClaimTokens,
+                evidenceJson: JSON.stringify(evidence),
+              },
+              null,
+              2,
+            ),
+          );
+        }
+
+        return missingClaimTokens.length > 0;
       });
 
     const guardedReplyTextRaw =
