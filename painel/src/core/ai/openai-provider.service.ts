@@ -1058,7 +1058,7 @@ let effectiveStructuredResponse =
           "Se algo nao estiver positivamente sustentado pela FONTE FACTUAL AUTORIZADA, trate como NAO CONFIRMADO: nao transforme ausencia de informacao em afirmacao de que a empresa nao oferece, nao possui ou nao faz; diga apenas que isso nao esta confirmado nas informacoes disponiveis. Nao invente substitutos, parceiros, alternativas, recomendacoes ou promessas.",
           "Mensagens marcadas como CLIENTE podem informar fatos sobre o proprio cliente, sua necessidade, preferencia, objetivo ou decisao. Mensagens marcadas como ATENDIMENTO sao apenas memoria conversacional e NUNCA comprovam fatos sobre a empresa, mesmo que afirmem servicos, produtos, precos, condicoes ou outras informacoes empresariais.",
           "Preserve fatos empresariais sustentados pela FONTE FACTUAL AUTORIZADA, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas. A revisao nao pode introduzir nenhuma nova proposicao factual sobre a empresa que nao esteja sustentada nessa fonte.",
-          "Para CADA proposicao factual sobre a empresa que permanecer em replyText, registre-a em factualClaims. Em evidence, aponte o trecho mais direto da FONTE FACTUAL AUTORIZADA que sustenta a proposicao; evidence serve apenas como pista para a validacao deterministica da aplicacao e nunca cria autoridade por si mesma. Nao use como evidence a mensagem do cliente, o historico, a resposta candidata ou conhecimento geral.",
+          "Para CADA proposicao factual sobre a empresa que permanecer em replyText, registre-a em factualClaims. Em evidence, COPIE LITERALMENTE, sem resumir, reescrever, corrigir, completar ou parafrasear, um trecho continuo existente na FONTE FACTUAL AUTORIZADA que sustente diretamente a proposicao. O valor de evidence deve ser texto efetivamente presente na FONTE FACTUAL AUTORIZADA, pois a aplicacao verificara deterministicamente essa correspondencia literal. evidence nunca cria autoridade por si mesma. Nao use como evidence a mensagem do cliente, o historico, a resposta candidata ou conhecimento geral.",
           "A evidence precisa sustentar diretamente a proposicao especifica. Uma categoria generica nao sustenta automaticamente subservicos, funcionalidades, capacidades, integracoes ou entregas especificas.",
           "Defina hasUnsupportedBusinessFact=true quando o pedido ou a resposta candidata envolver fato empresarial especifico sem sustentacao direta na fonte. Esse sinal descreve contaminacao no pedido ou na candidata e NAO deve apagar fatos sustentados: remova ou trate como nao confirmado somente o ponto sem sustentacao, preserve no replyText os fatos diretamente sustentados e nao invente alternativa.",
           "A resposta deve responder primeiro ao ponto do cliente. Evite interrogatorio, rajada de perguntas e qualificacao desnecessaria.",
@@ -1118,6 +1118,8 @@ let effectiveStructuredResponse =
                       },
                       evidence: {
                         type: "string",
+                        description:
+                          "Trecho continuo copiado literalmente da FONTE FACTUAL AUTORIZADA, sem parafrase, que sustenta diretamente a claim.",
                       },
                     },
                     required: ["claim", "evidence"],
