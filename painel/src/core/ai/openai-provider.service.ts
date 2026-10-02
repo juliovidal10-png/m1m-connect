@@ -875,15 +875,30 @@ export const openAIProviderService = {
       parseStructuredResponse(
         rawText,
       );
+    const tf8ReceiptInstructionMatch =
+      authorizedContext.match(
+        /(?:^|\n)(?:Comprovante|OrientaÃ§Ãµes sobre comprovante):\s*(.+)$/im,
+      );
+    const tf8ReceiptInstruction =
+      tf8ReceiptInstructionMatch?.[1]?.trim() ?? "";
+    const normalizeTf8DiagnosticText = (value: string) =>
+      value
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+    const tf8NormalizedReceiptInstruction =
+      normalizeTf8DiagnosticText(tf8ReceiptInstruction);
+
     const tf8CandidateDiagnostics = {
-      authorizedContextHasPix:
-        /\bpix\b/i.test(authorizedContext),
-      authorizedContextHasPixHolder:
-        /\bfavorecido\b/i.test(authorizedContext),
-      candidateMentionsPix:
-        /\bpix\b/i.test(structuredResponse.replyText),
-      candidateMentionsPixHolder:
-        /\bfavorecido\b/i.test(structuredResponse.replyText),
+      authorizedContextHasReceiptInstruction:
+        tf8NormalizedReceiptInstruction.length > 0,
+      candidatePreservesReceiptInstruction:
+        tf8NormalizedReceiptInstruction.length > 0 &&
+        normalizeTf8DiagnosticText(
+          structuredResponse.replyText,
+        ).includes(tf8NormalizedReceiptInstruction),
     };
 
     console.log(
@@ -1277,8 +1292,14 @@ let effectiveStructuredResponse =
       });
 
     console.log("[TF8-GUARD-DIAG]", {
-      authorizedContextHasPix:
-        /\bpix\b/i.test(authorizedContext),
+      authorizedContextHasReceiptInstruction:
+        tf8NormalizedReceiptInstruction.length > 0,
+      guardPreservesReceiptInstruction:
+        tf8NormalizedReceiptInstruction.length > 0 &&
+        typeof guardRecord.replyText === "string" &&
+        normalizeTf8DiagnosticText(
+          guardRecord.replyText as string,
+        ).includes(tf8NormalizedReceiptInstruction),
       factualClaimCount: factualClaims.length,
       factualClaims: tf8EvidenceDiagnostics,
       hasUnsupportedBusinessFact,
