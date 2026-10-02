@@ -1083,14 +1083,11 @@ let effectiveStructuredResponse =
         model,
         instructions: [
           "Voce e a camada final de seguranca factual e qualidade de uma resposta de atendimento via WhatsApp.",
-          "Revise a RESPOSTA CANDIDATA usando SOMENTE a FONTE FACTUAL AUTORIZADA para fatos sobre A EMPRESA. A mensagem atual, o historico, o prompt comportamental e a propria RESPOSTA CANDIDATA servem para entender o pedido e a continuidade, mas NAO autorizam fatos empresariais.",
-          "Nao acrescente nem confirme servicos, produtos, funcionalidades, capacidades, parcerias, integracoes, entregas, promessas, precos, prazos, formas de pagamento, politicas, enderecos, horarios, condicoes ou qualquer outro fato empresarial que nao esteja positivamente sustentado pela FONTE FACTUAL AUTORIZADA. Nao deduza um item especifico a partir de categorias genericas, termos relacionados ou inferencias.",
-          "Se algo nao estiver positivamente sustentado pela FONTE FACTUAL AUTORIZADA, trate como NAO CONFIRMADO: nao transforme ausencia de informacao em afirmacao de que a empresa nao oferece, nao possui ou nao faz; diga apenas que isso nao esta confirmado nas informacoes disponiveis. Nao invente substitutos, parceiros, alternativas, recomendacoes ou promessas.",
+          "Revise a RESPOSTA CANDIDATA usando SOMENTE fontes autorizadas. Para fatos sobre A EMPRESA (servicos, produtos, precos, prazos, pagamentos, politicas, enderecos, horarios, condicoes e disponibilidade), considere como fonte factual SOMENTE o FONTE FACTUAL AUTORIZADA. A mensagem atual e o historico servem para entender o pedido e a continuidade, mas nao autorizam fatos empresariais.",
+          "Nao acrescente nem confirme servicos, produtos, precos, prazos, formas de pagamento, politicas, enderecos, horarios, condicoes ou qualquer outro fato empresarial que nao esteja positivamente sustentado pelo FONTE FACTUAL AUTORIZADA. Nao deduza um servico especifico a partir de categorias genericas, termos relacionados ou inferencias.",
+          "Se o cliente perguntar se a empresa oferece ou possui algo que nao esteja positivamente sustentado pelo FONTE FACTUAL AUTORIZADA, nunca responda sim por inferencia. Diga de forma natural que essa informacao ou esse servico nao consta entre as informacoes disponiveis, sem inventar substitutos.",
           "Mensagens marcadas como CLIENTE podem informar fatos sobre o proprio cliente, sua necessidade, preferencia, objetivo ou decisao. Mensagens marcadas como ATENDIMENTO sao apenas memoria conversacional e NUNCA comprovam fatos sobre a empresa, mesmo que afirmem servicos, produtos, precos, condicoes ou outras informacoes empresariais.",
-          "Preserve fatos empresariais sustentados pela FONTE FACTUAL AUTORIZADA, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas. A revisao nao pode introduzir nenhuma nova proposicao factual sobre a empresa que nao esteja sustentada nessa fonte.",
-          "Para CADA proposicao factual sobre a empresa que permanecer em replyText, registre-a em factualClaims. Em evidence, COPIE LITERALMENTE, sem resumir, reescrever, corrigir, completar ou parafrasear, um trecho continuo existente na FONTE FACTUAL AUTORIZADA que sustente diretamente a proposicao. O valor de evidence deve ser texto efetivamente presente na FONTE FACTUAL AUTORIZADA, pois a aplicacao verificara deterministicamente essa correspondencia literal. evidence nunca cria autoridade por si mesma. Nao use como evidence a mensagem do cliente, o historico, a resposta candidata ou conhecimento geral.",
-          "A evidence precisa sustentar diretamente a proposicao especifica. Uma categoria generica nao sustenta automaticamente subservicos, funcionalidades, capacidades, integracoes ou entregas especificas.",
-          "Defina hasUnsupportedBusinessFact=true quando o pedido ou a resposta candidata envolver fato empresarial especifico sem sustentacao direta na fonte. Esse sinal descreve contaminacao no pedido ou na candidata e NAO deve apagar fatos sustentados: remova ou trate como nao confirmado somente o ponto sem sustentacao, preserve no replyText os fatos diretamente sustentados e nao invente alternativa.",
+          "Preserve fatos empresariais sustentados pelo FONTE FACTUAL AUTORIZADA, inclusive dados estruturados como PIX, beneficiario, horarios e demais informacoes realmente cadastradas.",
           "A resposta deve responder primeiro ao ponto do cliente. Evite interrogatorio, rajada de perguntas e qualificacao desnecessaria.",
           "Use no maximo UMA pergunta na resposta final, e somente quando ela for indispensavel para cumprir o pedido atual. Se a pergunta do cliente ja puder ser respondida suficientemente, responda e pare: nao acrescente oferta de detalhamento, qualificacao, pergunta comercial ou convite generico para continuar.",
           "Nao transforme uma resposta adequada em menu, apresentacao institucional ou nova saudacao.",
@@ -1135,37 +1132,8 @@ let effectiveStructuredResponse =
                   description:
                     "Resposta final revisada, factualmente sustentada e com no maximo uma pergunta necessaria.",
                 },
-                factualClaims: {
-                  type: "array",
-                  description:
-                    "Proposicoes factuais empresariais mantidas em replyText e suas evidencias literais.",
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    properties: {
-                      claim: {
-                        type: "string",
-                      },
-                      evidence: {
-                        type: "string",
-                        description:
-                          "Trecho continuo copiado literalmente da FONTE FACTUAL AUTORIZADA, sem parafrase, que sustenta diretamente a claim.",
-                      },
-                    },
-                    required: ["claim", "evidence"],
-                  },
-                },
-                hasUnsupportedBusinessFact: {
-                  type: "boolean",
-                  description:
-                    "True quando houver fato empresarial especifico sem sustentacao direta na fonte autorizada.",
-                },
               },
-              required: [
-                "replyText",
-                "factualClaims",
-                "hasUnsupportedBusinessFact",
-              ],
+              required: ["replyText"],
             },
           },
         },
@@ -1194,131 +1162,16 @@ let effectiveStructuredResponse =
       !guardParsed ||
       typeof guardParsed !== "object" ||
       typeof (guardParsed as Record<string, unknown>)
-        .replyText !== "string" ||
-      !Array.isArray(
-        (guardParsed as Record<string, unknown>).factualClaims,
-      ) ||
-      typeof (guardParsed as Record<string, unknown>)
-        .hasUnsupportedBusinessFact !== "boolean"
+        .replyText !== "string"
     ) {
       throw new Error(
         "A OpenAI retornou uma revisao factual invalida.",
       );
     }
 
-    const guardRecord =
-      guardParsed as Record<string, unknown>;
-    const factualClaims =
-      guardRecord.factualClaims as unknown[];
-    const hasUnsupportedBusinessFact =
-      guardRecord.hasUnsupportedBusinessFact as boolean;
-
-    const normalizeEvidenceText = (value: string) =>
-      value
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const normalizedAuthorizedContext =
-      normalizeEvidenceText(authorizedContext);
-
-    const isEvidenceLiteralFromAuthorizedSource = (
-      evidence: string,
-    ) => {
-      const normalizedEvidence =
-        normalizeEvidenceText(evidence);
-
-      return (
-        normalizedEvidence.length > 0 &&
-        normalizedAuthorizedContext.includes(normalizedEvidence)
-      );
-    };
-
-    const hasInvalidFactualEvidence =
-      factualClaims.some((item) => {
-        if (!item || typeof item !== "object") {
-          return true;
-        }
-
-        const record =
-          item as Record<string, unknown>;
-        const claim =
-          typeof record.claim === "string"
-            ? record.claim.trim()
-            : "";
-        const evidence =
-          typeof record.evidence === "string"
-            ? record.evidence.trim()
-            : "";
-
-        if (!claim || !evidence) {
-          return true;
-        }
-
-        return !isEvidenceLiteralFromAuthorizedSource(evidence);
-      });
-    const tf8EvidenceDiagnostics =
-      factualClaims.map((item) => {
-        if (!item || typeof item !== "object") {
-          return {
-            validObject: false,
-            hasClaim: false,
-            hasEvidence: false,
-            evidenceAnchored: false,
-          };
-        }
-
-        const record =
-          item as Record<string, unknown>;
-        const claim =
-          typeof record.claim === "string"
-            ? record.claim.trim()
-            : "";
-        const evidence =
-          typeof record.evidence === "string"
-            ? record.evidence.trim()
-            : "";
-
-        return {
-          validObject: true,
-          hasClaim: claim.length > 0,
-          hasEvidence: evidence.length > 0,
-          evidenceAnchored:
-            evidence.length > 0 &&
-            isEvidenceLiteralFromAuthorizedSource(evidence),
-        };
-      });
-
-    console.log("[TF8-GUARD-DIAG]", {
-      authorizedContextHasReceiptInstruction:
-        tf8NormalizedReceiptInstruction.length > 0,
-      guardPreservesReceiptInstruction:
-        tf8NormalizedReceiptInstruction.length > 0 &&
-        typeof guardRecord.replyText === "string" &&
-        normalizeTf8DiagnosticText(
-          guardRecord.replyText as string,
-        ).includes(tf8NormalizedReceiptInstruction),
-      factualClaimCount: factualClaims.length,
-      factualClaims: tf8EvidenceDiagnostics,
-      hasUnsupportedBusinessFact,
-      hasInvalidFactualEvidence,
-      guardReplyIsFallback:
-        typeof guardRecord.replyText === "string" &&
-        normalizeEvidenceText(
-          guardRecord.replyText as string,
-        ).includes(
-          normalizeEvidenceText(
-            "NÃ£o consigo confirmar essa informaÃ§Ã£o com seguranÃ§a pelas informaÃ§Ãµes disponÃ­veis.",
-          ),
-        ),
-    });
-    const guardedReplyTextRaw =
-      hasInvalidFactualEvidence
-        ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
-        : (guardRecord.replyText as string);
-
+    const guardedReplyTextRaw = (
+      guardParsed as Record<string, unknown>
+    ).replyText;
 
     if (typeof guardedReplyTextRaw !== "string") {
       throw new Error(
