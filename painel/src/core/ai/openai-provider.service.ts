@@ -1227,6 +1227,55 @@ let effectiveStructuredResponse =
 
         return !isEvidenceLiteralFromAuthorizedSource(evidence);
       });
+    const tf8EvidenceDiagnostics =
+      factualClaims.map((item) => {
+        if (!item || typeof item !== "object") {
+          return {
+            validObject: false,
+            hasClaim: false,
+            hasEvidence: false,
+            evidenceAnchored: false,
+          };
+        }
+
+        const record =
+          item as Record<string, unknown>;
+        const claim =
+          typeof record.claim === "string"
+            ? record.claim.trim()
+            : "";
+        const evidence =
+          typeof record.evidence === "string"
+            ? record.evidence.trim()
+            : "";
+
+        return {
+          validObject: true,
+          hasClaim: claim.length > 0,
+          hasEvidence: evidence.length > 0,
+          evidenceAnchored:
+            evidence.length > 0 &&
+            isEvidenceLiteralFromAuthorizedSource(evidence),
+        };
+      });
+
+    console.log("[TF8-GUARD-DIAG]", {
+      authorizedContextHasPix:
+        /\bpix\b/i.test(authorizedContext),
+      factualClaimCount: factualClaims.length,
+      factualClaims: tf8EvidenceDiagnostics,
+      hasUnsupportedBusinessFact,
+      hasInvalidFactualEvidence,
+      guardReplyIsFallback:
+        typeof guardRecord.replyText === "string" &&
+        normalizeEvidenceText(
+          guardRecord.replyText as string,
+        ).includes(
+          normalizeEvidenceText(
+            "NÃ£o consigo confirmar essa informaÃ§Ã£o com seguranÃ§a pelas informaÃ§Ãµes disponÃ­veis.",
+          ),
+        ),
+    });
     const guardedReplyTextRaw =
       hasInvalidFactualEvidence
         ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
