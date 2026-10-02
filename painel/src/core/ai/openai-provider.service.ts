@@ -875,6 +875,21 @@ export const openAIProviderService = {
       parseStructuredResponse(
         rawText,
       );
+    const tf8CandidateDiagnostics = {
+      authorizedContextHasPix:
+        /\bpix\b/i.test(authorizedContext),
+      authorizedContextHasPixHolder:
+        /\bfavorecido\b/i.test(authorizedContext),
+      candidateMentionsPix:
+        /\bpix\b/i.test(structuredResponse.replyText),
+      candidateMentionsPixHolder:
+        /\bfavorecido\b/i.test(structuredResponse.replyText),
+    };
+
+    console.log(
+      "[TF8-CANDIDATE-DIAG]",
+      tf8CandidateDiagnostics,
+    );
 
 let effectiveStructuredResponse =
       structuredResponse;
