@@ -1181,68 +1181,27 @@ let effectiveStructuredResponse =
     const hasUnsupportedBusinessFact =
       guardRecord.hasUnsupportedBusinessFact as boolean;
 
-    const normalizeEvidenceTokens = (value: string) =>
+    const normalizeEvidenceText = (value: string) =>
       value
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
-        .match(/[a-z0-9]+/g) ?? [];
+        .replace(/\s+/g, " ")
+        .trim();
 
-    const evidenceStopWords = new Set([
-      "a", "ao", "aos", "as", "com", "da", "das", "de", "do", "dos",
-      "e", "em", "na", "nas", "no", "nos", "o", "os", "para", "por",
-      "que", "um", "uma", "uns", "umas", "se", "sua", "suas", "seu",
-      "seus", "empresa", "plataforma", "servico", "servicos",
-    ]);
+    const normalizedAuthorizedContext =
+      normalizeEvidenceText(authorizedContext);
 
-    const authorizedContextLines =
-      authorizedContext
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
+    const isEvidenceLiteralFromAuthorizedSource = (
+      evidence: string,
+    ) => {
+      const normalizedEvidence =
+        normalizeEvidenceText(evidence);
 
-    const authorizedEvidenceSegments: string[] = [];
-    for (let index = 0; index < authorizedContextLines.length; index += 1) {
-      const line = authorizedContextLines[index];
-      const nextLine = authorizedContextLines[index + 1];
-
-      if (
-        line.startsWith("P:") &&
-        typeof nextLine === "string" &&
-        nextLine.startsWith("R:")
-      ) {
-        authorizedEvidenceSegments.push(`${line} ${nextLine}`);
-        index += 1;
-        continue;
-      }
-
-      authorizedEvidenceSegments.push(line);
-    }
-
-    const isClaimSupportedByAuthorizedSource = (claim: string) => {
-      const claimDistinctiveTokens =
-        Array.from(
-          new Set(
-            normalizeEvidenceTokens(claim).filter(
-              (token) =>
-                token.length >= 3 &&
-                !evidenceStopWords.has(token),
-            ),
-          ),
-        );
-
-      if (claimDistinctiveTokens.length === 0) {
-        return false;
-      }
-
-      return authorizedEvidenceSegments.some((segment) => {
-        const segmentTokens =
-          new Set(normalizeEvidenceTokens(segment));
-
-        return claimDistinctiveTokens.every(
-          (token) => segmentTokens.has(token),
-        );
-      });
+      return (
+        normalizedEvidence.length > 0 &&
+        normalizedAuthorizedContext.includes(normalizedEvidence)
+      );
     };
 
     const hasInvalidFactualEvidence =
@@ -1257,14 +1216,17 @@ let effectiveStructuredResponse =
           typeof record.claim === "string"
             ? record.claim.trim()
             : "";
+        const evidence =
+          typeof record.evidence === "string"
+            ? record.evidence.trim()
+            : "";
 
-        if (!claim) {
+        if (!claim || !evidence) {
           return true;
         }
 
-        return !isClaimSupportedByAuthorizedSource(claim);
+        return !isEvidenceLiteralFromAuthorizedSource(evidence);
       });
-
     const guardedReplyTextRaw =
       hasInvalidFactualEvidence
         ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
