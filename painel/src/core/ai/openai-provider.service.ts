@@ -447,9 +447,12 @@ function enforceAuthorizedServiceAvailability(
   }
 
   const normalizedReply = normalizeFactualEvidenceText(replyText);
+  const replyWithoutGreeting = normalizedReply
+    .replace(/^ola\b(?:\s+cliente(?:\s+m1m\s+connect)?)?\s*/, "")
+    .trim();
   const categoricalNegative =
-    /^(?:ola\s+\S+\s+)?(?:nao\b|esse servico nao\b|essa informacao nao\b|o servico nao\b)/.test(
-      normalizedReply,
+    /^(?:nao\b|esse servico nao\b|essa informacao nao\b|o servico nao\b)/.test(
+      replyWithoutGreeting,
     );
 
   if (!categoricalNegative) {
