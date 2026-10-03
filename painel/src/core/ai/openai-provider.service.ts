@@ -451,7 +451,7 @@ function enforceAuthorizedServiceAvailability(
     .replace(/^ola\b(?:\s+cliente(?:\s+m1m\s+connect)?)?\s*/, "")
     .trim();
   const categoricalNegative =
-    /^(?:nao\b|esse servico nao\b|essa informacao nao\b|o servico nao\b)/.test(
+    /^(?:(?:no momento|atualmente|por enquanto)\s+)?(?:nao\b|esse servico nao\b|essa informacao nao\b|o servico nao\b)/.test(
       replyWithoutGreeting,
     );
 
