@@ -468,7 +468,7 @@ function enforceAuthorizedServiceAvailability(
     return replyText;
   }
 
-  return "Essa informacao nao consta entre as informacoes disponiveis da empresa. Posso encaminhar sua duvida ao Comercial?";
+  return "Essa informação não consta entre as informações disponíveis da empresa. Posso encaminhar sua dúvida ao Comercial?";
 }
 function keepOnlyUnsupportedServiceAnswer(
   replyText: string,
