@@ -393,6 +393,80 @@ function keepOnlyFirstRequestedInformation(
     .trim();
 }
 
+function normalizeFactualEvidenceText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractRequestedService(currentMessage: string) {
+  const normalized = normalizeFactualEvidenceText(currentMessage);
+
+  const match = normalized.match(
+    /\b(?:voces|a empresa|a loja)\s+(?:fazem|faz|oferecem|oferece|prestam|presta|trabalham com|desenvolvem|desenvolve)\s+(.+?)(?:\?|$)/,
+  );
+
+  return match?.[1]?.trim() || null;
+}
+
+function hasExplicitNegativeServiceEvidence(
+  authorizedContext: string,
+  requestedService: string,
+) {
+  const context = normalizeFactualEvidenceText(authorizedContext);
+  const service = normalizeFactualEvidenceText(requestedService);
+
+  if (!service || !context.includes(service)) {
+    return false;
+  }
+
+  const escapedService = service.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const patterns = [
+    new RegExp(`\\bnao\\s+(?:fazemos|oferecemos|prestamos|trabalhamos com|desenvolvemos)\\s+(?:[^.\\n]{0,80}\\s)?${escapedService}\\b`),
+    new RegExp(`\\b${escapedService}\\b[^.\\n]{0,80}\\bnao\\s+(?:fazemos|oferecemos|prestamos|trabalhamos com|desenvolvemos|e|esta|faz parte|oferecido|oferecida|disponivel)\\b`),
+    new RegExp(`\\bservicos?\\s+nao\\s+(?:prestados?|oferecidos?)\\b[^.\\n]{0,160}\\b${escapedService}\\b`),
+  ];
+
+  return patterns.some((pattern) => pattern.test(context));
+}
+
+function enforceAuthorizedServiceAvailability(
+  replyText: string,
+  currentMessage: string,
+  authorizedContext: string,
+) {
+  const requestedService = extractRequestedService(currentMessage);
+
+  if (!requestedService) {
+    return replyText;
+  }
+
+  const normalizedReply = normalizeFactualEvidenceText(replyText);
+  const categoricalNegative =
+    /^(?:ola\s+\S+\s+)?(?:nao\b|esse servico nao\b|essa informacao nao\b|o servico nao\b)/.test(
+      normalizedReply,
+    );
+
+  if (!categoricalNegative) {
+    return replyText;
+  }
+
+  if (
+    hasExplicitNegativeServiceEvidence(
+      authorizedContext,
+      requestedService,
+    )
+  ) {
+    return replyText;
+  }
+
+  return "Essa informacao nao consta entre as informacoes disponiveis da empresa. Posso encaminhar sua duvida ao Comercial?";
+}
 function keepOnlyUnsupportedServiceAnswer(
   replyText: string,
   currentMessage: string,
@@ -1198,7 +1272,7 @@ const internalMetadataLeakPattern =
       internalMetadataLeakPattern.test(normalizedGuardedReplyText)
         ? "Não consigo confirmar essa informação com segurança pelas informações disponíveis."
         : normalizedGuardedReplyText;
-const guardedReplyText = applyDeterministicConversationGuard(
+let guardedReplyText = applyDeterministicConversationGuard(
       safeGuardedReplyText,
       userPrompt,
       effectiveStructuredResponse.needsHuman
@@ -1212,6 +1286,12 @@ const guardedReplyText = applyDeterministicConversationGuard(
       replyText: guardedReplyText,
     });
 
+    guardedReplyText =
+      enforceAuthorizedServiceAvailability(
+        guardedReplyText,
+        extractCurrentCustomerMessage(userPrompt),
+        authorizedContext,
+      );
     const normalizedFinalReply =
       normalizeBehaviorText(guardedReplyText);
 const finalReplyAsksHandoffPermission =
