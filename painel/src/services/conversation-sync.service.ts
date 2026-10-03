@@ -840,6 +840,81 @@ export const conversationSyncService = {
     return normalizeEvolutionMessage(rawMessage);
   },
 
+  async hasExistingCustomerForMessage(
+    rawMessage: unknown,
+    instanceName: string,
+    companyId: string,
+  ) {
+    const message =
+      normalizeEvolutionMessage(rawMessage);
+
+    if (!message) {
+      throw new Error(
+        "A mensagem recebida possui formato invÃ¡lido.",
+      );
+    }
+
+    const resolvedCompanyId =
+      companyId.trim();
+
+    if (!resolvedCompanyId) {
+      throw new Error(
+        "A empresa nÃ£o foi identificada.",
+      );
+    }
+
+    const canonicalCustomerRemoteJid =
+      message.remoteJid.endsWith("@lid")
+        ? (
+            await findEvolutionOfficialRemoteJid(
+              message.remoteJid,
+              instanceName,
+            )
+          ) ?? message.remoteJid
+        : message.remoteJid;
+
+    if (
+      canonicalCustomerRemoteJid !==
+        message.remoteJid &&
+      canonicalCustomerRemoteJid.endsWith(
+        "@s.whatsapp.net",
+      )
+    ) {
+      await customerRepository.reconcileCanonicalIdentity({
+        companyId: resolvedCompanyId,
+        canonicalRemoteJid:
+          canonicalCustomerRemoteJid,
+        lidRemoteJid:
+          message.remoteJid,
+      });
+    }
+
+    const customerByRemoteJid =
+      await customerRepository.findByRemoteJid(
+        resolvedCompanyId,
+        canonicalCustomerRemoteJid,
+      );
+
+    if (customerByRemoteJid) {
+      return true;
+    }
+
+    const phone = extractPhone(
+      canonicalCustomerRemoteJid,
+    );
+
+    if (!phone) {
+      return false;
+    }
+
+    return Boolean(
+      await customerRepository.findByPhone(
+        resolvedCompanyId,
+        phone,
+      ),
+    );
+  },
+
   async syncConversation(
     remoteJid: string,
     instanceName: string,

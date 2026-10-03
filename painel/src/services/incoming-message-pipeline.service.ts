@@ -377,6 +377,33 @@ export const incomingMessagePipelineService = {
       };
     }
 
+    if (normalizedMessage.fromMe) {
+      const hasExistingCustomer =
+        await conversationSyncService.hasExistingCustomerForMessage(
+          rawMessage,
+          normalizedInstanceName,
+          companyId,
+        );
+
+      if (!hasExistingCustomer) {
+        m1mT2Trace("OUTGOING_WITHOUT_CUSTOMER_IGNORED", {
+          evolutionMessageId:
+            normalizedMessage.evolutionMessageId,
+          remoteJid: normalizedMessage.remoteJid,
+          companyId,
+        });
+
+        return {
+          processed: false,
+          action:
+            "OUTGOING_WITHOUT_CUSTOMER_IGNORED" as const,
+          companyId,
+          evolutionMessageId:
+            normalizedMessage.evolutionMessageId,
+        };
+      }
+    }
+
     const storedMessage =
       await conversationSyncService.syncIncomingMessage(
         rawMessage,
