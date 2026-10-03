@@ -875,6 +875,11 @@ export const openAIProviderService = {
       parseStructuredResponse(
         rawText,
       );
+    console.log("[TF10-KNOWLEDGE-DIAG]", {
+      stage: "CANDIDATE",
+      replyText: structuredResponse.replyText,
+    });
+
     const tf8ReceiptInstructionMatch =
       authorizedContext.match(
         /(?:^|\n)(?:Comprovante|OrientaÃ§Ãµes sobre comprovante):\s*(.+)$/im,
@@ -1181,6 +1186,11 @@ let effectiveStructuredResponse =
 
     const normalizedGuardedReplyText =
       guardedReplyTextRaw.trim();
+    console.log("[TF10-KNOWLEDGE-DIAG]", {
+      stage: "FACTUAL_GUARD",
+      replyText: normalizedGuardedReplyText,
+    });
+
 const internalMetadataLeakPattern =
       /(?:^|\b)(?:resposta\s+(?:adequada|inadequada)|needsHuman\s*:|handoffReason\s*:|subject\s*:|context\s*:)/i;
 
@@ -1196,6 +1206,11 @@ const guardedReplyText = applyDeterministicConversationGuard(
         : "NONE",
     );
 
+
+    console.log("[TF10-KNOWLEDGE-DIAG]", {
+      stage: "DETERMINISTIC_FINAL",
+      replyText: guardedReplyText,
+    });
 
     const normalizedFinalReply =
       normalizeBehaviorText(guardedReplyText);
