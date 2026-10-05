@@ -445,74 +445,100 @@ function enforceAuthorizedFactBinding(
   const normalizedReply =
     normalizeFactualEvidenceText(replyText);
 
-  const relationRequested =
-    /\b(?:inclui|incluem|incluir|contem|faz parte|fazem parte|vem com|possui)\b/.test(
-      normalizedMessage,
-    );
+  const relationPattern =
+    /\b(?:inclui|incluem|incluir|contem|faz parte|fazem parte|vem com|possui)\b/;
+
+  const relationMatch = relationPattern.exec(normalizedMessage);
 
   const affirmativeRelation =
     /^(?:sim\b|isso\b|correto\b|exato\b)/.test(
       normalizedReply,
     ) &&
-    /\b(?:inclui|incluem|contem|faz parte|fazem parte|vem com|possui)\b/.test(
-      normalizedReply,
+    relationPattern.test(normalizedReply);
+
+  if (!relationMatch || !affirmativeRelation) {
+    return replyText;
+  }
+
+  const bindingStopTerms = new Set([
+    "inclui",
+    "incluem",
+    "incluir",
+    "contem",
+    "parte",
+    "fazem",
+    "possui",
+    "voces",
+    "empresa",
+    "com",
+    "para",
+    "uma",
+    "uns",
+    "umas",
+    "que",
+    "isso",
+    "esse",
+    "essa",
+    "estes",
+    "estas",
+  ]);
+
+  const extractBindingTerms = (value: string) =>
+    Array.from(
+      new Set(
+        value
+          .split(/\s+/)
+          .filter(
+            (term) =>
+              term.length >= 3 &&
+              !bindingStopTerms.has(term),
+          ),
+      ),
     );
 
-  if (!relationRequested || !affirmativeRelation) {
+  const relationIndex = relationMatch.index;
+  const relationEnd =
+    relationIndex + relationMatch[0].length;
+
+  const subjectTerms = extractBindingTerms(
+    normalizedMessage.slice(0, relationIndex),
+  );
+
+  const objectTerms = extractBindingTerms(
+    normalizedMessage.slice(relationEnd),
+  );
+
+  if (
+    subjectTerms.length === 0 ||
+    objectTerms.length === 0
+  ) {
     return replyText;
   }
 
   const relevantKnowledge =
     authorizedContext
       .split(/\r?\n/)
-      .map((line) => normalizeFactualEvidenceText(line))
+      .map((line) =>
+        normalizeFactualEvidenceText(line),
+      )
       .filter(Boolean);
 
-  const messageTerms = Array.from(
-    new Set(
-      normalizedMessage
-        .split(/\s+/)
-        .filter(
-          (term) =>
-            term.length >= 4 &&
-            ![
-              "inclui",
-              "incluem",
-              "incluir",
-              "contem",
-              "parte",
-              "fazem",
-              "possui",
-              "voces",
-              "empresa",
-              "com",
-              "para",
-              "uma",
-            ].includes(term),
-        ),
-    ),
-  );
-
-  const bindingEvidenceDiagnostics =
-    relevantKnowledge.map((line) => ({
-      line,
-      matches: messageTerms.filter((term) =>
-        line.includes(term),
-      ),
-    }));
-
   const relationSupportedInSingleEvidence =
-    bindingEvidenceDiagnostics.some(
-      (item) => item.matches.length >= 2,
-    );
+    relevantKnowledge.some((line) => {
+      const lineTerms = new Set(line.split(/\s+/));
 
-  console.log("[TF10-BINDING-DIAG]", {
-    currentMessage,
-    messageTerms,
-    authorizedContext,
-    bindingEvidenceDiagnostics,
-    relationSupportedInSingleEvidence,
-  });
+      const subjectSupported =
+        subjectTerms.every((term) =>
+          lineTerms.has(term),
+        );
+
+      const objectSupported =
+        objectTerms.every((term) =>
+          lineTerms.has(term),
+        );
+
+      return subjectSupported && objectSupported;
+    });
 
   if (relationSupportedInSingleEvidence) {
     return replyText;
