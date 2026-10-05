@@ -1,6 +1,9 @@
 import type {
   CompanyInformationContext,
 } from "@/services/company-context-builder.service";
+import {
+  retrieveKnowledgeEvidence,
+} from "@/core/ai/knowledge-retrieval.service";
 
 function normalizeText(
   value: string | null | undefined,
@@ -237,6 +240,12 @@ export const companyPromptBuilderService = {
       company,
     } = input.context;
 
+    const companyKnowledge = buildKnowledge(input.context);
+    const retrievedKnowledge = retrieveKnowledgeEvidence({
+      query: input.customerMessage,
+      companyKnowledge,
+    });
+
     const authorizedContext = [
       "DADOS ESTRUTURADOS DA EMPRESA",
       `Nome: ${company.name}`,
@@ -256,8 +265,8 @@ export const companyPromptBuilderService = {
       "PAGAMENTO",
       buildPaymentSettings(input.context),
       "",
-      "BASE DE CONHECIMENTO DA EMPRESA",
-      buildKnowledge(input.context),
+      "CONHECIMENTO RELEVANTE PARA A PERGUNTA ATUAL",
+      retrievedKnowledge,
     ].join("\n");
 
     const systemPrompt = [
@@ -277,6 +286,9 @@ export const companyPromptBuilderService = {
       "- Se o cliente pedir uma informação de pagamento, como chave PIX, responda somente com os dados configurados pertinentes ao que foi pedido; não pergunte se deseja receber os dados, pagar agora, receber orçamento ou seguir para outra etapa.",
       "- Não force gírias, emojis ou intimidade. Use emoji somente quando combinar naturalmente com a conversa e, em geral, no máximo um.",
       "- Use somente as informações fornecidas neste contexto.",
+      "- Para fatos vindos da base de conhecimento, use somente os trechos recuperados para a pergunta atual.",
+      "- Ausencia de trecho recuperado nao significa que a empresa nao oferece, nao possui ou nao realiza algo.",
+      "- Nao associe preco, atributo, modelo, marca, caracteristica ou condicao de um item a outro sem evidencia textual que faca essa associacao.",
       "- Não invente endereço, CEP, localização, telefone, horário, pagamento, produto, serviço, política ou qualquer outro dado.",
       "- Se a informação pedida não estiver cadastrada, diga de forma objetiva que ela não está disponível no momento.",
       "- Não invente link de localização.",
@@ -309,10 +321,8 @@ export const companyPromptBuilderService = {
         input.context,
       ),
       "",
-      "BASE DE CONHECIMENTO DA EMPRESA",
-      buildKnowledge(
-        input.context,
-      ),
+      "CONHECIMENTO RELEVANTE PARA A PERGUNTA ATUAL",
+      retrievedKnowledge,
     ].join("\n");
 
     return {

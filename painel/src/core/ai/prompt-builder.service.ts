@@ -1,6 +1,9 @@
 import type {
   SectorContext,
 } from "@/core/context/context-builder.service";
+import {
+  retrieveKnowledgeEvidence,
+} from "@/core/ai/knowledge-retrieval.service";
 
 export type PromptBuilderInput = {
   context: SectorContext;
@@ -250,6 +253,13 @@ export const promptBuilderService = {
       sector,
     } = input.context;
 
+    const companyKnowledge = buildCompanyKnowledge(input.context);
+    const retrievedKnowledge = retrieveKnowledgeEvidence({
+      query: customerMessage,
+      companyKnowledge,
+      sectorKnowledge: normalizeText(sector.knowledge),
+    });
+
     const authorizedContext = [
       "EMPRESA",
       `Nome: ${company.name}`,
@@ -269,16 +279,13 @@ export const promptBuilderService = {
       "PAGAMENTO — DADOS OFICIAIS PARA ATENDIMENTO",
       buildPaymentSettings(input.context),
       "",
-      "BASE DE CONHECIMENTO DA EMPRESA",
-      buildCompanyKnowledge(input.context),
+      "CONHECIMENTO RELEVANTE PARA A PERGUNTA ATUAL",
+      retrievedKnowledge,
       "",
       "SETOR ATUAL",
       `Nome: ${sector.name}`,
       `Descrição: ${normalizeText(sector.description) || "Não informada."}`,
       "",
-      "BASE DE CONHECIMENTO DO SETOR",
-      normalizeText(sector.knowledge) ||
-        "Nenhuma informação específica cadastrada.",
       "",
       "RESPONSÁVEIS DO SETOR",
       buildResponsibles(input.context),
@@ -304,7 +311,9 @@ export const promptBuilderService = {
       "- Se o cliente perguntar diretamente se está falando com IA ou automação, responda com transparência sem fingir ser uma pessoa específica.",
       "",      "PRIORIDADE DAS INFORMAÇÕES",
       "- Use primeiro os dados estruturados da empresa e do setor apresentados neste contexto.",
-      "- Em seguida, use a Base de Conhecimento da Empresa e a Base de Conhecimento do Setor.",
+      "- Em seguida, use somente os trechos recuperados das bases de conhecimento para a pergunta atual.",
+      "- Ausencia de trecho recuperado nao significa que a empresa nao oferece, nao possui ou nao realiza algo.",
+      "- Nao associe preco, atributo, modelo, marca, caracteristica ou condicao de um item a outro sem evidencia textual que faca essa associacao.",
       "- Se houver conflito entre informações, não escolha por conta própria: sinalize necessidade de atendimento humano.",
       "- Se a informação necessária não estiver disponível ou não for segura para responder, não invente e sinalize necessidade de atendimento humano.",
       "",
@@ -358,20 +367,13 @@ export const promptBuilderService = {
       "PAGAMENTO — DADOS OFICIAIS PARA ATENDIMENTO",
       buildPaymentSettings(input.context),
       "",
-      "BASE DE CONHECIMENTO DA EMPRESA",
-      buildCompanyKnowledge(
-        input.context,
-      ),
+      "CONHECIMENTO RELEVANTE PARA A PERGUNTA ATUAL",
+      retrievedKnowledge,
       "",
       "SETOR ATUAL",
       `Nome: ${sector.name}`,
       `Descrição: ${normalizeText(sector.description) || "Não informada."}`,
       "",
-      "BASE DE CONHECIMENTO DO SETOR",
-      normalizeText(
-        sector.knowledge,
-      ) ||
-        "Nenhuma informação específica cadastrada.",
       "",
       "RESPONSÁVEIS DO SETOR",
       buildResponsibles(
