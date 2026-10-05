@@ -493,14 +493,26 @@ function enforceAuthorizedFactBinding(
     ),
   );
 
-  const relationSupportedInSingleEvidence =
-    relevantKnowledge.some((line) => {
-      const matches = messageTerms.filter((term) =>
+  const bindingEvidenceDiagnostics =
+    relevantKnowledge.map((line) => ({
+      line,
+      matches: messageTerms.filter((term) =>
         line.includes(term),
-      );
+      ),
+    }));
 
-      return matches.length >= 2;
-    });
+  const relationSupportedInSingleEvidence =
+    bindingEvidenceDiagnostics.some(
+      (item) => item.matches.length >= 2,
+    );
+
+  console.log("[TF10-BINDING-DIAG]", {
+    currentMessage,
+    messageTerms,
+    authorizedContext,
+    bindingEvidenceDiagnostics,
+    relationSupportedInSingleEvidence,
+  });
 
   if (relationSupportedInSingleEvidence) {
     return replyText;
