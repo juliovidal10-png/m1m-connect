@@ -435,6 +435,79 @@ function hasExplicitNegativeServiceEvidence(
   return patterns.some((pattern) => pattern.test(context));
 }
 
+function enforceAuthorizedFactBinding(
+  replyText: string,
+  currentMessage: string,
+  authorizedContext: string,
+) {
+  const normalizedMessage =
+    normalizeFactualEvidenceText(currentMessage);
+  const normalizedReply =
+    normalizeFactualEvidenceText(replyText);
+
+  const relationRequested =
+    /\b(?:inclui|incluem|incluir|contem|faz parte|fazem parte|vem com|possui)\b/.test(
+      normalizedMessage,
+    );
+
+  const affirmativeRelation =
+    /^(?:sim\b|isso\b|correto\b|exato\b)/.test(
+      normalizedReply,
+    ) &&
+    /\b(?:inclui|incluem|contem|faz parte|fazem parte|vem com|possui)\b/.test(
+      normalizedReply,
+    );
+
+  if (!relationRequested || !affirmativeRelation) {
+    return replyText;
+  }
+
+  const relevantKnowledge =
+    authorizedContext
+      .split(/\r?\n/)
+      .map((line) => normalizeFactualEvidenceText(line))
+      .filter(Boolean);
+
+  const messageTerms = Array.from(
+    new Set(
+      normalizedMessage
+        .split(/\s+/)
+        .filter(
+          (term) =>
+            term.length >= 4 &&
+            ![
+              "inclui",
+              "incluem",
+              "incluir",
+              "contem",
+              "parte",
+              "fazem",
+              "possui",
+              "voces",
+              "empresa",
+              "com",
+              "para",
+              "uma",
+            ].includes(term),
+        ),
+    ),
+  );
+
+  const relationSupportedInSingleEvidence =
+    relevantKnowledge.some((line) => {
+      const matches = messageTerms.filter((term) =>
+        line.includes(term),
+      );
+
+      return matches.length >= 2;
+    });
+
+  if (relationSupportedInSingleEvidence) {
+    return replyText;
+  }
+
+  return "Essa relação não consta entre as informações disponíveis da empresa. Posso encaminhar sua dúvida ao Comercial?";
+}
 function enforceAuthorizedServiceAvailability(
   replyText: string,
   currentMessage: string,
@@ -1291,6 +1364,13 @@ let guardedReplyText = applyDeterministicConversationGuard(
 
     guardedReplyText =
       enforceAuthorizedServiceAvailability(
+        guardedReplyText,
+        extractCurrentCustomerMessage(userPrompt),
+        authorizedContext,
+      );
+
+    guardedReplyText =
+      enforceAuthorizedFactBinding(
         guardedReplyText,
         extractCurrentCustomerMessage(userPrompt),
         authorizedContext,
