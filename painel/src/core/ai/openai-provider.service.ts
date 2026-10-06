@@ -58,6 +58,43 @@ type StructuredAIResponse =
       context: string | null;
     };
 
+type SocialTone = "NONE" | "THANKS" | "SOLIDARITY" | "APPROVAL" | "CELEBRATION" | "FAREWELL";
+
+const SOCIAL_TONES: SocialTone[] = [
+  "NONE", "THANKS", "SOLIDARITY", "APPROVAL", "CELEBRATION", "FAREWELL",
+];
+
+// Aplica estilo somente a respostas sociais, sem alterar estado ou conhecimento.
+function composeSocialReply(
+  replyText: string,
+  intent: "SOCIAL" | "CLOSING" | "OTHER",
+  tone: SocialTone,
+  conversationHistory: string,
+) {
+  const emojiPattern = new RegExp(String.raw`(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*)`, "gu");
+  const text = replyText.replace(emojiPattern, "").replace(/[ \t]+/g, " ").trim();
+  if (!text || intent === "OTHER" || tone === "NONE") return text;
+  // Despedida precisa da classificacao CLOSING; SOCIAL nao recebe aceno.
+  if (tone === "FAREWELL" && intent !== "CLOSING") return text;
+  const effectiveTone = intent === "CLOSING" ? "FAREWELL" : tone;
+  const palettes: Record<Exclude<SocialTone, "NONE">, string[]> = {
+    THANKS: ["😊", "🙂"],
+    SOLIDARITY: ["🤝", "👊"],
+    APPROVAL: ["👍", "👌"],
+    CELEBRATION: ["🙌", "🎉"],
+    FAREWELL: ["👋", "🙂"],
+  };
+  // Historico ja chega limitado ao atendimento e a empresa pelo chamador.
+  // Considera so as ultimas respostas do atendimento, nunca emoji do cliente.
+  const recentReplies = conversationHistory.split(/\r?\n/)
+    .filter((line) => /^\s*ATENDIMENTO\s*:/i.test(line)).slice(-3);
+  const recentEmojis = recentReplies.flatMap((line) => line.match(emojiPattern) || []);
+  const candidates = palettes[effectiveTone];
+  const selected = candidates.find((emoji) => !recentEmojis.includes(emoji));
+  // Se todas as opcoes pertinentes ja foram usadas, evita repeticao sem rotacao artificial.
+  return selected ? `${text} ${selected}` : text;
+}
+
 function requireText(
   value: string | null | undefined,
   fieldName: string,
@@ -824,7 +861,8 @@ export const openAIProviderService = {
         "PRIORIDADE DE CONTEXTO: antes de classificar como SOCIAL ou CLOSING, verifique se a mensagem atual responde, confirma, aceita, recusa, escolhe ou complementa uma pergunta, proposta, alternativa ou acao pendente no turno imediatamente anterior do ATENDIMENTO. Nesses casos, classifique como OTHER para que o fluxo normal continue a conversa.",
         "Confirmacoes curtas como 'sim', 'sim, pode ser', 'pode', 'quero', 'prefiro', 'ok', 'certo', 'perfeito' ou equivalentes NAO sao SOCIAL apenas por serem cordiais. Se fizerem sentido como resposta ao que o ATENDIMENTO acabou de perguntar ou propor, classifique como OTHER.",
         "Classifique confirmacao como SOCIAL somente quando o historico mostrar que nao existe pergunta, escolha, proposta ou acao pendente e a mensagem funcionar apenas como reconhecimento cordial de algo ja resolvido.",
-        "Para SOCIAL ou CLOSING, produza replyText curto, natural e humano em portugues brasileiro, adequado ao historico. No maximo duas frases e nenhuma pergunta. Em interacoes leves, cordiais e positivas de SOCIAL ou CLOSING, inclua normalmente um emoji quando a resposta expressar agradecimento, despedida, confirmacao cordial, satisfacao ou outra cortesia positiva. Use no maximo um emoji e escolha-o de acordo com a intencao e o contexto atual. Observe os emojis presentes nas respostas recentes marcadas como ATENDIMENTO no historico e, quando houver alternativa natural, evite repetir um emoji usado recentemente. Nao alterne mecanicamente entre emojis e nao use emoji apenas para produzir variedade. Em contexto neutro, delicado, negativo ou quando um emoji nao combinar naturalmente com a resposta, responda sem emoji. O emoji nunca deve substituir o conteudo.",
+        "Para SOCIAL ou CLOSING, produza replyText curto, natural e humano em portugues brasileiro, adequado ao historico. No maximo duas frases e nenhuma pergunta. Escreva replyText sem emoji; o aplicativo acrescenta no maximo um emoji coerente com socialTone. O texto deve corresponder a intencao: SOCIAL reconhece a cortesia sem encerrar a conversa; CLOSING se despede.",
+        "Escolha socialTone pelo significado da mensagem atual e pelo contexto: THANKS para agradecimento cordial; SOLIDARITY para parceria ou camaradagem; APPROVAL para reconhecimento positivo de algo resolvido; CELEBRATION para conquista ou satisfacao entusiasmada; FAREWELL somente para CLOSING; NONE para OTHER ou contexto neutro, delicado, negativo, cobranca, assunto financeiro ou suporte serio. Use NONE quando o emoji nao combinar. O tom nao muda a classificacao nem cria fatos. Mero agradecimento nao significa despedida.",
         "Para CLOSING, apenas se despeÃ§a cordialmente; nao venda, nao ofereca menu, nao qualifique e nao abra novo assunto.",
         "Para SOCIAL, responda somente a cortesia/socializacao sem inventar fatos da empresa, servicos, produtos, precos ou condicoes. Quando a mensagem for apenas agradecimento, confirmacao cordial ou interacao social ja resolvida, responda naturalmente e pare; nao acrescente oferta generica de ajuda, disponibilidade ou continuidade como 'se precisar', 'qualquer coisa', 'estou por aqui' ou 'e so chamar', salvo quando isso for realmente necessario pelo contexto.",
         "Use o nome do cliente somente se estiver disponivel e soar natural; nao pergunte o nome.",
@@ -846,7 +884,7 @@ export const openAIProviderService = {
       reasoning: {
         effort: "minimal",
       },
-      max_output_tokens: 120,
+      max_output_tokens: 160,
       text: {
         format: {
           type: "json_schema",
@@ -865,11 +903,15 @@ export const openAIProviderService = {
               replyText: {
                 type: "string",
               },
+              socialTone: {
+                type: "string",
+                enum: SOCIAL_TONES,
+              },
               canHandleWithoutHistory: {
                 type: "boolean",
               },
             },
-            required: ["intent", "replyText", "canHandleWithoutHistory"],
+            required: ["intent", "replyText", "socialTone", "canHandleWithoutHistory"],
           },
         },
       },
@@ -901,6 +943,7 @@ export const openAIProviderService = {
       parsed as Record<string, unknown>;
     const intent = record.intent;
     const replyText = record.replyText;
+    const socialTone = record.socialTone;
     const canHandleWithoutHistory =
       record.canHandleWithoutHistory;
 
@@ -909,6 +952,8 @@ export const openAIProviderService = {
         intent !== "CLOSING" &&
         intent !== "OTHER") ||
       typeof replyText !== "string" ||
+      typeof socialTone !== "string" ||
+      !SOCIAL_TONES.includes(socialTone as SocialTone) ||
       typeof canHandleWithoutHistory !== "boolean"
     ) {
       throw new Error(
@@ -933,7 +978,7 @@ export const openAIProviderService = {
       replyText:
         intent === "OTHER"
           ? null
-          : normalizedReply,
+          : composeSocialReply(normalizedReply, intent, socialTone as SocialTone, conversationHistory),
       canHandleWithoutHistory:
         intent === "SOCIAL"
           ? canHandleWithoutHistory
