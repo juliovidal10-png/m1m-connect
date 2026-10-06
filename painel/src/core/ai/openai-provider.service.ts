@@ -869,6 +869,17 @@ export const openAIProviderService = {
         "Para OTHER, replyText deve ser string vazia.",
         "Defina canHandleWithoutHistory=true somente quando a mensagem SOCIAL puder ser respondida com seguranca mesmo sendo a primeira mensagem de um novo atendimento, sem depender de conversa anterior. Agradecimento, cortesia ou socializacao autocontida podem ser true. Saudacao de abertura isolada como 'oi', 'ola', 'bom dia', 'boa tarde' ou 'boa noite' deve ser false para preservar o fluxo inicial da empresa. Para OTHER, use false.",
         "Nao decida setor e nao invente contexto.",
+      ].join("\n") + "\n\n" + [
+        "DECISAO SEMANTICA: determine primeiro o ato expresso pelo cliente.",
+        "Agradecer reconhece algo recebido. Despedir-se expressa a intencao de sair, terminar ou pausar. Sao atos diferentes.",
+        "O fim do texto e a ausencia de historico nao constituem uma intencao de despedida.",
+        "Quando houver apenas agradecimento ou camaradagem autocontida, use SOCIAL e canHandleWithoutHistory=true.",
+        "Use CLOSING quando a mensagem ou o contexto realmente expressar despedida, termino ou pausa.",
+        "Exemplos de contraste:",
+        "Cliente: Obrigado pela ajuda! -> SOCIAL, THANKS, resposta de agradecimento sem despedida.",
+        "Cliente: Obrigado, por hoje e so. Ate depois! -> CLOSING, FAREWELL.",
+        "Cliente: Estamos juntos! -> SOCIAL, SOLIDARITY.",
+        "Se houver pedido ou resposta a uma acao pendente, preserve OTHER conforme as regras anteriores.",
       ].join("\n"),
       input: [
         customerName
@@ -882,9 +893,9 @@ export const openAIProviderService = {
         currentMessage,
       ].join("\n"),
       reasoning: {
-        effort: "minimal",
+        effort: "low",
       },
-      max_output_tokens: 160,
+      max_output_tokens: 320,
       text: {
         format: {
           type: "json_schema",
