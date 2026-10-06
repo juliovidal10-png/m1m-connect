@@ -363,10 +363,22 @@ function stripQuestionsForResolvedStage(value: string) {
 function keepOnlyFirstRequestedInformation(
   replyText: string,
 ) {
+  const leadingSocialQuestion = /^(?:(?:ol[a\u00e1]|oi|bom dia|boa tarde|boa noite)[\s,!:;\u2014\u2013-]*)?(?:tudo bem|como vai|como voc[e\u00ea] est[a\u00e1])\s*\?\s*/i;
+  const withoutSocialQuestion = replyText.replace(leadingSocialQuestion, "").trim();
+  if (withoutSocialQuestion && withoutSocialQuestion !== replyText.trim()) {
+    replyText = withoutSocialQuestion;
+  }
+
   const firstQuestionMark =
     replyText.indexOf("?");
 
   if (firstQuestionMark < 0) {
+    if (/^(?:por favor[,]?\s+)?me diga\b/i.test(replyText)) {
+      const compoundRequest = /\s+e\s+(qual(?:\s|$)|quais(?:\s|$)|quando(?:\s|$)|onde(?:\s|$)|como(?:\s|$)|quem(?:\s|$)|quanto(?:s|a|as)?(?:\s|$)|por\s+que(?:\s|$)|voc[e\u00ea](?:\s|$))/i.exec(replyText);
+      if (compoundRequest && typeof compoundRequest.index === "number") {
+        return `${replyText.slice(0, compoundRequest.index).trim()}?`;
+      }
+    }
     return replyText;
   }
 
