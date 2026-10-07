@@ -7,7 +7,7 @@ export default function HomePage() {
       <Sidebar />
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-20 shrink-0 items-center border-b border-black/5 bg-white px-6 lg:px-10">
+        <header className="flex h-[95px] shrink-0 items-center border-b border-black/5 bg-white px-6 lg:px-10">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">
               Atendimento
