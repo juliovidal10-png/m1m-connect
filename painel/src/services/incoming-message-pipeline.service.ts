@@ -1341,6 +1341,7 @@ export const incomingMessagePipelineService = {
             await openAIProviderService.generateResponse({
               systemPrompt:
                 companyPrompt.systemPrompt,
+              outputGuidance: companyPrompt.outputGuidance,
               authorizedContext:
                 companyPrompt.authorizedContext,
               userPrompt:
@@ -2202,6 +2203,7 @@ const menuAlreadyShownInCurrentCycle =
         await openAIProviderService.generateResponse({
           systemPrompt:
             prompt.systemPrompt,
+          outputGuidance: prompt.outputGuidance,
           authorizedContext:
             prompt.authorizedContext,
           userPrompt:

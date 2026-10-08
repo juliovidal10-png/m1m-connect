@@ -16,6 +16,7 @@ export type PromptBuilderResult = {
   systemPrompt: string;
   userPrompt: string;
   authorizedContext: string;
+  outputGuidance: string;
 };
 
 function normalizeText(
@@ -291,6 +292,22 @@ export const promptBuilderService = {
       buildResponsibles(input.context),
     ].join("\n");
 
+    const outputStyleGuidance = [
+      "- Escreva como alguém da equipe conversando pelo WhatsApp, nunca como texto institucional ou resposta mecânica.",
+      "- Use linguagem natural, simples e fluida. Evite frases engessadas, burocráticas ou excessivamente formais.",
+      "- Não comece toda resposta com saudações, confirmações ou frases como 'Claro!', 'Perfeito!', 'Entendi!' ou 'Posso ajudar'. Use essas expressões apenas quando fizerem sentido.",
+      "- Não use títulos, subtítulos, blocos, listas numeradas ou marcadores em conversas comuns. Só use estrutura quando o cliente pedir ou quando for realmente necessário para clareza.",
+      "- Prefira 1 ou 2 parágrafos curtos, como em uma conversa real de WhatsApp.",
+      "- Varie a construção das frases para evitar padrão repetitivo ou mecânico.",
+      "- Responda diretamente ao ponto principal antes de fazer qualquer pergunta.",
+      "- Quando precisar perguntar algo, faça uma única pergunta natural por vez.",
+      "- Não repita informações que já foram ditas na conversa.",
+      "- Não antecipe explicações, etapas, opções ou ofertas que o cliente não pediu. Depois de responder suficientemente ao pedido atual, pare; não emende uma nova oferta, alternativa ou próximo passo sem necessidade.",
+      "- Adapte levemente o tom ao jeito do cliente: mais direto com quem escreve de forma objetiva e mais acolhedor com quem conversa de forma cordial.",
+      "- Em respostas leves, cordiais e positivas — especialmente em agradecimentos, confirmações positivas, comemorações, demonstrações de satisfação e interações comerciais leves — prefira usar um emoji apropriado quando ele combinar naturalmente com a mensagem, para acrescentar leve calor humano à conversa. Fora desses contextos, não há necessidade de incluir emoji. Em geral, use no máximo um emoji por resposta e não repita mecanicamente o mesmo emoji. Use dois somente excepcionalmente, quando o contexto realmente justificar. Nunca use sequências ou excesso de emojis. Em reclamações, cobranças, assuntos financeiros ou suporte técnico sério, prefira não usar emojis. O emoji deve complementar a comunicação, nunca substituir conteúdo ou informação.",
+      "- Evite despedidas e encerramentos automáticos em toda resposta. Não crie pergunta, oferta ou próximo passo apenas para manter a conversa ativa; se o pedido atual já estiver suficientemente respondido, pare.",
+    ];
+    const outputFinalGuidance = "Sua resposta deve conter no máximo duas frases. Faça pergunta somente quando faltar uma informação indispensável para atender o pedido atual. Quando o cliente pedir uma informação que possa ser respondida diretamente — inclusive se a empresa oferece determinado serviço, quais serviços oferece, formas de pagamento, PIX, endereço ou horário — responda e pare sem criar pergunta, oferta ou próximo passo.";
     const systemPrompt = [
       `Você é o atendimento oficial da ${company.name}, atuando no setor ${sector.name}.`,
       "Você fala em nome da equipe da empresa e nunca utiliza nome próprio como se fosse um atendente humano específico.",
@@ -335,19 +352,7 @@ export const promptBuilderService = {
       "- Quando needsHuman = false, continue a conversa normalmente e não mencione encaminhamento.",
       "",
       "ESTILO DE CONVERSA",
-      "- Escreva como alguém da equipe conversando pelo WhatsApp, nunca como texto institucional ou resposta mecânica.",
-      "- Use linguagem natural, simples e fluida. Evite frases engessadas, burocráticas ou excessivamente formais.",
-      "- Não comece toda resposta com saudações, confirmações ou frases como 'Claro!', 'Perfeito!', 'Entendi!' ou 'Posso ajudar'. Use essas expressões apenas quando fizerem sentido.",
-      "- Não use títulos, subtítulos, blocos, listas numeradas ou marcadores em conversas comuns. Só use estrutura quando o cliente pedir ou quando for realmente necessário para clareza.",
-      "- Prefira 1 ou 2 parágrafos curtos, como em uma conversa real de WhatsApp.",
-      "- Varie a construção das frases para evitar padrão repetitivo ou mecânico.",
-      "- Responda diretamente ao ponto principal antes de fazer qualquer pergunta.",
-      "- Quando precisar perguntar algo, faça uma única pergunta natural por vez.",
-      "- Não repita informações que já foram ditas na conversa.",
-      "- Não antecipe explicações, etapas, opções ou ofertas que o cliente não pediu. Depois de responder suficientemente ao pedido atual, pare; não emende uma nova oferta, alternativa ou próximo passo sem necessidade.",
-      "- Adapte levemente o tom ao jeito do cliente: mais direto com quem escreve de forma objetiva e mais acolhedor com quem conversa de forma cordial.",
-      "- Em respostas leves, cordiais e positivas — especialmente em agradecimentos, confirmações positivas, comemorações, demonstrações de satisfação e interações comerciais leves — prefira usar um emoji apropriado quando ele combinar naturalmente com a mensagem, para acrescentar leve calor humano à conversa. Fora desses contextos, não há necessidade de incluir emoji. Em geral, use no máximo um emoji por resposta e não repita mecanicamente o mesmo emoji. Use dois somente excepcionalmente, quando o contexto realmente justificar. Nunca use sequências ou excesso de emojis. Em reclamações, cobranças, assuntos financeiros ou suporte técnico sério, prefira não usar emojis. O emoji deve complementar a comunicação, nunca substituir conteúdo ou informação.",
-      "- Evite despedidas e encerramentos automáticos em toda resposta. Não crie pergunta, oferta ou próximo passo apenas para manter a conversa ativa; se o pedido atual já estiver suficientemente respondido, pare.",
+      ...outputStyleGuidance,
       "",
       "EMPRESA",
       `Nome: ${company.name}`,
@@ -384,7 +389,7 @@ export const promptBuilderService = {
       "- Dados da empresa, horários, pagamento, bases de conhecimento, setor e responsáveis são referência factual para responder ao cliente; não são roteiro comercial.",
       "",
       "REGRA FINAL DE SAÍDA",
-      "Sua resposta deve conter no máximo duas frases. Faça pergunta somente quando faltar uma informação indispensável para atender o pedido atual. Quando o cliente pedir uma informação que possa ser respondida diretamente — inclusive se a empresa oferece determinado serviço, quais serviços oferece, formas de pagamento, PIX, endereço ou horário — responda e pare sem criar pergunta, oferta ou próximo passo.",
+      outputFinalGuidance,
       "Responda ao cliente usando o contexto disponível e preencha a decisão operacional de handoff de forma coerente com as regras acima.",
 
     ].join("\n");
@@ -401,6 +406,7 @@ export const promptBuilderService = {
         executionDirective,
       ].join("\n"),
       userPrompt: customerMessage,
+      outputGuidance: [...outputStyleGuidance, outputFinalGuidance].join("\n"),
       authorizedContext,
     };
   },

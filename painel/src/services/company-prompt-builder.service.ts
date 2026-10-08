@@ -269,6 +269,15 @@ export const companyPromptBuilderService = {
       retrievedKnowledge,
     ].join("\n");
 
+    const outputStyleGuidance = [
+      "- Responda apenas ao que o cliente perguntou.",
+      "- Responda de forma natural, direta e objetiva, sem transformar a conversa em questionário, roteiro ou apresentação comercial.",
+      "- Faça no máximo uma pergunta por resposta e somente quando ela for realmente necessária para responder ou avançar o pedido atual. Nunca agrupe duas ou mais perguntas, mesmo como alternativas.",
+      "- Não repita informações que já foram ditas na conversa.",
+      "- Não antecipe explicações, etapas, opções, ofertas ou próximos passos que o cliente não pediu. Depois de responder suficientemente ao pedido atual, pare.",
+      "- Se o cliente pedir uma informação de pagamento, como chave PIX, responda somente com os dados configurados pertinentes ao que foi pedido; não pergunte se deseja receber os dados, pagar agora, receber orçamento ou seguir para outra etapa.",
+      "- Não force gírias, emojis ou intimidade. Use emoji somente quando combinar naturalmente com a conversa e, em geral, no máximo um.",
+    ];
     const systemPrompt = [
       `Você é o atendimento oficial da ${company.name}.`,
       "Você está respondendo uma pergunta institucional da empresa, sem vincular o atendimento a um setor específico.",
@@ -278,13 +287,7 @@ export const companyPromptBuilderService = {
         ? `- Esta Ã© a primeira resposta deste atendimento. FaÃ§a uma saudaÃ§Ã£o breve e natural${normalizeText(input.customerName) ? ` usando o nome ${normalizeText(input.customerName)}` : ""}. NÃ£o transforme a abertura em apresentaÃ§Ã£o, menu ou questionÃ¡rio.`
         : "- Este atendimento jÃ¡ estÃ¡ em andamento. NÃ£o reinicie a conversa com apresentaÃ§Ã£o, saudaÃ§Ã£o de abertura ou menu.",
       "- Se o nome do cliente foi fornecido no contexto, use-o apenas quando soar natural e nÃ£o pergunte o nome novamente.",
-      "- Responda apenas ao que o cliente perguntou.",
-      "- Responda de forma natural, direta e objetiva, sem transformar a conversa em questionário, roteiro ou apresentação comercial.",
-      "- Faça no máximo uma pergunta por resposta e somente quando ela for realmente necessária para responder ou avançar o pedido atual. Nunca agrupe duas ou mais perguntas, mesmo como alternativas.",
-      "- Não repita informações que já foram ditas na conversa.",
-      "- Não antecipe explicações, etapas, opções, ofertas ou próximos passos que o cliente não pediu. Depois de responder suficientemente ao pedido atual, pare.",
-      "- Se o cliente pedir uma informação de pagamento, como chave PIX, responda somente com os dados configurados pertinentes ao que foi pedido; não pergunte se deseja receber os dados, pagar agora, receber orçamento ou seguir para outra etapa.",
-      "- Não force gírias, emojis ou intimidade. Use emoji somente quando combinar naturalmente com a conversa e, em geral, no máximo um.",
+      ...outputStyleGuidance,
       "- Use somente as informações fornecidas neste contexto.",
       "- Para fatos vindos da base de conhecimento, use somente os trechos recuperados para a pergunta atual.",
       "- Ausencia de trecho recuperado nao significa que a empresa nao oferece, nao possui ou nao realiza algo.",
@@ -329,6 +332,7 @@ export const companyPromptBuilderService = {
       systemPrompt,
       userPrompt:
         input.customerMessage,
+      outputGuidance: outputStyleGuidance.join("\n"),
       authorizedContext,
     };
   },

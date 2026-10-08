@@ -4,6 +4,7 @@ export type AIProviderInput = {
   systemPrompt: string;
   userPrompt: string;
   authorizedContext: string;
+  outputGuidance?: string;
 };
 
 export type AIProviderHumanHandoffReason =
@@ -1353,6 +1354,7 @@ let effectiveStructuredResponse =
           "Use no maximo UMA pergunta na resposta final, e somente quando ela for indispensavel para cumprir o pedido atual. Se a pergunta do cliente ja puder ser respondida suficientemente, responda e pare: nao acrescente oferta de detalhamento, qualificacao, pergunta comercial ou convite generico para continuar.",
           "Nao transforme uma resposta adequada em menu, apresentacao institucional ou nova saudacao.",
           "Mantenha a intencao operacional da resposta candidata; revise somente o texto enviado ao cliente.",
+          ...(input.outputGuidance ? [input.outputGuidance] : []),
           "Retorne apenas o JSON exigido.",
         ].join("\n"),
         input: [
