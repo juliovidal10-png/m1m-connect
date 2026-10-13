@@ -1720,7 +1720,34 @@ const menuAlreadyShownInCurrentCycle =
         };
       }
 
+      // TF1A_CASA_CRIADOR_2026: setor ja selecionado => transferencia humana real.
+      // Sem mensagem de sucesso antes da persistencia. Nao afeta outros tenants.
       if (
+        companyId === "cmu1vaw9x00c01qpj0ci9hgre" &&
+        router.sectorSelectionSource && router.sectorId && router.sectorName &&
+        router.state === "IA"
+      ) {
+        const handoffText = `Encaminhei seu atendimento ao ${router.sectorName}. Nossa equipe vai continuar por aqui.`;
+        if (options?.dryRun) {
+          return { processed: true, action: "CASA_CRIADOR_HANDOFF_SIMULATED" as const,
+            messageId: storedMessage.id, router, simulatedMessage: handoffText };
+        }
+        const handed = await attendanceService.requestHumanAttendanceByAI({
+          companyId, attendanceId: router.attendanceId, sectorId: router.sectorId,
+          handoffReason: "BUSINESS_RULE", subject: "Atendimento solicitado",
+          context: normalizedMessage.content?.trim() || null,
+        });
+        if (handed.state !== "HUMANO" || handed.sectorId !== router.sectorId || handed.responsibleId) {
+          throw new Error("TF1A: transferencia humana nao confirmada");
+        }
+        await automaticMessageService.sendText({
+          companyId, customerId: storedMessage.customerId, attendanceId: router.attendanceId,
+          instanceName: normalizedInstanceName, remoteJid: normalizedMessage.remoteJid,
+          text: handoffText, sourceMessageId: storedMessage.id,
+        });
+        return { processed: true, action: "CASA_CRIADOR_HANDOFF_SENT" as const,
+          messageId: storedMessage.id, router };
+      }      if (
         router.sectorSelectionSource &&
         router.sectorName
       ) {
@@ -2162,6 +2189,7 @@ const menuAlreadyShownInCurrentCycle =
 
       const prompt =
         promptBuilderService.build({
+          companyId,
           context,
           customerMessage:
             messageContent,
@@ -2393,7 +2421,19 @@ const menuAlreadyShownInCurrentCycle =
         sectorId: router.sectorId,
       });
 
-      try {
+      // TF1A_CASA_CRIADOR_2026: persistir antes de anunciar handoff.
+      const tf1aCasaCriador =
+        companyId === "cmu1vaw9x00c01qpj0ci9hgre";
+      if (tf1aCasaCriador && aiResponse.needsHuman) {
+        const handed = await attendanceService.requestHumanAttendanceByAI({
+          companyId, attendanceId: router.attendanceId, sectorId: router.sectorId,
+          handoffReason: aiResponse.handoffReason, subject: aiResponse.subject,
+          context: aiResponse.context,
+        });
+        if (handed.state !== "HUMANO" || handed.sectorId !== router.sectorId || handed.responsibleId) {
+          throw new Error("TF1A: transferencia humana nao confirmada");
+        }
+      }      try {
         await automaticMessageService.sendText({
           companyId,
           customerId:
@@ -2458,7 +2498,7 @@ const menuAlreadyShownInCurrentCycle =
         attendanceId: router.attendanceId,
         sectorId: router.sectorId,
       });
-      if (aiResponse.needsHuman) {
+      if (aiResponse.needsHuman && !tf1aCasaCriador) {
         m1mT2Trace("TF6_F2_HANDOFF_START", {
           messageId: storedMessage.id,
           customerId: storedMessage.customerId,

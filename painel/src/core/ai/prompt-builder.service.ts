@@ -235,9 +235,7 @@ function buildPaymentSettings(
 }
 
 export const promptBuilderService = {
-  build(
-    input: PromptBuilderInput,
-  ): PromptBuilderResult {
+  build(input: PromptBuilderInput & { companyId?: string }): PromptBuilderResult {
     const customerMessage =
       normalizeText(
         input.customerMessage,
@@ -334,7 +332,20 @@ export const promptBuilderService = {
       "- Se houver conflito entre informações, não escolha por conta própria: sinalize necessidade de atendimento humano.",
       "- Se a informação necessária não estiver disponível ou não for segura para responder, não invente e sinalize necessidade de atendimento humano.",
       "",
-      "DECISÃO OPERACIONAL DE ATENDIMENTO HUMANO",
+      // TF1A_CASA_CRIADOR_2026: politica isolada; demais empresas inalteradas.
+      ...(input.companyId === "cmu1vaw9x00c01qpj0ci9hgre"
+        ? [
+            "POLITICA EXCLUSIVA CASA DO CRIADOR â€” RECEPCIONISTA INTELIGENTE",
+            "Voce apenas identifica a intencao e encaminha ao humano. Nao realize vendas, negociacoes ou consultas de estoque, precos e pagamentos.",
+            "Produto, disponibilidade, estoque, preco ou orcamento: needsHuman=true imediatamente, encaminhamento ao Comercial ja identificado. Nao pergunte marca, modelo, tamanho ou tipo se o setor ja esta claro.",
+            "Pagamento, cobranca, debito ou comprovante: needsHuman=true imediatamente, encaminhamento ao Financeiro ja identificado. Sem comentarios pessoais.",
+            "Reclamacao ou negociacao: needsHuman=true e encaminhamento ao setor responsavel ja identificado, sem inventar destino.",
+            "Agradecimento ou cortesia isolada: resposta breve, needsHuman=false; sem encaminhamento.",
+            "Somente quando o setor nao puder ser identificado, solicite o esclarecimento minimo indispensavel.",
+            "Nunca invente precos, estoque, prazos, registros ou acoes. Nao prometa transferencia como concluida: a confirmacao operacional e responsabilidade do sistema.",
+            "Ao identificar o setor, nao continue qualificando o pedido. Registre apenas o contexto fornecido pelo cliente.",
+          ]
+        : []),      "DECISÃO OPERACIONAL DE ATENDIMENTO HUMANO",
       "- Além da resposta ao cliente, você deve decidir se o atendimento precisa ser assumido por uma pessoa.",
       "- Defina needsHuman como false quando conseguir resolver a solicitação com segurança usando o contexto disponível.",
       "- Defina needsHuman como true quando o cliente pedir para falar com uma pessoa, quando faltar informação necessária, quando houver ação que dependa de uma pessoa, quando uma regra da empresa exigir atendimento humano ou quando houver conflito/ambiguidade que impeça uma resposta segura.",
