@@ -1048,6 +1048,7 @@ export const incomingMessagePipelineService = {
             select: {
 
               humanReturnMode: true,
+              aiEnabled: true,
 
             },
 
@@ -1217,7 +1218,6 @@ export const incomingMessagePipelineService = {
           resolvedSectorName,
       });
 
-      const customerAiControl =
       // TF1-B: controle geral persistido da IA por empresa.
       // A mensagem recebida e o roteamento j├í foram processados.
       // O controle individual por contato permanece independente.
@@ -1247,6 +1247,7 @@ export const incomingMessagePipelineService = {
         };
       }
 
+      const customerAiControl =
         await prisma.m1MCustomer.findFirst({
           where: {
             id: storedMessage.customerId,
