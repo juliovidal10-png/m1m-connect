@@ -115,6 +115,7 @@ export async function GET(
           user.displayName,
         email: user.email,
         role: user.role,
+        isPrimary: user.isPrimary,
         useCustomPermissions:
           user.useCustomPermissions,
         permissions:

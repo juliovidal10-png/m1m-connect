@@ -61,6 +61,11 @@ export async function PUT(
 
     const body = await request.json();
 
+    // TF1-B: somente administradores podem alterar a IA geral.
+    if (Object.prototype.hasOwnProperty.call(body, "aiEnabled")) {
+      await authorizationService.requireAdmin();
+    }
+
     const company =
       await companyService.updateCompanyProfile(
         companyId,

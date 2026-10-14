@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 
+import CompanyAiControl from "@/components/config/CompanyAiControl";
+
 type HumanReturnMode =
   | "IMMEDIATE"
   | "NEXT_CONVERSATION"
@@ -180,6 +182,10 @@ export default function HumanAttendanceSettings({
       >
         ← Voltar para configurações
       </button>
+
+      <div className="mb-5">
+        <CompanyAiControl />
+      </div>
 
       <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">
         <div className="border-b border-black/5 p-6 lg:p-8">

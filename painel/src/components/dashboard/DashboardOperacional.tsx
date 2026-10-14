@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import Link from "next/link";
+import CompanyAiControl from "@/components/config/CompanyAiControl";
 
 type CustomerRecord = {
   id: string;
@@ -765,6 +766,8 @@ export default function DashboardOperacional() {
                 )}
               </p>
             )}
+
+            <CompanyAiControl compact />
 
             <button
               type="button"

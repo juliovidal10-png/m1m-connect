@@ -934,6 +934,45 @@ export const incomingMessagePipelineService = {
         attendanceId: storedMessage.attendanceId ?? null,
       });
 
+      // TF1B_ROUTER_PAUSED_GUARD:
+      // IA pausada nao interpreta intencoes nem transfere setores.
+      // Atendimento e mensagens continuam disponiveis para a equipe.
+      const tf1bCompanyState = await prisma.m1MCompany.findUnique({
+        where: { id: companyId },
+        select: { aiEnabled: true },
+      });
+
+      if (tf1bCompanyState?.aiEnabled !== true) {
+        const pausedAttendance =
+          await attendanceService.getOpenAttendanceByCustomer(
+            companyId,
+            storedMessage.customerId,
+          ) ??
+          await attendanceService.startAttendance(
+            companyId,
+            storedMessage.customerId,
+          );
+
+        await messageService.attachMessageToAttendance(
+          storedMessage.id,
+          pausedAttendance.id,
+        );
+
+        await processPaymentReceiptCandidate({
+          attendanceId: pausedAttendance.id,
+          responsibleId: pausedAttendance.responsibleId,
+          sectorId: pausedAttendance.sectorId,
+          sectorName: null,
+        });
+
+        await messageService.markAsProcessed(storedMessage.id);
+
+        return {
+          processed: true,
+          action: "COMPANY_AI_DISABLED" as const,
+          messageId: storedMessage.id,
+        };
+      }
       let router =
         await routerService.execute({
           companyId,
@@ -1019,7 +1058,8 @@ export const incomingMessagePipelineService = {
 
           humanReturnPolicy?.humanReturnMode ===
 
-          "NEXT_CONVERSATION"
+          "NEXT_CONVERSATION" &&
+          humanReturnPolicy.aiEnabled === true
 
         ) {
 
@@ -1178,6 +1218,35 @@ export const incomingMessagePipelineService = {
       });
 
       const customerAiControl =
+      // TF1-B: controle geral persistido da IA por empresa.
+      // A mensagem recebida e o roteamento j├í foram processados.
+      // O controle individual por contato permanece independente.
+      const companyAiControl =
+        await prisma.m1MCompany.findUnique({
+          where: { id: companyId },
+          select: { aiEnabled: true },
+        });
+
+      if (companyAiControl?.aiEnabled !== true) {
+        console.log("[M1M AI DIAG]", {
+          stage: "COMPANY_AI_DISABLED",
+          companyId,
+          messageId: storedMessage.id,
+          attendanceId: router.attendanceId,
+        });
+
+        await messageService.markAsProcessed(
+          storedMessage.id,
+        );
+
+        return {
+          processed: true,
+          action: "COMPANY_AI_DISABLED" as const,
+          messageId: storedMessage.id,
+          router,
+        };
+      }
+
         await prisma.m1MCustomer.findFirst({
           where: {
             id: storedMessage.customerId,
