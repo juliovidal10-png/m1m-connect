@@ -299,27 +299,43 @@ export default function Sidebar() {
   ] = useState(0);
 
   useEffect(() => {
-    const handleWaitingCount = (event: Event) => {
-      const customEvent = event as CustomEvent<number>;
-      const nextCount = Number(customEvent.detail);
+    let cancelled = false;
+    let inFlight = false;
 
-      setConversationsWaitingCount(
-        Number.isFinite(nextCount) && nextCount > 0
-          ? nextCount
-          : 0,
-      );
+    const refreshWaitingCount = async () => {
+      if (cancelled || inFlight) return;
+
+      inFlight = true;
+
+      try {
+        const response = await fetch("/api/chat/list?waitingCount=1", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const count = Number(data.waitingCount);
+
+        if (!cancelled && Number.isFinite(count) && count >= 0) {
+          setConversationsWaitingCount(count);
+        }
+      } catch {
+        // Preserva a ultima contagem valida durante falhas temporarias.
+      } finally {
+        inFlight = false;
+      }
     };
 
-    window.addEventListener(
-      "m1m:conversations-waiting-count",
-      handleWaitingCount,
-    );
+    void refreshWaitingCount();
+
+    const timer = window.setInterval(() => {
+      void refreshWaitingCount();
+    }, 5000);
 
     return () => {
-      window.removeEventListener(
-        "m1m:conversations-waiting-count",
-        handleWaitingCount,
-      );
+      cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 

@@ -1324,20 +1324,7 @@ const loadContacts =
       activeConversationMatchIndex
     ] ?? null;
 
-  useEffect(() => {
-    const waitingCount = chats.filter(
-      (chat) =>
-        chat.attendanceState === "HUMANO" &&
-        !chat.attendanceResponsibleId,
-    ).length;
 
-    window.dispatchEvent(
-      new CustomEvent(
-        "m1m:conversations-waiting-count",
-        { detail: waitingCount },
-      ),
-    );
-  }, [chats]);
   const loadChatsInFlightRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
 

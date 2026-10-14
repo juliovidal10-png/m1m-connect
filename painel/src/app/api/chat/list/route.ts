@@ -437,11 +437,72 @@ export async function GET(request: Request) {
         ...extra,
       });
     };
+    const url = new URL(request.url);
+
+    if (url.searchParams.get("waitingCount") === "1") {
+      const authenticatedUser = await authorizationService.getCurrentUser();
+      const companyId = authenticatedUser.companyId;
+
+      const canViewAllConversations = authorizationService.hasPermission(
+        authenticatedUser,
+        M1MUserPermission.VIEW_ALL_CONVERSATIONS,
+      );
+
+      const assignedSectorIds = canViewAllConversations
+        ? []
+        : (
+            await prisma.m1MSectorUser.findMany({
+              where: { userId: authenticatedUser.userId },
+              select: { sectorId: true },
+            })
+          ).map((assignment) => assignment.sectorId);
+
+      if (!canViewAllConversations && assignedSectorIds.length === 0) {
+        return NextResponse.json({ waitingCount: 0 });
+      }
+
+      const attendances = await prisma.m1MAttendance.findMany({
+        where: {
+          companyId,
+          state: { in: ["IA", "HUMANO"] },
+        },
+        orderBy: { startedAt: "desc" },
+        select: {
+          customerId: true,
+          state: true,
+          responsibleId: true,
+          sectorId: true,
+        },
+      });
+
+      const seenCustomers = new Set<string>();
+      let waitingCount = 0;
+
+      for (const attendance of attendances) {
+        if (seenCustomers.has(attendance.customerId)) continue;
+        seenCustomers.add(attendance.customerId);
+
+        if (
+          attendance.state === "HUMANO" &&
+          !attendance.responsibleId &&
+          (
+            canViewAllConversations ||
+            (
+              !!attendance.sectorId &&
+              assignedSectorIds.includes(attendance.sectorId)
+            )
+          )
+        ) {
+          waitingCount += 1;
+        }
+      }
+
+      return NextResponse.json({ waitingCount });
+    }
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
     }
 
-    const url = new URL(request.url);
     const requestedLimit = Number(url.searchParams.get("limit") || "30");
     const requestedOffset = Number(url.searchParams.get("offset") || "0");
     const search = normalizeSearch(url.searchParams.get("search") || "");
