@@ -1,4 +1,5 @@
 "use client";
+import { createPortal } from "react-dom";
 
 import {
   useCallback,
@@ -504,7 +505,32 @@ export default function Sidebar() {
                               : agendaSummary.today}
                           </span>
                         )}
-                    </Link>
+
+                      {/* TF2_AVISO_VISUAL_PERSISTENTE: aviso global, sem alterar o badge 99+ */}
+                      {item.href === "/" &&
+                        conversationsWaitingCount > 0 &&
+                        typeof document !== "undefined" &&
+                        createPortal(
+                          <div
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
+                            className="pointer-events-none fixed bottom-4 left-4 right-4 z-[100] rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-xl md:left-auto md:right-6 md:w-[380px]"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span aria-hidden="true" className="text-xl leading-6">âš </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold">Clientes aguardando atendimento humano</p>
+                                <p className="mt-1 text-sm">
+                                  {conversationsWaitingCount === 1
+                                    ? "1 cliente aguarda um atendente."
+                                    : `${conversationsWaitingCount} clientes aguardam um atendente.`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}</Link>
                   );
                 })}
               </div>
