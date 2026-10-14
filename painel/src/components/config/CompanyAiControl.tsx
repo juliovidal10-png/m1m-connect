@@ -60,26 +60,29 @@ export default function CompanyAiControl({
   }, []);
 
   return (
-    <div>
-      <p>{compact ? "IA da empresa" : "Atendimento automático por IA"}</p>
-      <p>
-        {enabled === null
-          ? "Consultando IA..."
-          : enabled
-            ? "IA ligada"
-            : "IA pausada"}
-      </p>
+    <div className={compact
+      ? "flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2"
+      : "flex flex-col gap-4 rounded-2xl border border-teal-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6"}>
+      <div className={compact ? "flex flex-wrap items-center gap-2" : "min-w-0"}>
+        <p className={compact ? "text-xs font-semibold text-black/60" : "text-sm font-bold text-[#171717]"}>
+          {compact ? "IA da empresa" : "Atendimento automático por IA"}
+        </p>
+        {!compact && <p className="mt-1 text-xs text-black/50">Controle geral da IA desta empresa.</p>}
+        <span className={"inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold " +
+          (enabled === null ? "bg-black/5 text-black/50" : enabled ? "bg-teal-50 text-teal-800" : "bg-amber-50 text-amber-800")}>
+          <span aria-hidden="true" className={"h-1.5 w-1.5 rounded-full " +
+            (enabled === null ? "bg-black/30" : enabled ? "bg-[#0A9090]" : "bg-amber-600")} />
+          {enabled === null ? "Consultando IA..." : enabled ? "IA ligada" : "IA pausada"}
+        </span>
+      </div>
       {authorized && enabled !== null && (
-        <button
-          type="button"
-          onClick={() => void toggle()}
-          disabled={saving}
-          className="rounded-xl border border-teal-200 bg-white px-4 py-2 text-xs font-bold text-teal-700 disabled:opacity-50"
-        >
+        <button type="button" onClick={() => void toggle()} disabled={saving}
+          className={"inline-flex h-9 shrink-0 items-center justify-center rounded-xl border px-3 text-xs font-bold transition disabled:opacity-50 " +
+            (enabled ? "border-black/10 bg-white text-black/65 hover:border-teal-200 hover:text-teal-700" : "border-[#0A9090] bg-[#0A9090] text-white hover:bg-[#087B7B]")}>
           {saving ? "Salvando..." : enabled ? "Pausar IA" : "Ligar IA"}
         </button>
       )}
-      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="w-full text-xs text-red-600">{error}</p>}
     </div>
   );
 }
