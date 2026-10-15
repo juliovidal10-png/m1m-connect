@@ -419,6 +419,40 @@ async function fetchAllEvolutionChats(instanceName: string) {
   return allChats;
 }
 
+// TF2: evita varredura completa da Evolution a cada polling de 5 segundos.
+// Inventario isolado por empresa e instancia; uma atualizacao por chave e processo.
+const tf2ChatCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
+const tf2ChatRefresh = new Map<string, Promise<EvolutionChat[]>>();
+const TF2_CHAT_CACHE_MS = 60000;
+
+// A assinatura muda quando a composicao dos atendimentos aguardando muda.
+// Nao armazena estado, responsavel ou permissao no inventario de chats.
+async function getCachedEvolutionChats(companyId: string, instanceName: string, waitingSignature: string): Promise<EvolutionChat[]> {
+  const key = JSON.stringify([companyId, instanceName, waitingSignature]);
+  const current = tf2ChatCache.get(key);
+  if (current && Date.now() < current.expiresAt) return current.chats;
+  const pending = tf2ChatRefresh.get(key);
+  if (pending) return pending;
+  const refresh = fetchAllEvolutionChats(instanceName).then((chats) => {
+    // Evita reter indefinidamente inventarios de assinaturas antigas.
+    for (const oldKey of tf2ChatCache.keys()) {
+      if (oldKey !== key && oldKey.startsWith(JSON.stringify([companyId, instanceName]).slice(0, -1) + ',')) {
+        tf2ChatCache.delete(oldKey);
+      }
+    }
+    tf2ChatCache.set(key, { chats, expiresAt: Date.now() + TF2_CHAT_CACHE_MS });
+    return chats;
+  });
+  tf2ChatRefresh.set(key, refresh);
+  try {
+    return await refresh;
+  } catch (error) {
+    // Nao devolver inventario antigo como se representasse a nova fila.
+    throw error;
+  } finally {
+    tf2ChatRefresh.delete(key);
+  }
+}
 function normalizeSearch(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
@@ -439,86 +473,7 @@ export async function GET(request: Request) {
     };
     const url = new URL(request.url);
 
-    if (url.searchParams.get("waitingCount") === "1") {
-      const authenticatedUser = await authorizationService.getCurrentUser();
-      const companyId = authenticatedUser.companyId;
-      const canViewAllConversations = authorizationService.hasPermission(
-        authenticatedUser,
-        M1MUserPermission.VIEW_ALL_CONVERSATIONS,
-      );
-      const assignedSectorIds = canViewAllConversations
-        ? []
-        : (await prisma.m1MSectorUser.findMany({
-            where: { userId: authenticatedUser.userId },
-            select: { sectorId: true },
-          })).map((assignment) => assignment.sectorId);
-
-      if (!canViewAllConversations && assignedSectorIds.length === 0) {
-        return NextResponse.json({ waitingCount: 0 });
-      }
-      if (!API_URL || !API_KEY) {
-        return NextResponse.json({ error: "Evolution API indisponivel" }, { status: 503 });
-      }
-      const company = await companyRepository.findById(companyId);
-      const instanceName = company?.whatsappInstanceName?.trim();
-      if (!instanceName) {
-        return NextResponse.json({ error: "Instancia nao configurada" }, { status: 400 });
-      }
-
-      // TF2: a fila Aguardando e composta por CONVERSAS visiveis,
-      // enriquecidas com o atendimento ativo mais recente do cliente.
-      // Percorre todas as conversas, sem limitar pela pagina atual.
-      const [customers, activeAttendances, rawChats] = await Promise.all([
-        prisma.m1MCustomer.findMany({ where: { companyId } }),
-        prisma.m1MAttendance.findMany({
-          where: { companyId, state: { in: ["IA", "HUMANO"] } },
-          orderBy: { startedAt: "desc" },
-          select: { customerId: true, state: true, responsibleId: true, sectorId: true },
-        }),
-        fetchAllEvolutionChats(instanceName),
-      ]);
-      const attendanceByCustomerId = new Map<string, (typeof activeAttendances)[number]>();
-      for (const attendance of activeAttendances) {
-        if (!attendanceByCustomerId.has(attendance.customerId)) {
-          attendanceByCustomerId.set(attendance.customerId, attendance);
-        }
-      }
-      const customerMap = new Map<string, (typeof customers)[number]>();
-      for (const customer of customers) {
-        const remoteJid = normalizeJid(customer.remoteJid);
-        const remoteJidPhone = normalizePhone(customer.remoteJid);
-        const customerPhone = normalizePhone(customer.phone);
-        if (remoteJid) customerMap.set(remoteJid, customer);
-        if (remoteJidPhone) customerMap.set(remoteJidPhone, customer);
-        if (customerPhone) customerMap.set(customerPhone, customer);
-      }
-      const allowedSectors = new Set(assignedSectorIds);
-      const seenChats = new Set<string>();
-      const seenCustomers = new Set<string>();
-      let waitingCount = 0;
-      for (const chat of rawChats) {
-        const key = getPrimaryRemoteJid(chat);
-        if (key && seenChats.has(key)) continue;
-        if (key) seenChats.add(key);
-        let customer: (typeof customers)[number] | undefined;
-        for (const identity of getChatIdentities(chat)) {
-          customer = customerMap.get(identity);
-          if (customer) break;
-        }
-        if (!customer || seenCustomers.has(customer.id)) continue;
-        seenCustomers.add(customer.id);
-        const attendance = attendanceByCustomerId.get(customer.id);
-        if (
-          attendance?.state === "HUMANO" &&
-          !attendance.responsibleId &&
-          (canViewAllConversations ||
-            (!!attendance.sectorId && allowedSectors.has(attendance.sectorId)))
-        ) {
-          waitingCount += 1;
-        }
-      }
-      return NextResponse.json({ waitingCount });
-    }
+    const wantsWaitingCount = url.searchParams.get("waitingCount") === "1";
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
     }
@@ -695,6 +650,23 @@ export async function GET(request: Request) {
       });
     }
 
+    // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
+    // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
+    // Atendimentos e autorizacoes sao consultados novamente em cada polling.
+    if (wantsWaitingCount) {
+      const waitingSignature = JSON.stringify(
+        activeAttendances
+          .filter((attendance) => attendance.state === "HUMANO" && !attendance.responsibleId)
+          .map((attendance) => [attendance.customerId, attendance.id])
+          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+      );
+      const rawChats = await getCachedEvolutionChats(companyId, instanceName, waitingSignature);
+      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats)));
+      const waitingCount = waitingChats.filter(
+        (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
+      ).length;
+      return NextResponse.json({ waitingCount });
+    }
     if (search) {
       /*
        * Busca rapida:

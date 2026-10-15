@@ -297,12 +297,12 @@ export default function Sidebar() {
   const [
     conversationsWaitingCount,
     setConversationsWaitingCount,
-  ] = useState(0);
+  ] = useState<number | null>(null);
+  const [waitingCountStatus, setWaitingCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
 
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
-
     const refreshWaitingCount = async () => {
       if (cancelled || inFlight) return;
 
@@ -313,16 +313,20 @@ export default function Sidebar() {
           cache: "no-store",
         });
 
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Falha na consulta da fila Aguardando");
 
         const data = await response.json();
         const count = Number(data.waitingCount);
 
-        if (!cancelled && Number.isFinite(count) && count >= 0) {
+        if (!Number.isInteger(count) || count < 0) throw new Error("Contagem invalida");
+        if (!cancelled) {
           setConversationsWaitingCount(count);
+          setWaitingCountStatus("current");
         }
       } catch {
-        // Preserva a ultima contagem valida durante falhas temporarias.
+        if (!cancelled) {
+          setWaitingCountStatus((previous) => previous === "current" || previous === "stale" ? "stale" : "unavailable");
+        }
       } finally {
         inFlight = false;
       }
@@ -457,16 +461,21 @@ export default function Sidebar() {
                       </span>
 
                       {item.href === "/" &&
-                        conversationsWaitingCount > 0 && (
+                        waitingCountStatus !== "current" && (
+                          <span title={waitingCountStatus === "stale" ? "Ultima contagem conhecida; atualizacao indisponivel" : "Contagem indisponivel"} className="text-[10px] font-semibold text-amber-700">!</span>
+                        )}
+
+                      {item.href === "/" &&
+                        (conversationsWaitingCount ?? 0) > 0 && (
                           <span
-                            title={`${conversationsWaitingCount} atendimento${
+                            title={`${waitingCountStatus === "stale" ? "Ultima contagem conhecida: " : ""}${conversationsWaitingCount} atendimento${
                               conversationsWaitingCount === 1
                                 ? ""
                                 : "s"
                             } aguardando`}
                             className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white"
                           >
-                            {conversationsWaitingCount > 99
+                            {(conversationsWaitingCount ?? 0) > 99
                               ? "99+"
                               : conversationsWaitingCount}
                           </span>
@@ -508,7 +517,7 @@ export default function Sidebar() {
 
                       {/* TF2_AVISO_VISUAL_PERSISTENTE: acabamento visual; usa contagem ja existente */}
                       {item.href === "/" &&
-                        conversationsWaitingCount > 0 &&
+                        (conversationsWaitingCount ?? 0) > 0 &&
                         typeof document !== "undefined" &&
                         createPortal(
                           <div
@@ -527,12 +536,14 @@ export default function Sidebar() {
                               </span>
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold leading-5">
-                                  {conversationsWaitingCount === 1
-                                    ? "1 cliente aguardando"
-                                    : `${conversationsWaitingCount} clientes aguardando`}
+                                  {waitingCountStatus === "stale"
+                                    ? `${conversationsWaitingCount} pendencia(s) na ultima consulta`
+                                    : conversationsWaitingCount === 1
+                                      ? "1 cliente aguardando"
+                                      : `${conversationsWaitingCount} clientes aguardando`}
                                 </p>
                                 <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                                  Atendimento humano pendente
+                                  {waitingCountStatus === "stale" ? "Ultima contagem conhecida - atualizacao indisponivel" : "Atendimento humano pendente"}
                                 </p>
                               </div>
                             </div>
