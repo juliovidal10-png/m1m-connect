@@ -506,7 +506,7 @@ export default function Sidebar() {
                           </span>
                         )}
 
-                      {/* TF2_AVISO_VISUAL_PERSISTENTE: aviso global, sem alterar o badge 99+ */}
+                      {/* TF2_AVISO_VISUAL_PERSISTENTE: acabamento visual; usa contagem ja existente */}
                       {item.href === "/" &&
                         conversationsWaitingCount > 0 &&
                         typeof document !== "undefined" &&
@@ -515,16 +515,24 @@ export default function Sidebar() {
                             role="status"
                             aria-live="polite"
                             aria-atomic="true"
-                            className="pointer-events-none fixed bottom-4 left-4 right-4 z-[100] rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 shadow-xl md:left-auto md:right-6 md:w-[380px]"
+                            className="pointer-events-none fixed bottom-20 left-3 right-3 z-[100] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-lg sm:bottom-5 sm:left-auto sm:right-5 sm:w-[min(380px,calc(100vw-2.5rem))]"
                           >
-                            <div className="flex items-start gap-3">
-                              <span aria-hidden="true" className="text-xl leading-6">âš </span>
+                            <div className="flex items-center gap-3">
+                              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                                  <path d="M12 9v4" />
+                                  <path d="M12 17h.01" />
+                                </svg>
+                              </span>
                               <div className="min-w-0">
-                                <p className="text-sm font-bold">Clientes aguardando atendimento humano</p>
-                                <p className="mt-1 text-sm">
+                                <p className="text-sm font-semibold leading-5">
                                   {conversationsWaitingCount === 1
-                                    ? "1 cliente aguarda um atendente."
-                                    : `${conversationsWaitingCount} clientes aguardam um atendente.`}
+                                    ? "1 cliente aguardando"
+                                    : `${conversationsWaitingCount} clientes aguardando`}
+                                </p>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                                  Atendimento humano pendente
                                 </p>
                               </div>
                             </div>

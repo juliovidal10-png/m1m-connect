@@ -1,4 +1,4 @@
-﻿import { authorizationService } from "@/services/auth/authorization.service";
+import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
 
@@ -442,61 +442,81 @@ export async function GET(request: Request) {
     if (url.searchParams.get("waitingCount") === "1") {
       const authenticatedUser = await authorizationService.getCurrentUser();
       const companyId = authenticatedUser.companyId;
-
       const canViewAllConversations = authorizationService.hasPermission(
         authenticatedUser,
         M1MUserPermission.VIEW_ALL_CONVERSATIONS,
       );
-
       const assignedSectorIds = canViewAllConversations
         ? []
-        : (
-            await prisma.m1MSectorUser.findMany({
-              where: { userId: authenticatedUser.userId },
-              select: { sectorId: true },
-            })
-          ).map((assignment) => assignment.sectorId);
+        : (await prisma.m1MSectorUser.findMany({
+            where: { userId: authenticatedUser.userId },
+            select: { sectorId: true },
+          })).map((assignment) => assignment.sectorId);
 
       if (!canViewAllConversations && assignedSectorIds.length === 0) {
         return NextResponse.json({ waitingCount: 0 });
       }
+      if (!API_URL || !API_KEY) {
+        return NextResponse.json({ error: "Evolution API indisponivel" }, { status: 503 });
+      }
+      const company = await companyRepository.findById(companyId);
+      const instanceName = company?.whatsappInstanceName?.trim();
+      if (!instanceName) {
+        return NextResponse.json({ error: "Instancia nao configurada" }, { status: 400 });
+      }
 
-      const attendances = await prisma.m1MAttendance.findMany({
-        where: {
-          companyId,
-          state: { in: ["IA", "HUMANO"] },
-        },
-        orderBy: { startedAt: "desc" },
-        select: {
-          customerId: true,
-          state: true,
-          responsibleId: true,
-          sectorId: true,
-        },
-      });
-
+      // TF2: a fila Aguardando e composta por CONVERSAS visiveis,
+      // enriquecidas com o atendimento ativo mais recente do cliente.
+      // Percorre todas as conversas, sem limitar pela pagina atual.
+      const [customers, activeAttendances, rawChats] = await Promise.all([
+        prisma.m1MCustomer.findMany({ where: { companyId } }),
+        prisma.m1MAttendance.findMany({
+          where: { companyId, state: { in: ["IA", "HUMANO"] } },
+          orderBy: { startedAt: "desc" },
+          select: { customerId: true, state: true, responsibleId: true, sectorId: true },
+        }),
+        fetchAllEvolutionChats(instanceName),
+      ]);
+      const attendanceByCustomerId = new Map<string, (typeof activeAttendances)[number]>();
+      for (const attendance of activeAttendances) {
+        if (!attendanceByCustomerId.has(attendance.customerId)) {
+          attendanceByCustomerId.set(attendance.customerId, attendance);
+        }
+      }
+      const customerMap = new Map<string, (typeof customers)[number]>();
+      for (const customer of customers) {
+        const remoteJid = normalizeJid(customer.remoteJid);
+        const remoteJidPhone = normalizePhone(customer.remoteJid);
+        const customerPhone = normalizePhone(customer.phone);
+        if (remoteJid) customerMap.set(remoteJid, customer);
+        if (remoteJidPhone) customerMap.set(remoteJidPhone, customer);
+        if (customerPhone) customerMap.set(customerPhone, customer);
+      }
+      const allowedSectors = new Set(assignedSectorIds);
+      const seenChats = new Set<string>();
       const seenCustomers = new Set<string>();
       let waitingCount = 0;
-
-      for (const attendance of attendances) {
-        if (seenCustomers.has(attendance.customerId)) continue;
-        seenCustomers.add(attendance.customerId);
-
+      for (const chat of rawChats) {
+        const key = getPrimaryRemoteJid(chat);
+        if (key && seenChats.has(key)) continue;
+        if (key) seenChats.add(key);
+        let customer: (typeof customers)[number] | undefined;
+        for (const identity of getChatIdentities(chat)) {
+          customer = customerMap.get(identity);
+          if (customer) break;
+        }
+        if (!customer || seenCustomers.has(customer.id)) continue;
+        seenCustomers.add(customer.id);
+        const attendance = attendanceByCustomerId.get(customer.id);
         if (
-          attendance.state === "HUMANO" &&
+          attendance?.state === "HUMANO" &&
           !attendance.responsibleId &&
-          (
-            canViewAllConversations ||
-            (
-              !!attendance.sectorId &&
-              assignedSectorIds.includes(attendance.sectorId)
-            )
-          )
+          (canViewAllConversations ||
+            (!!attendance.sectorId && allowedSectors.has(attendance.sectorId)))
         ) {
           waitingCount += 1;
         }
       }
-
       return NextResponse.json({ waitingCount });
     }
     if (!API_URL || !API_KEY) {
