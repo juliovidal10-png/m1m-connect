@@ -684,7 +684,7 @@ export default function Sidebar() {
                                   Clientes aguardando
                                 </p>
                                 <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                                  Atendimento humano necessÃ¡rio
+                                  Atendimento humano necessário
                                 </p>
                               </div>
                             </div>
