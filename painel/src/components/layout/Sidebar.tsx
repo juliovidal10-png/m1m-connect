@@ -4,7 +4,10 @@ import { createPortal } from "react-dom";
 import {
   useCallback,
   useState,
-  useEffect,} from "react";
+  useEffect,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -299,6 +302,63 @@ export default function Sidebar() {
     setConversationsWaitingCount,
   ] = useState<number | null>(null);
   const [waitingCountStatus, setWaitingCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
+  const floatingAlertRef = useRef<HTMLDivElement | null>(null);
+  const floatingDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
+  const [floatingPosition, setFloatingPosition] = useState<{ x: number; y: number } | null>(null);
+
+  const clampFloatingPosition = useCallback((x: number, y: number) => {
+    const width = floatingAlertRef.current?.offsetWidth ?? Math.min(380, window.innerWidth - 24);
+    const height = floatingAlertRef.current?.offsetHeight ?? 80;
+    const margin = 12;
+    return {
+      x: Math.max(margin, Math.min(x, Math.max(margin, window.innerWidth - width - margin))),
+      y: Math.max(margin, Math.min(y, Math.max(margin, window.innerHeight - height - margin))),
+    };
+  }, []);
+
+  useEffect(() => {
+    const keepInsideWindow = () => {
+      setFloatingPosition((previous) => {
+        if (!floatingAlertRef.current) return previous;
+        if (previous) return clampFloatingPosition(previous.x, previous.y);
+        const rect = floatingAlertRef.current.getBoundingClientRect();
+        return clampFloatingPosition(rect.left, rect.top);
+      });
+    };
+    keepInsideWindow();
+    window.addEventListener("resize", keepInsideWindow);
+    return () => window.removeEventListener("resize", keepInsideWindow);
+  }, [clampFloatingPosition, conversationsWaitingCount]);
+
+  const handleFloatingPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    floatingDragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleFloatingPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = floatingDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setFloatingPosition(clampFloatingPosition(event.clientX - drag.offsetX, event.clientY - drag.offsetY));
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleFloatingPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (floatingDragRef.current?.pointerId !== event.pointerId) return;
+    floatingDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    event.stopPropagation();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -515,41 +575,7 @@ export default function Sidebar() {
                           </span>
                         )}
 
-                      {/* TF2_AVISO_VISUAL_PERSISTENTE: acabamento visual; usa contagem ja existente */}
-                      {item.href === "/" &&
-                        (conversationsWaitingCount ?? 0) > 0 &&
-                        typeof document !== "undefined" &&
-                        createPortal(
-                          <div
-                            role="status"
-                            aria-live="polite"
-                            aria-atomic="true"
-                            className="pointer-events-none fixed bottom-20 left-3 right-3 z-[100] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-lg sm:bottom-5 sm:left-auto sm:right-5 sm:w-[min(380px,calc(100vw-2.5rem))]"
-                          >
-                            <div className="flex items-center gap-3">
-                              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
-                                  <path d="M12 9v4" />
-                                  <path d="M12 17h.01" />
-                                </svg>
-                              </span>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold leading-5">
-                                  {waitingCountStatus === "stale"
-                                    ? `${conversationsWaitingCount} pendencia(s) na ultima consulta`
-                                    : conversationsWaitingCount === 1
-                                      ? "1 cliente aguardando"
-                                      : `${conversationsWaitingCount} clientes aguardando`}
-                                </p>
-                                <p className="mt-0.5 text-xs leading-5 text-slate-600">
-                                  {waitingCountStatus === "stale" ? "Ultima contagem conhecida - atualizacao indisponivel" : "Atendimento humano pendente"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>,
-                          document.body,
-                        )}</Link>
+</Link>
                   );
                 })}
               </div>
@@ -628,6 +654,43 @@ export default function Sidebar() {
         />
       </div>
       </aside>
+      {/* TF2_AVISO_VISUAL_PERSISTENTE: unico portal fora do link de navegacao */}
+                      {(conversationsWaitingCount ?? 0) > 0 &&
+        typeof document !== "undefined" &&
+                        createPortal(
+                          <div
+                            role="status"
+                            aria-live="polite"
+                            aria-atomic="true"
+                            ref={floatingAlertRef}
+                            onPointerDown={handleFloatingPointerDown}
+                            onPointerMove={handleFloatingPointerMove}
+                            onPointerUp={handleFloatingPointerEnd}
+                            onPointerCancel={handleFloatingPointerEnd}
+                            onClick={(event) => event.stopPropagation()}
+                            style={floatingPosition ? { left: floatingPosition.x, top: floatingPosition.y, right: "auto", bottom: "auto" } : undefined}
+                            className="pointer-events-auto fixed top-24 right-3 z-[100] w-[calc(100vw-1.5rem)] cursor-grab touch-none select-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-lg active:cursor-grabbing sm:top-5 sm:right-5 sm:w-[min(380px,calc(100vw-2.5rem))]"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                                  <path d="M12 9v4" />
+                                  <path d="M12 17h.01" />
+                                </svg>
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold leading-5">
+                                  Clientes aguardando
+                                </p>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-600">
+                                  Atendimento humano necessÃ¡rio
+                                </p>
+                              </div>
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
     </>
   );
 }
