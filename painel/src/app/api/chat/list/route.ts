@@ -419,6 +419,86 @@ async function fetchAllEvolutionChats(instanceName: string) {
   return allChats;
 }
 
+// TF3: inventario independente para o total de conversas da aba TODAS.
+// Cache por empresa/instancia, sem estados ou permissoes de usuario.
+const tf3InventoryCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
+const tf3InventoryRefresh = new Map<string, Promise<EvolutionChat[]>>();
+const TF3_INVENTORY_CACHE_MS = 60000;
+
+async function getTf3CompleteInventory(companyId: string, instanceName: string): Promise<EvolutionChat[]> {
+  const key = JSON.stringify([companyId, instanceName]);
+  const cached = tf3InventoryCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) return cached.chats;
+  const inFlight = tf3InventoryRefresh.get(key);
+  if (inFlight) return inFlight;
+
+  const refresh = (async () => {
+    const take = 200;
+    const maxPages = 50;
+    const chats: EvolutionChat[] = [];
+    const seen = new Set<string>();
+    let complete = false;
+    for (let page = 0; page < maxPages; page += 1) {
+      // TF3: consulta estrita. A rotina compartilhada de paginacao pode ignorar
+      // registros defeituosos; isso e aceitavel para a lista, nao para um total exato.
+      const response = await fetch(
+        `${API_URL}/chat/findChats/${encodeURIComponent(instanceName)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: API_KEY || "" },
+          body: JSON.stringify({ where: {}, take, skip: page * take }),
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`TF3: inventario incompleto; Evolution HTTP ${response.status} na pagina ${page + 1}`);
+      }
+      const data: unknown = await response.json();
+      const resultChats: unknown = Array.isArray(data)
+        ? data
+        : data && typeof data === "object" && "value" in data
+          ? (data as { value: unknown }).value
+          : null;
+      if (!Array.isArray(resultChats)) {
+        throw new Error(`TF3: formato inesperado da Evolution na pagina ${page + 1}`);
+      }
+      if (resultChats.length > take) {
+        throw new Error(`TF3: paginacao invalida da Evolution na pagina ${page + 1}`);
+      }
+      const result: EvolutionChatPageResult = {
+        chats: resultChats as EvolutionChat[],
+        reachedEnd: resultChats.length < take,
+      };
+      for (const chat of result.chats) {
+        const jid = getPrimaryRemoteJid(chat);
+        if (jid && seen.has(jid)) continue;
+        if (jid) seen.add(jid);
+        chats.push(chat);
+      }
+      if (result.reachedEnd) {
+        complete = true;
+        break;
+      }
+    }
+    if (!complete) throw new Error("TF3: inventario excedeu limite de varredura; total indisponivel");
+    tf3InventoryCache.set(key, { chats, expiresAt: Date.now() + TF3_INVENTORY_CACHE_MS });
+    return chats;
+  })();
+  tf3InventoryRefresh.set(key, refresh);
+  try {
+    return await refresh;
+  } finally {
+    tf3InventoryRefresh.delete(key);
+  }
+}
+
+// Mesma identidade visual de mergeDuplicateChats (ChatInbox.tsx).
+function getTf3VisualChatKey(chat: EnrichedChat): string {
+  const remoteJid = chat.remoteJid || "";
+  const canonicalJid = chat.canonicalJid || chat.lastMessage?.key?.remoteJidAlt || remoteJid;
+  return `jid:${isGroupJid(remoteJid) ? remoteJid : canonicalJid}`;
+}
+
 // TF2: evita varredura completa da Evolution a cada polling de 5 segundos.
 // Inventario isolado por empresa e instancia; uma atualizacao por chave e processo.
 const tf2ChatCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
@@ -474,6 +554,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
 
     const wantsWaitingCount = url.searchParams.get("waitingCount") === "1";
+    const wantsTotalCount = url.searchParams.get("totalCount") === "1";
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
     }
@@ -501,7 +582,9 @@ export async function GET(request: Request) {
     const assignedSectorIdSet = new Set(assignedSectorIds);
 
     if (!canViewAllConversations && assignedSectorIds.length === 0) {
-      return NextResponse.json({ items: [], hasMore: false });
+      return wantsTotalCount
+        ? NextResponse.json({ totalCount: 0 })
+        : NextResponse.json({ items: [], hasMore: false });
     }
 
     const company = await companyRepository.findById(companyId);
@@ -653,6 +736,13 @@ export async function GET(request: Request) {
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
+    if (wantsTotalCount) {
+      const rawChats = await getTf3CompleteInventory(companyId, instanceName);
+      const visibleChats = visible(await enrich(rawChats));
+      const visualKeys = new Set(visibleChats.map(getTf3VisualChatKey));
+      return NextResponse.json({ totalCount: visualKeys.size });
+    }
+
     if (wantsWaitingCount) {
       const waitingSignature = JSON.stringify(
         activeAttendances
