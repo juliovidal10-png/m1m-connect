@@ -458,10 +458,7 @@ function mergeDuplicateChats(items: Chat[]) {
       updatedAt: chatIsNewer
         ? chat.updatedAt
         : current.updatedAt,
-      unreadCount: Math.max(
-        chat.unreadCount || 0,
-        current.unreadCount || 0,
-      ),
+      unreadCount: chatIsNewer ? (chat.unreadCount ?? 0) : (current.unreadCount ?? 0),
       lastMessage: chatIsNewer
         ? chat.lastMessage
         : current.lastMessage,
@@ -951,6 +948,11 @@ export default function ChatInbox() {
 
   const messagesRequestIdRef =
     useRef(0);
+
+  // TF3: evita chamadas concorrentes e reenvio a cada ciclo de polling.
+  // O registro e por conversa + conjunto de IDs, nunca por contador agregado.
+  const readAttemptsRef = useRef<Map<string, number>>(new Map());
+  const readInFlightRef = useRef<Set<string>>(new Set());
 
   const contactsMap = useMemo(
     () => buildContactsMap(contacts),
@@ -1448,6 +1450,7 @@ const loadContacts =
     async (
       chat: Chat,
       showLoading = false,
+      readOnArrival = false,
     ) => {
       const requestId =
         ++messagesRequestIdRef.current;
@@ -1544,6 +1547,53 @@ const loadContacts =
             ];
           },
         );
+        // TF3: a leitura e solicitada com IDs concretos recebidos da conversa.
+        // O contador agregado serve somente como indicio de pendencia, nunca
+        // como fonte exclusiva da identidade/quantidade de mensagens.
+        if ((showLoading || readOnArrival) && activeChatJidRef.current === requestedChatJid) {
+          const receivedIds = [...new Set(
+            orderedMessages
+              .filter((message) => message.key?.fromMe === false && Boolean(message.key?.id))
+              .map((message) => message.key.id as string),
+          )].slice(-100);
+          if (receivedIds.length > 0) {
+            const attemptKey = JSON.stringify([requestedChatJid, receivedIds]);
+            const now = Date.now();
+            const previousAttempt = readAttemptsRef.current.get(attemptKey) ?? 0;
+            // Sem recibo verificavel: no maximo uma tentativa por minuto
+            // para o mesmo conjunto de IDs. Novo ID gera uma nova chave.
+            if (!readInFlightRef.current.has(attemptKey) && now - previousAttempt >= 60_000) {
+              readAttemptsRef.current.set(attemptKey, now);
+              readInFlightRef.current.add(attemptKey);
+              // Nao bloqueia a exibicao do historico durante a operacao.
+              void (async () => {
+                try {
+                  const readResponse = await fetch("/api/chat/read", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ remoteJid: requestedChatJid, messageIds: receivedIds }),
+                  });
+                  const readResult = readResponse.ok
+                    ? await readResponse.json().catch(() => null)
+                    : null;
+                  if (!readResponse.ok || readResult?.state !== "ACCEPTED_UNCONFIRMED") {
+                    console.warn("[TF3] Leitura nao confirmada", readResponse.status);
+                  }
+                  // HTTP 2xx nao altera o badge: somente reconciliacao da lista.
+                } catch (readError) {
+                  console.warn("[TF3] Falha na solicitacao de leitura", readError);
+                } finally {
+                  readInFlightRef.current.delete(attemptKey);
+                  // Evita crescimento indefinido em sessoes longas.
+                  if (readAttemptsRef.current.size > 250) {
+                    const oldest = readAttemptsRef.current.keys().next().value;
+                    if (oldest !== undefined) readAttemptsRef.current.delete(oldest);
+                  }
+                }
+              })();
+            }
+          }
+        }
         if (showLoading) {
           /*
            * Na troca de conversa, aguarda o React renderizar
@@ -2312,6 +2362,7 @@ const loadContacts =
       void loadMessages(
         selectedChat,
         false,
+        true,
       );
     }
 
