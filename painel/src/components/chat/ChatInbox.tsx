@@ -1372,6 +1372,21 @@ const loadContacts =
               ? data.value
               : [];
         const items = mergeDuplicateChats(receivedItems);
+        // TF3: diagnostico opt-in (?tf3diag=1), sem JIDs, nomes ou mensagens.
+        if (mode === "refresh" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1") {
+          const active = chatsRef.current.find((chat) => chat.remoteJid === activeChatJidRef.current);
+          if (active) {
+            const identity = active.canonicalJid || getCanonicalJid(active);
+            const matching = receivedItems.filter((chat) => (chat.canonicalJid || getCanonicalJid(chat)) === identity);
+            const merged = items.find((chat) => (chat.canonicalJid || getCanonicalJid(chat)) === identity);
+            console.info("[TF3-DIAG] refresh", {
+              rawMatches: matching.length,
+              rawUnreadCounts: matching.map((chat) => chat.unreadCount ?? 0),
+              mergedUnreadCount: merged?.unreadCount ?? null,
+              previousUnreadCount: active.unreadCount ?? 0,
+            });
+          }
+        }
         setHasMoreChats(Boolean(data?.hasMore));
 
         let nextItems = items;
@@ -1579,9 +1594,16 @@ const loadContacts =
                         .map((message) => ({ id: message.key.id, remoteJid: message.key.remoteJid ?? requestedChatJid })),
                     }),
                   });
-                  const readResult = readResponse.ok
-                    ? await readResponse.json().catch(() => null)
-                    : null;
+                  const readResult = await readResponse.json().catch(() => null);
+                  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1") {
+                    console.info("[TF3-DIAG] read", {
+                      httpStatus: readResponse.status,
+                      state: typeof readResult?.state === "string" ? readResult.state : null,
+                      code: typeof readResult?.tf3Code === "string" ? readResult.tf3Code : null,
+                      requestedCount: receivedIds.length,
+                      verifiedCount: typeof readResult?.verifiedCount === "number" ? readResult.verifiedCount : null,
+                    });
+                  }
                   if (readResponse.ok && readResult?.state === "CONFIRMED") {
                     if (activeChatJidRef.current === requestedChatJid) {
                       await loadChats(false, "refresh");

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       }
     }
     if (byId.size !== requested.size) {
-      return NextResponse.json({ error: "Mensagens nao comprovadas na conversa e instancia" }, { status: 409 });
+      return NextResponse.json({ error: "Mensagens nao comprovadas na conversa e instancia", tf3Code: "A_IDS_NOT_VERIFIED", requestedCount: requested.size, verifiedCount: byId.size }, { status: 409 });
     }
     const verified = [...byId.values()];
     // Falha fechada para usuarios restritos: a identidade autorizada deve ser
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       method: "POST", headers: { "Content-Type": "application/json", apikey: API_KEY },
       body: JSON.stringify({ readMessages }), cache: "no-store", signal: AbortSignal.timeout(12000),
     });
-    if (!response.ok) return NextResponse.json({ state: "REJECTED", confirmed: false, error: "Evolution recusou marcacao" }, { status: 502 });
+    if (!response.ok) return NextResponse.json({ state: "REJECTED", confirmed: false, tf3Code: "A_EVOLUTION_REJECTED", error: "Evolution recusou marcacao" }, { status: 502 });
     const resultText = await response.text();
     let result: unknown = null;
     try { result = resultText ? JSON.parse(resultText) : null; } catch { /* resposta textual */ }
@@ -127,9 +127,9 @@ export async function POST(request: NextRequest) {
         }
       }
     } catch {
-      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false }, { status: 502 });
+      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, tf3Code: "B_CONFIRMATION_QUERY_FAILED" }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, requested: requested.size });
+    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size });
   } catch (error) {
     console.error("[TF3] Falha ao marcar mensagens como lidas", error);
     return NextResponse.json({ error: "Falha ao confirmar leitura" }, { status: 500 });
