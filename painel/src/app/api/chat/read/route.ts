@@ -110,26 +110,49 @@ export async function POST(request: NextRequest) {
     }
     // Confirma TODOS os IDs na mesma identidade persistida. Uma mensagem nova
     // ou homonima nao pode servir como comprovante de outra.
+    // TF3: contagens agregadas, sem IDs, JIDs, conteudo ou credenciais.
+    // Apenas observabilidade: nao altera tempos, estados nem criterio de confirmacao.
+    const tf3ConfirmationAttempts: Array<{
+      attempt: number; confirmedCount: number; matchedCount: number;
+      readCount: number; playedCount: number; otherStatusCount: number;
+    }> = [];
     try {
       for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 650));
         const confirmed = new Set<string>();
+        const matched = new Set<string>();
+        const read = new Set<string>();
+        const played = new Set<string>();
         for (const jid of candidateJids) {
           const records = await getMessages(jid, instance, 100) as EvolutionMessage[];
           for (const message of records) {
             const original = message.key?.id ? byId.get(message.key.id) : undefined;
             if (original && message.key?.remoteJid === original.key?.remoteJid &&
-                message.key?.fromMe === false && isRead(message.status)) confirmed.add(message.key.id!);
+                message.key?.fromMe === false) {
+              matched.add(message.key.id!);
+              if (message.status === "READ") read.add(message.key.id!);
+              if (message.status === "PLAYED") played.add(message.key.id!);
+              if (isRead(message.status)) confirmed.add(message.key.id!);
+            }
           }
         }
+        tf3ConfirmationAttempts.push({
+          attempt: attempt + 1, confirmedCount: confirmed.size,
+          matchedCount: matched.size, readCount: read.size, playedCount: played.size,
+          otherStatusCount: matched.size - confirmed.size,
+        });
         if (confirmed.size === requested.size) {
-          return NextResponse.json({ ok: true, state: "CONFIRMED", accepted: true, confirmed: true, requested: requested.size });
+          return NextResponse.json({ ok: true, state: "CONFIRMED", accepted: true, confirmed: true, requested: requested.size,
+            tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
       }
     } catch {
-      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, tf3Code: "B_CONFIRMATION_QUERY_FAILED" }, { status: 502 });
+      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, tf3Code: "B_CONFIRMATION_QUERY_FAILED",
+        tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size });
+    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
+      tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size,
+      tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
   } catch (error) {
     console.error("[TF3] Falha ao marcar mensagens como lidas", error);
     return NextResponse.json({ error: "Falha ao confirmar leitura" }, { status: 500 });
