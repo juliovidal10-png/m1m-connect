@@ -60,7 +60,24 @@ export async function POST(request: NextRequest) {
         if (jid !== remoteJid && key.remoteJidAlt !== remoteJid) continue;
         if (jid === remoteJid && key.remoteJidAlt &&
             candidateJids.size > 1 && !candidateJids.has(key.remoteJidAlt)) continue;
-        if (byId.has(key.id)) return NextResponse.json({ error: "ID ambiguo entre identidades" }, { status: 409 });
+        const existing = byId.get(key.id);
+        if (existing) {
+          const first = existing.key;
+          // Uma mesma mensagem pode ser devolvida pelas consultas JID e LID.
+          // Aceitar somente o par espelhado comprovado pela propria Evolution.
+          const mirroredPair = first?.remoteJid === key.remoteJidAlt &&
+            first?.remoteJidAlt === key.remoteJid &&
+            first?.remoteJid !== key.remoteJid &&
+            typeof first?.remoteJid === "string" && candidateJids.has(first.remoteJid) &&
+            candidateJids.has(key.remoteJid) &&
+            (first.remoteJid === remoteJid || key.remoteJid === remoteJid);
+          if (!mirroredPair) {
+            return NextResponse.json({ error: "ID ambiguo entre identidades" }, { status: 409 });
+          }
+          // Prefere o registro da identidade solicitada, sem alterar IDs ou permissões.
+          if (key.remoteJid === remoteJid) byId.set(key.id, record);
+          continue;
+        }
         byId.set(key.id, record);
       }
     }
