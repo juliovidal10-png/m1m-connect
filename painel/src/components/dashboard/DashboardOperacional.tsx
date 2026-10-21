@@ -713,75 +713,64 @@ export default function DashboardOperacional() {
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8]">
       <div className="mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8">
-        <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_430px_auto] lg:items-center lg:gap-6">
-          <div>
+        <header className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.15em] text-black/35">
               Visão geral
             </p>
-
-            <h1 className="mt-1 text-2xl font-bold text-[#171717]">
+            <h1 className="mt-1 text-2xl font-bold leading-tight text-[#171717]">
               Dashboard Operacional
             </h1>
-
-            <p className="mt-2 text-sm leading-6 text-black/50">
+            <p className="mt-2 max-w-xl text-sm leading-6 text-black/50">
               O que precisa de atenção na empresa agora.
             </p>
           </div>
 
-          <div className="flex justify-start lg:justify-center">
-            {trialAccess?.subscriptionStatus ===
-              "TRIAL" &&
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center xl:max-w-[65%] xl:justify-end">
+            {trialAccess?.subscriptionStatus === "TRIAL" &&
               trialRemainingDays !== null &&
               trialEndLabel && (
-                <div className="w-full rounded-2xl border border-[#0A9090] bg-white px-5 py-3 shadow-sm">
+                <div className="w-full rounded-2xl border border-[#0A9090] bg-white px-5 py-3 shadow-sm sm:w-auto">
                   <div className="flex items-center gap-4">
                     <div className="shrink-0 text-[#0A9090]">
                       <TrialGiftIcon />
                     </div>
-
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold leading-5 text-[#171717]">
-                        Teste grátis:{" "}
-                        {trialRemainingDays === 1
+                        Teste grátis: {trialRemainingDays === 1
                           ? "1 dia restante"
                           : `${trialRemainingDays} dias restantes`}
                       </p>
-
                       <p className="mt-0.5 text-xs leading-5 text-black/50">
-                        Seu teste vai até{" "}
-                        {trialEndLabel}
+                        Seu teste vai até {trialEndLabel}
                       </p>
                     </div>
                   </div>
                 </div>
               )}
-          </div>
-
-          <div className="flex items-center justify-start gap-3 lg:justify-end">
-            {lastUpdatedAt && (
-              <p className="text-xs text-black/40">
-                Atualizado às{" "}
-                {formatTime(
-                  lastUpdatedAt,
-                )}
-              </p>
-            )}
 
             <CompanyAiControl compact />
 
-            <button
-              type="button"
-              onClick={() => {
-                void loadDashboard();
-                void loadTrialAccess();
-              }}
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 text-xs font-bold leading-none text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
-            >
-              <span className="flex items-center justify-center">
-                <RefreshIcon />
-              </span>
-              <span className="leading-none">Atualizar</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-3 sm:ml-auto xl:ml-0">
+              {lastUpdatedAt && (
+                <p className="whitespace-nowrap text-xs text-black/40">
+                  Atualizado às {formatTime(lastUpdatedAt)}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  void loadDashboard();
+                  void loadTrialAccess();
+                }}
+                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-black/10 bg-white px-4 text-xs font-bold leading-none text-black/60 transition hover:border-[#0A9090]/25 hover:text-[#087B7B]"
+              >
+                <span className="flex items-center justify-center">
+                  <RefreshIcon />
+                </span>
+                <span className="leading-none">Atualizar</span>
+              </button>
+            </div>
           </div>
         </header>
 
