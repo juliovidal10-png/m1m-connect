@@ -23,56 +23,113 @@ export async function POST(request: NextRequest) {
     const instance = company?.whatsappInstanceName?.trim();
     if (!instance || !API_URL || !API_KEY) return NextResponse.json({ error: "Instancia indisponivel" }, { status: 503 });
 
-    // Para usuarios restritos, aplica o mesmo escopo da listagem: setor + HUMANO + livre/proprio.
+    // Os identificadores informados pelo navegador sao apenas candidatos.
+    // Cada registro deve ser reencontrado na instancia e vinculado ao JID da conversa
+    // pelo proprio remoteJid ou pelo remoteJidAlt persistido na mensagem.
+    type EvolutionMessage = {
+      key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; fromMe?: boolean };
+      status?: string | null;
+    };
+    const requested = new Set(ids as string[]);
+    if (requested.size !== ids.length) return NextResponse.json({ error: "IDs duplicados" }, { status: 400 });
+    const rawKeys = (payload as { messageKeys?: unknown }).messageKeys;
+    if (rawKeys !== undefined && (!Array.isArray(rawKeys) || rawKeys.length !== ids.length)) {
+      return NextResponse.json({ error: "Chaves invalidas" }, { status: 400 });
+    }
+    const candidateJids = new Set<string>([remoteJid]);
+    if (Array.isArray(rawKeys)) {
+      for (const item of rawKeys) {
+        if (!item || typeof item !== "object") return NextResponse.json({ error: "Chave invalida" }, { status: 400 });
+        const key = item as { id?: unknown; remoteJid?: unknown };
+        if (typeof key.id !== "string" || !requested.has(key.id) ||
+            typeof key.remoteJid !== "string" ||
+            !/^[0-9A-Za-z._:-]+@(s\.whatsapp\.net|lid|g\.us)$/.test(key.remoteJid)) {
+          return NextResponse.json({ error: "Chave invalida" }, { status: 400 });
+        }
+        candidateJids.add(key.remoteJid);
+      }
+    }
+    if (candidateJids.size > 2) return NextResponse.json({ error: "Identidades ambiguas" }, { status: 409 });
+    const byId = new Map<string, EvolutionMessage>();
+    for (const jid of candidateJids) {
+      const records = await getMessages(jid, instance, 100) as EvolutionMessage[];
+      for (const record of records) {
+        const key = record.key;
+        if (!key?.id || !requested.has(key.id) || key.fromMe !== false || key.remoteJid !== jid) continue;
+        // A identidade alternativa deve vir da origem, nao do cliente.
+        if (jid !== remoteJid && key.remoteJidAlt !== remoteJid) continue;
+        if (jid === remoteJid && key.remoteJidAlt &&
+            candidateJids.size > 1 && !candidateJids.has(key.remoteJidAlt)) continue;
+        if (byId.has(key.id)) return NextResponse.json({ error: "ID ambiguo entre identidades" }, { status: 409 });
+        byId.set(key.id, record);
+      }
+    }
+    if (byId.size !== requested.size) {
+      return NextResponse.json({ error: "Mensagens nao comprovadas na conversa e instancia" }, { status: 409 });
+    }
+    const verified = [...byId.values()];
+    // Falha fechada para usuarios restritos: a identidade autorizada deve ser
+    // a conversa solicitada ou uma identidade alternativa comprovada na origem.
     if (!authorizationService.hasPermission(user, M1MUserPermission.VIEW_ALL_CONVERSATIONS)) {
       const sectorAssignments = await prisma.m1MSectorUser.findMany({ where: { userId: user.userId }, select: { sectorId: true } });
       const sectorIds = sectorAssignments.map((entry) => entry.sectorId);
       if (sectorIds.length === 0) return NextResponse.json({ error: "Sem permissao" }, { status: 403 });
-      // Busca exata pelo JID da empresa; falha fechada quando nao for possivel correlacionar.
-      const customer = await prisma.m1MCustomer.findFirst({ where: { companyId: user.companyId, remoteJid } });
-      if (!customer) return NextResponse.json({ error: "Conversa nao autorizada" }, { status: 403 });
+      const linked = new Set<string>([remoteJid]);
+      for (const message of verified) {
+        if (message.key?.remoteJidAlt === remoteJid) linked.add(message.key.remoteJid!);
+        if (message.key?.remoteJid === remoteJid && message.key.remoteJidAlt) linked.add(message.key.remoteJidAlt);
+      }
+      const customers = await prisma.m1MCustomer.findMany({ where: { companyId: user.companyId, remoteJid: { in: [...linked] } } });
+      const allowedCustomerIds = customers.filter((customer) =>
+        verified.every((message) => message.key?.remoteJid === customer.remoteJid ||
+          message.key?.remoteJidAlt === customer.remoteJid ||
+          (customer.remoteJid === remoteJid && message.key?.remoteJidAlt === remoteJid)),
+      ).map((customer) => customer.id);
+      if (allowedCustomerIds.length !== 1) return NextResponse.json({ error: "Identidade nao autorizada ou ambigua" }, { status: 403 });
       const attendance = await prisma.m1MAttendance.findFirst({
-        where: { companyId: user.companyId, customerId: customer.id, state: "HUMANO", sectorId: { in: sectorIds }, OR: [{ responsibleId: null }, { responsibleId: user.userId }] },
+        where: { companyId: user.companyId, customerId: allowedCustomerIds[0], state: "HUMANO", sectorId: { in: sectorIds }, OR: [{ responsibleId: null }, { responsibleId: user.userId }] },
         orderBy: { startedAt: "desc" },
       });
       if (!attendance) return NextResponse.json({ error: "Conversa nao autorizada" }, { status: 403 });
     }
-
-    // Valida os IDs contra mensagens reais da instancia, nao confia em IDs arbitrarios do cliente.
-    const messages = await getMessages(remoteJid, instance, 100) as Array<{ key?: { id?: string; remoteJid?: string; fromMe?: boolean } }>;
-    const requested = new Set(ids as string[]);
-    if (requested.size !== ids.length) return NextResponse.json({ error: "IDs duplicados" }, { status: 400 });
-    const verified = messages.filter((message) =>
-      message?.key?.id && requested.has(message.key.id) && message.key.remoteJid === remoteJid && message.key.fromMe === false,
-    ).map((message) => ({ remoteJid, fromMe: false, id: message.key!.id! }));
-    if (new Set(verified.map((item) => item.id)).size !== requested.size) {
-      return NextResponse.json({ error: "Nem todas as mensagens foram localizadas na instancia" }, { status: 409 });
-    }
+    const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
+    const pending = verified.filter((message) => !isRead(message.status));
+    if (pending.length === 0) return NextResponse.json({ ok: true, state: "CONFIRMED", confirmed: true, requested: requested.size });
+    const readMessages = pending.map((message) => ({ remoteJid: message.key!.remoteJid!, fromMe: false, id: message.key!.id! }));
     const response = await fetch(`${API_URL}/chat/markMessageAsRead/${encodeURIComponent(instance)}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: API_KEY },
-      body: JSON.stringify({ readMessages: verified }), cache: "no-store", signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({ readMessages }), cache: "no-store", signal: AbortSignal.timeout(12000),
     });
-    if (!response.ok) return NextResponse.json({ error: "Evolution recusou marcacao de leitura" }, { status: 502 });
-    // HTTP 2xx indica aceite da chamada, nao prova sincronizacao no WhatsApp.
-    // Respostas explicitamente negativas nao podem limpar o badge.
+    if (!response.ok) return NextResponse.json({ state: "REJECTED", confirmed: false, error: "Evolution recusou marcacao" }, { status: 502 });
     const resultText = await response.text();
     let result: unknown = null;
-    try { result = resultText ? JSON.parse(resultText) : null; } catch { /* resposta textual permitida */ }
+    try { result = resultText ? JSON.parse(resultText) : null; } catch { /* resposta textual */ }
     if (result === false || (result && typeof result === "object" &&
-      (("success" in result && result.success === false) ||
-       ("error" in result && Boolean(result.error))))) {
-      return NextResponse.json({ error: "Evolution informou falha na leitura" }, { status: 502 });
+      (("success" in result && result.success === false) || ("error" in result && Boolean(result.error))))) {
+      return NextResponse.json({ state: "REJECTED", confirmed: false }, { status: 502 });
     }
-    // O retorno HTTP confirma somente o recebimento da solicitacao pela Evolution.
-    // Sem prova posterior por mensagem, nao declarar leitura confirmada.
-    return NextResponse.json({
-      ok: true,
-      state: "ACCEPTED_UNCONFIRMED",
-      accepted: true,
-      confirmed: false,
-      requested: requested.size,
-      message: "Solicitacao aceita; leitura ainda nao confirmada",
-    });
+    // Confirma TODOS os IDs na mesma identidade persistida. Uma mensagem nova
+    // ou homonima nao pode servir como comprovante de outra.
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 650));
+        const confirmed = new Set<string>();
+        for (const jid of candidateJids) {
+          const records = await getMessages(jid, instance, 100) as EvolutionMessage[];
+          for (const message of records) {
+            const original = message.key?.id ? byId.get(message.key.id) : undefined;
+            if (original && message.key?.remoteJid === original.key?.remoteJid &&
+                message.key?.fromMe === false && isRead(message.status)) confirmed.add(message.key.id!);
+          }
+        }
+        if (confirmed.size === requested.size) {
+          return NextResponse.json({ ok: true, state: "CONFIRMED", accepted: true, confirmed: true, requested: requested.size });
+        }
+      }
+    } catch {
+      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, requested: requested.size });
   } catch (error) {
     console.error("[TF3] Falha ao marcar mensagens como lidas", error);
     return NextResponse.json({ error: "Falha ao confirmar leitura" }, { status: 500 });

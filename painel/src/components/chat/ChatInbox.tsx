@@ -458,7 +458,7 @@ function mergeDuplicateChats(items: Chat[]) {
       updatedAt: chatIsNewer
         ? chat.updatedAt
         : current.updatedAt,
-      unreadCount: chatIsNewer ? (chat.unreadCount ?? 0) : (current.unreadCount ?? 0),
+      unreadCount: chatIsNewer ? chat.unreadCount : current.unreadCount,
       lastMessage: chatIsNewer
         ? chat.lastMessage
         : current.lastMessage,
@@ -1571,15 +1571,25 @@ const loadContacts =
                   const readResponse = await fetch("/api/chat/read", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ remoteJid: requestedChatJid, messageIds: receivedIds }),
+                    body: JSON.stringify({
+                      remoteJid: requestedChatJid,
+                      messageIds: receivedIds,
+                      messageKeys: orderedMessages
+                        .filter((message) => message.key?.fromMe === false && receivedIds.includes(message.key?.id ?? ""))
+                        .map((message) => ({ id: message.key.id, remoteJid: message.key.remoteJid ?? requestedChatJid })),
+                    }),
                   });
                   const readResult = readResponse.ok
                     ? await readResponse.json().catch(() => null)
                     : null;
-                  if (!readResponse.ok || readResult?.state !== "ACCEPTED_UNCONFIRMED") {
-                    console.warn("[TF3] Leitura nao confirmada", readResponse.status);
+                  if (readResponse.ok && readResult?.state === "CONFIRMED") {
+                    if (activeChatJidRef.current === requestedChatJid) {
+                      await loadChats(false, "refresh");
+                    }
+                  } else if (!readResponse.ok || readResult?.state !== "ACCEPTED_UNCONFIRMED") {
+                    console.warn("[TF3] Leitura recusada ou verificacao falhou", readResponse.status);
                   }
-                  // HTTP 2xx nao altera o badge: somente reconciliacao da lista.
+                  // O badge nunca e zerado localmente: a origem continua autoritativa.
                 } catch (readError) {
                   console.warn("[TF3] Falha na solicitacao de leitura", readError);
                 } finally {
@@ -1637,7 +1647,7 @@ const loadContacts =
         }
       }
     },
-    [],
+    [loadChats],
   );
 
   useEffect(() => {
