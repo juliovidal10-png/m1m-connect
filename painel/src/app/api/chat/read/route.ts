@@ -72,7 +72,24 @@ export async function POST(request: NextRequest) {
             candidateJids.has(key.remoteJid) &&
             (first.remoteJid === remoteJid || key.remoteJid === remoteJid);
           if (!mirroredPair) {
-            return NextResponse.json({ error: "ID ambiguo entre identidades" }, { status: 409 });
+            // TF3-A: classifica o conflito sem divulgar IDs, JIDs ou conteudo.
+            // Nao muda a regra de autorizacao nem aceita a leitura.
+            const sameRemoteJid = typeof first?.remoteJid === "string" &&
+              first.remoteJid === key.remoteJid;
+            const firstAlt = first?.remoteJidAlt ?? null;
+            const secondAlt = key.remoteJidAlt ?? null;
+            const sameAlt = firstAlt === secondAlt;
+            const oneAltMissing = (firstAlt === null) !== (secondAlt === null);
+            const tf3ConflictKind = sameRemoteJid
+              ? (sameAlt ? "SAME_IDENTITY_DUPLICATE" :
+                  oneAltMissing ? "SAME_IDENTITY_ALT_MISSING" : "SAME_IDENTITY_ALT_CONFLICT")
+              : (first?.remoteJidAlt === key.remoteJid || key.remoteJidAlt === first?.remoteJid)
+                ? "PARTIAL_MIRROR" : "DIFFERENT_IDENTITIES";
+            return NextResponse.json({
+              error: "ID ambiguo entre identidades",
+              tf3Code: "A_IDENTITY_CONFLICT",
+              tf3ConflictKind,
+            }, { status: 409 });
           }
           // Prefere o registro da identidade solicitada, sem alterar IDs ou permissões.
           if (key.remoteJid === remoteJid) byId.set(key.id, record);
