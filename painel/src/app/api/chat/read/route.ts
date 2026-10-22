@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Cada registro deve ser reencontrado na instancia e vinculado ao JID da conversa
     // pelo proprio remoteJid ou pelo remoteJidAlt persistido na mensagem.
     type EvolutionMessage = {
-      key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; fromMe?: boolean };
+      key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; fromMe?: boolean; participant?: string };
       status?: string | null;
     };
     const requested = new Set(ids as string[]);
@@ -136,7 +136,21 @@ export async function POST(request: NextRequest) {
     const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const pending = verified.filter((message) => !isRead(message.status));
     if (pending.length === 0) return NextResponse.json({ ok: true, state: "CONFIRMED", confirmed: true, requested: requested.size });
-    const readMessages = pending.map((message) => ({ remoteJid: message.key!.remoteJid!, fromMe: false, id: message.key!.id! }));
+    const readMessages = pending.map((message) => {
+      const key = message.key!;
+      const participant =
+        key.remoteJid?.endsWith("@g.us") &&
+        typeof key.participant === "string" &&
+        /^[0-9A-Za-z._:-]+@(s\.whatsapp\.net|lid)$/.test(key.participant)
+          ? key.participant
+          : undefined;
+      return {
+        remoteJid: key.remoteJid!,
+        fromMe: false,
+        id: key.id!,
+        ...(participant ? { participant } : {}),
+      };
+    });
     const response = await fetch(`${API_URL}/chat/markMessageAsRead/${encodeURIComponent(instance)}`, {
       method: "POST", headers: { "Content-Type": "application/json", apikey: API_KEY },
       body: JSON.stringify({ readMessages }), cache: "no-store", signal: AbortSignal.timeout(12000),
