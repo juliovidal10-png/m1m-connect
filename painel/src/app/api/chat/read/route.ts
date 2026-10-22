@@ -71,7 +71,14 @@ export async function POST(request: NextRequest) {
             typeof first?.remoteJid === "string" && candidateJids.has(first.remoteJid) &&
             candidateJids.has(key.remoteJid) &&
             (first.remoteJid === remoteJid || key.remoteJid === remoteJid);
-          if (!mirroredPair) {
+          // TF3-A: duas ocorrencias da mesma mensagem na MESMA identidade
+          // podem ser consolidadas apenas quando JID principal e alternativo
+          // sao identicos. Divergencias continuam rejeitadas com 409.
+          const sameIdentityDuplicate =
+            typeof first?.remoteJid === "string" &&
+            first.remoteJid === key.remoteJid &&
+            (first.remoteJidAlt ?? null) === (key.remoteJidAlt ?? null);
+          if (!mirroredPair && !sameIdentityDuplicate) {
             // TF3-A: classifica o conflito sem divulgar IDs, JIDs ou conteudo.
             // Nao muda a regra de autorizacao nem aceita a leitura.
             const sameRemoteJid = typeof first?.remoteJid === "string" &&
