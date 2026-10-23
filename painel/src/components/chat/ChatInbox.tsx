@@ -1603,6 +1603,9 @@ const loadContacts =
                       requestedCount: receivedIds.length,
                       verifiedCount: typeof readResult?.verifiedCount === "number" ? readResult.verifiedCount : null,
                       unverifiedCount: typeof readResult?.unverifiedCount === "number" ? readResult.unverifiedCount : null,
+                      verifiedAlreadyReadCount: typeof readResult?.verifiedAlreadyReadCount === "number" ? readResult.verifiedAlreadyReadCount : null,
+                      verifiedPendingCount: typeof readResult?.verifiedPendingCount === "number" ? readResult.verifiedPendingCount : null,
+                      confirmationAttempts: Array.isArray(readResult?.tf3Confirmation?.attempts) ? readResult.tf3Confirmation.attempts : null,
                     });
                   }
                   if (readResponse.ok && (readResult?.state === "CONFIRMED" || readResult?.state === "PARTIALLY_CONFIRMED")) {
