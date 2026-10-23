@@ -1566,11 +1566,28 @@ const loadContacts =
         // O contador agregado serve somente como indicio de pendencia, nunca
         // como fonte exclusiva da identidade/quantidade de mensagens.
         if ((showLoading || readOnArrival) && activeChatJidRef.current === requestedChatJid) {
-          const receivedIds = [...new Set(
-            orderedMessages
-              .filter((message) => message.key?.fromMe === false && Boolean(message.key?.id))
-              .map((message) => message.key.id as string),
-          )].slice(-100);
+          // TF3-A: IDs e chaves devem representar o mesmo conjunto unico.
+          // Se um ID aparece com JIDs divergentes, nao escolher uma identidade
+          // arbitrariamente: exclui-lo desta tentativa de leitura.
+          const readKeysById = new Map<string, string>();
+          const ambiguousReadIds = new Set<string>();
+          for (const message of orderedMessages) {
+            const key = message.key;
+            if (key?.fromMe !== false || !key.id) continue;
+            const jid = key.remoteJid ?? requestedChatJid;
+            const previousJid = readKeysById.get(key.id);
+            if (previousJid !== undefined && previousJid !== jid) {
+              ambiguousReadIds.add(key.id);
+            } else if (previousJid === undefined) {
+              readKeysById.set(key.id, jid);
+            }
+          }
+          for (const id of ambiguousReadIds) readKeysById.delete(id);
+          const receivedIds = [...readKeysById.keys()].slice(-100);
+          const receivedMessageKeys = receivedIds.map((id) => ({
+            id,
+            remoteJid: readKeysById.get(id)!,
+          }));
           if (receivedIds.length > 0) {
             const attemptKey = JSON.stringify([requestedChatJid, receivedIds]);
             const now = Date.now();
@@ -1589,9 +1606,7 @@ const loadContacts =
                     body: JSON.stringify({
                       remoteJid: requestedChatJid,
                       messageIds: receivedIds,
-                      messageKeys: orderedMessages
-                        .filter((message) => message.key?.fromMe === false && receivedIds.includes(message.key?.id ?? ""))
-                        .map((message) => ({ id: message.key.id, remoteJid: message.key.remoteJid ?? requestedChatJid })),
+                      messageKeys: receivedMessageKeys,
                     }),
                   });
                   const readResult = await readResponse.json().catch(() => null);
