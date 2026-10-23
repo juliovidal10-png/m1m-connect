@@ -1602,9 +1602,10 @@ const loadContacts =
                       code: typeof readResult?.tf3Code === "string" ? readResult.tf3Code : null,
                       requestedCount: receivedIds.length,
                       verifiedCount: typeof readResult?.verifiedCount === "number" ? readResult.verifiedCount : null,
+                      unverifiedCount: typeof readResult?.unverifiedCount === "number" ? readResult.unverifiedCount : null,
                     });
                   }
-                  if (readResponse.ok && readResult?.state === "CONFIRMED") {
+                  if (readResponse.ok && (readResult?.state === "CONFIRMED" || readResult?.state === "PARTIALLY_CONFIRMED")) {
                     if (activeChatJidRef.current === requestedChatJid) {
                       await loadChats(false, "refresh");
                     }
