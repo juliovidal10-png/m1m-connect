@@ -137,7 +137,9 @@ export async function POST(request: NextRequest) {
     }
     const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const pending = verified.filter((message) => !isRead(message.status));
-    if (pending.length === 0) return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, requested: requested.size });
+    // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
+    const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
+    if (pending.length === 0) return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
     const readMessages = pending.map((message) => {
       const key = message.key!;
       const participant =
@@ -199,15 +201,15 @@ export async function POST(request: NextRequest) {
           otherStatusCount: matched.size - confirmed.size,
         });
         if (confirmed.size === verified.length) {
-          return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, requested: requested.size,
+          return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
             tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
       }
     } catch {
-      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, tf3Code: "B_CONFIRMATION_QUERY_FAILED",
+      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, ...verificationCounts, ...tf3ReadCounts, tf3Code: "B_CONFIRMATION_QUERY_FAILED",
         tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, ...verificationCounts,
+    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, ...verificationCounts, ...tf3ReadCounts,
       tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size,
       tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
   } catch (error) {
