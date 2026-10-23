@@ -328,7 +328,9 @@ async function fetchEvolutionChatRange(
   instanceName: string,
   take: number,
   skip: number,
+  signal?: AbortSignal,
 ): Promise<EvolutionChatPageResult> {
+if (signal?.aborted) throw new Error("TF3_DIAG_ABORTED");
 const response = await fetch(
     `${API_URL}/chat/findChats/${encodeURIComponent(instanceName)}`,
     {
@@ -343,6 +345,7 @@ const response = await fetch(
         skip,
       }),
       cache: "no-store",
+      ...(signal ? { signal } : {}),
     },
   );
 if (response.ok) {
@@ -376,11 +379,12 @@ if (response.ok) {
   const secondTake = take - firstTake;
 
   const [first, second] = await Promise.all([
-    fetchEvolutionChatRange(instanceName, firstTake, skip),
+    fetchEvolutionChatRange(instanceName, firstTake, skip, signal),
     fetchEvolutionChatRange(
       instanceName,
       secondTake,
       skip + firstTake,
+      signal,
     ),
   ]);
 
@@ -1031,7 +1035,9 @@ export async function GET(request: Request) {
 
     for (let page = 0; page < maxPages && collectedMap.size < wanted; page += 1) {
       const evolutionStartedAt = Date.now();
-      const result = await fetchEvolutionChatRange(instanceName, scanSize, page * scanSize);
+      if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
+      const result = await fetchEvolutionChatRange(instanceName, scanSize, page * scanSize, request.signal);
+      if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
       perfLog("evolution-page", {
         page,
         pageMs: Date.now() - evolutionStartedAt,
@@ -1048,6 +1054,7 @@ export async function GET(request: Request) {
 
       const enrichStartedAt = Date.now();
       const enrichedVisible = visible(await enrich(uniqueRaw));
+      if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
 
       for (const chat of enrichedVisible) {
         mergeIntoEnrichedChatMap(collectedMap, chat);
