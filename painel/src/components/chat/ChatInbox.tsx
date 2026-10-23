@@ -1328,6 +1328,7 @@ const loadContacts =
 
 
   const loadChatsInFlightRef = useRef(false);
+  const confirmedReadRefreshPendingRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
 
   useEffect(() => {
@@ -1397,7 +1398,16 @@ const loadContacts =
             chatsRef.current.length > requestLimit
               ? chatsRef.current.slice(requestLimit)
               : [];
-          nextItems = mergeDuplicateChats([...items, ...preservedTail]);
+          // Dados recem-consultados prevalecem sobre o estado antigo da lista.
+          const refreshedIdentities = new Set(items.map((chat) =>
+            isGroupChat(chat) ? `jid:${chat.remoteJid}` : `jid:${getCanonicalJid(chat)}`,
+          ));
+          const untouchedTail = preservedTail.filter((chat) =>
+            !refreshedIdentities.has(isGroupChat(chat)
+              ? `jid:${chat.remoteJid}`
+              : `jid:${getCanonicalJid(chat)}`),
+          );
+          nextItems = mergeDuplicateChats([...items, ...untouchedTail]);
         }
 
         chatsRef.current = nextItems;
@@ -1420,6 +1430,10 @@ const loadContacts =
         loadChatsInFlightRef.current = false;
         if (showLoading) setIsLoadingChats(false);
         if (mode === "append") setIsLoadingMoreChats(false);
+        if (confirmedReadRefreshPendingRef.current) {
+          confirmedReadRefreshPendingRef.current = false;
+          queueMicrotask(() => { void loadChats(false, "refresh"); });
+        }
       }
     },
     [],
@@ -1625,7 +1639,11 @@ const loadContacts =
                   }
                   if (readResponse.ok && (readResult?.state === "CONFIRMED" || readResult?.state === "PARTIALLY_CONFIRMED")) {
                     if (activeChatJidRef.current === requestedChatJid) {
-                      await loadChats(false, "refresh");
+                      if (loadChatsInFlightRef.current) {
+                        confirmedReadRefreshPendingRef.current = true;
+                      } else {
+                        await loadChats(false, "refresh");
+                      }
                     }
                   } else if (!readResponse.ok || readResult?.state !== "ACCEPTED_UNCONFIRMED") {
                     console.warn("[TF3] Leitura recusada ou verificacao falhou", readResponse.status);
