@@ -105,10 +105,12 @@ export async function POST(request: NextRequest) {
         byId.set(key.id, record);
       }
     }
-    if (byId.size !== requested.size) {
+    if (byId.size === 0) {
       return NextResponse.json({ error: "Mensagens nao comprovadas na conversa e instancia", tf3Code: "A_IDS_NOT_VERIFIED", requestedCount: requested.size, verifiedCount: byId.size }, { status: 409 });
     }
     const verified = [...byId.values()];
+    const isPartial = byId.size !== requested.size;
+    const verificationCounts = { requestedCount: requested.size, verifiedCount: byId.size, unverifiedCount: requested.size - byId.size };
     // Falha fechada para usuarios restritos: a identidade autorizada deve ser
     // a conversa solicitada ou uma identidade alternativa comprovada na origem.
     if (!authorizationService.hasPermission(user, M1MUserPermission.VIEW_ALL_CONVERSATIONS)) {
@@ -135,7 +137,9 @@ export async function POST(request: NextRequest) {
     }
     const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const pending = verified.filter((message) => !isRead(message.status));
-    if (pending.length === 0) return NextResponse.json({ ok: true, state: "CONFIRMED", confirmed: true, requested: requested.size });
+    // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
+    const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
+    if (pending.length === 0) return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
     const readMessages = pending.map((message) => {
       const key = message.key!;
       const participant =
@@ -196,16 +200,16 @@ export async function POST(request: NextRequest) {
           matchedCount: matched.size, readCount: read.size, playedCount: played.size,
           otherStatusCount: matched.size - confirmed.size,
         });
-        if (confirmed.size === requested.size) {
-          return NextResponse.json({ ok: true, state: "CONFIRMED", accepted: true, confirmed: true, requested: requested.size,
+        if (confirmed.size === verified.length) {
+          return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
             tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
       }
     } catch {
-      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, tf3Code: "B_CONFIRMATION_QUERY_FAILED",
+      return NextResponse.json({ state: "CONFIRMATION_FAILED", accepted: true, confirmed: false, ...verificationCounts, ...tf3ReadCounts, tf3Code: "B_CONFIRMATION_QUERY_FAILED",
         tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } }, { status: 502 });
     }
-    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
+    return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, ...verificationCounts, ...tf3ReadCounts,
       tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size,
       tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
   } catch (error) {
