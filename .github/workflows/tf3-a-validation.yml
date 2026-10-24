@@ -5,6 +5,7 @@ on:
     paths:
       - "painel/src/components/chat/ChatInbox.tsx"
       - "painel/src/app/api/chat/read/route.ts"
+      - "painel/src/app/api/chat/list/route.ts"
       - "painel/tests/**"
       - ".github/workflows/tf3-a-validation.yml"
   workflow_dispatch:
