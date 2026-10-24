@@ -1661,6 +1661,7 @@ const loadContacts =
                               remoteJid: requestedChatJid,
                               messageIds: receivedIds,
                               messageKeys: receivedMessageKeys,
+                              verifyOnly: true,
                             }),
                           });
                           const verification = await verificationResponse.json().catch(() => null);
