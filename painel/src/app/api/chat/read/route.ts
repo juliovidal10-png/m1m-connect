@@ -140,6 +140,15 @@ export async function POST(request: NextRequest) {
     // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
     const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
     if (pending.length === 0) return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
+    // Reverificacao autorizada consulta a Evolution sem reenviar marcacao.
+    // Mantem a identidade, a instancia e as permissoes ja verificadas acima.
+    if ((payload as { verifyOnly?: unknown }).verifyOnly === true) {
+      return NextResponse.json({
+        ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
+        tf3Code: "B_RECHECK_UNCONFIRMED", requested: requested.size,
+        ...verificationCounts, ...tf3ReadCounts,
+      });
+    }
     const readMessages = pending.map((message) => {
       const key = message.key!;
       const participant =
