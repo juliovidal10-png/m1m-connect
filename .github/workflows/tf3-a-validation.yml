@@ -1,0 +1,40 @@
+name: TF3-A validation
+
+on:
+  pull_request:
+    paths:
+      - "painel/src/components/chat/ChatInbox.tsx"
+      - "painel/src/app/api/chat/read/route.ts"
+      - "painel/tests/**"
+      - ".github/workflows/tf3-a-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npx prisma generate
+      - name: Lint changed component
+        run: npx eslint src/components/chat/ChatInbox.tsx
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Existing regression tests
+        run: |
+          npm run test:regression:t17
+          npm run test:regression:tf6
