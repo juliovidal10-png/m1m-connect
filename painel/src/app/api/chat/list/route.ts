@@ -225,10 +225,12 @@ function mergeEnrichedChat(
     profilePicUrl:
       normalizeText(newer.profilePicUrl) ||
       normalizeText(older.profilePicUrl),
-    unreadCount: Math.max(
-      getChatUnreadCount(current),
-      getChatUnreadCount(incoming),
-    ),
+    // TF3-A: quando a Evolution fornece um registro estritamente mais
+    // recente da mesma conversa, a contagem desse registro prevalece.
+    // Em timestamps iguais/ausentes, nao inferir leitura nem apagar pendencias.
+    unreadCount: getChatUpdatedTime(newer) > getChatUpdatedTime(older)
+      ? getChatUnreadCount(newer)
+      : Math.max(getChatUnreadCount(current), getChatUnreadCount(incoming)),
   };
 }
 
