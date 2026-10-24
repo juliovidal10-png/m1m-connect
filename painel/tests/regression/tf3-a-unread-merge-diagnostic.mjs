@@ -23,8 +23,12 @@ const base = { remoteJid: "123@s.whatsapp.net", canonicalJid: "123@s.whatsapp.ne
 const read = { ...base, remoteJid: "abc@lid", unreadCount: 0 };
 const stale = context.merge(base, read);
 assert.equal(stale.unreadCount, 4, "Expected to reproduce stale maximum count");
+const newerRead = context.merge(base, { ...read, updatedAt: "2026-10-24T12:00:01Z" });
+assert.equal(newerRead.unreadCount, 0, "Newer Evolution read count must replace stale count");
+const olderRead = context.merge({ ...base, updatedAt: "2026-10-24T12:00:02Z" }, read);
+assert.equal(olderRead.unreadCount, 4, "Older zero count must not erase newer unread count");
 const newIncoming = context.merge({ ...base, unreadCount: 0 }, { ...read, unreadCount: 1, updatedAt: "2026-10-24T12:01:00Z" });
 assert.equal(newIncoming.unreadCount, 1, "New incoming count must remain visible");
 console.log("TF3-A DIAGNOSTIC: reproduced stale unreadCount=4 after same-contact zero count (Math.max).");
 console.log("TF3-A DIAGNOSTIC: new incoming unreadCount=1 remains visible.");
-console.log("TF3-A DIAGNOSTIC ONLY: no production merge semantics changed.");
+console.log("TF3-A FIX: strictly newer Evolution count takes precedence; equal timestamps remain conservative.");
