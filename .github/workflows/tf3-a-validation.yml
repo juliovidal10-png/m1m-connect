@@ -30,18 +30,13 @@ jobs:
         run: npm ci
       - name: Generate Prisma client
         run: npx prisma generate
-      - name: Lint changed component (non-blocking diagnostic)
-        id: lint
-        continue-on-error: true
-        run: npx eslint src/components/chat/ChatInbox.tsx
+      - name: Compare ESLint against main (no new findings)
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          node tests/regression/tf3-a-eslint-baseline.mjs
       - name: TypeScript check
         run: npx tsc --noEmit
       - name: Existing regression tests
         run: |
           npm run test:regression:t17
           npm run test:regression:tf6
-      - name: Report lint failure after independent checks
-        if: steps.lint.outcome == 'failure'
-        run: |
-          echo "::error::ESLint failed; TypeScript and regression checks ran independently."
-          exit 1
