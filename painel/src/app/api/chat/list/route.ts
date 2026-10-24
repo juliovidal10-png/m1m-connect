@@ -225,10 +225,15 @@ function mergeEnrichedChat(
     profilePicUrl:
       normalizeText(newer.profilePicUrl) ||
       normalizeText(older.profilePicUrl),
-    unreadCount: Math.max(
-      getChatUnreadCount(current),
-      getChatUnreadCount(incoming),
-    ),
+    // TF3-A: uma contagem de uma representacao antiga nao deve sobrepor
+    // a contagem da representacao com updatedAt posterior. Em empate,
+    // preservar o maior valor para nao ocultar mensagens possivelmente novas.
+    unreadCount:
+      getChatUpdatedTime(current) !== getChatUpdatedTime(incoming) &&
+      getChatUpdatedTime(current) > 0 &&
+      getChatUpdatedTime(incoming) > 0
+        ? getChatUnreadCount(newer)
+        : Math.max(getChatUnreadCount(current), getChatUnreadCount(incoming)),
   };
 }
 
