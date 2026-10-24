@@ -1645,11 +1645,27 @@ const loadContacts =
                         await loadChats(false, "refresh");
                       }
                     }
-                  } else if (!readResponse.ok || readResult?.state !== "ACCEPTED_UNCONFIRMED") {
+                  } else if (readResponse.ok && readResult?.state === "ACCEPTED_UNCONFIRMED") {
+                    // A Evolution aceitou a solicitacao, mas a leitura ainda nao foi
+                    // comprovada. Reconsultar a origem apos breve intervalo sem
+                    // zerar o indicador localmente nem assumir confirmacao.
+                    window.setTimeout(() => {
+                      if (activeChatJidRef.current !== requestedChatJid) return;
+                      if (loadChatsInFlightRef.current) {
+                        confirmedReadRefreshPendingRef.current = true;
+                      } else {
+                        void loadChats(false, "refresh");
+                      }
+                    }, 1500);
+                  } else {
+                    // Falha efetiva: permitir nova tentativa ao reabrir a conversa,
+                    // sem aguardar o limite aplicado a solicitacoes aceitas.
+                    readAttemptsRef.current.delete(attemptKey);
                     console.warn("[TF3] Leitura recusada ou verificacao falhou", readResponse.status);
                   }
                   // O badge nunca e zerado localmente: a origem continua autoritativa.
                 } catch (readError) {
+                  readAttemptsRef.current.delete(attemptKey);
                   console.warn("[TF3] Falha na solicitacao de leitura", readError);
                 } finally {
                   readInFlightRef.current.delete(attemptKey);
