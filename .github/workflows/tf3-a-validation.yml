@@ -38,6 +38,8 @@ jobs:
         run: npx tsc --noEmit
       - name: Unread merge diagnostic (synthetic JID/LID)
         run: node tests/regression/tf3-a-unread-merge-diagnostic.mjs
+      - name: Frontend unread merge diagnostic (synthetic JID/LID)
+        run: node tests/regression/tf3-a-unread-frontend-diagnostic.mjs
       - name: Existing regression tests
         run: |
           npm run test:regression:t17
