@@ -1649,14 +1649,19 @@ const loadContacts =
                     // A Evolution aceitou a solicitacao, mas a leitura ainda nao foi
                     // comprovada. Reconsultar a origem apos breve intervalo sem
                     // zerar o indicador localmente nem assumir confirmacao.
-                    window.setTimeout(() => {
-                      if (activeChatJidRef.current !== requestedChatJid) return;
-                      if (loadChatsInFlightRef.current) {
-                        confirmedReadRefreshPendingRef.current = true;
-                      } else {
-                        void loadChats(false, "refresh");
-                      }
-                    }, 1500);
+                    // A confirmacao pode chegar depois da primeira consulta.
+                    // Tentativas limitadas de sincronizacao da lista: nao enviam
+                    // novas marcacoes de leitura nem alteram o badge localmente.
+                    for (const delayMs of [1500, 4000, 9000]) {
+                      window.setTimeout(() => {
+                        if (activeChatJidRef.current !== requestedChatJid) return;
+                        if (loadChatsInFlightRef.current) {
+                          confirmedReadRefreshPendingRef.current = true;
+                        } else {
+                          void loadChats(false, "refresh");
+                        }
+                      }, delayMs);
+                    }
                   } else {
                     // Falha efetiva: permitir nova tentativa ao reabrir a conversa,
                     // sem aguardar o limite aplicado a solicitacoes aceitas.
