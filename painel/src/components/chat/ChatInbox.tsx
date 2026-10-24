@@ -1646,22 +1646,50 @@ const loadContacts =
                       }
                     }
                   } else if (readResponse.ok && readResult?.state === "ACCEPTED_UNCONFIRMED") {
-                    // A Evolution aceitou a solicitacao, mas a leitura ainda nao foi
-                    // comprovada. Reconsultar a origem apos breve intervalo sem
-                    // zerar o indicador localmente nem assumir confirmacao.
-                    // A confirmacao pode chegar depois da primeira consulta.
-                    // Tentativas limitadas de sincronizacao da lista: nao enviam
-                    // novas marcacoes de leitura nem alteram o badge localmente.
-                    for (const delayMs of [1500, 4000, 9000]) {
-                      window.setTimeout(() => {
-                        if (activeChatJidRef.current !== requestedChatJid) return;
-                        if (loadChatsInFlightRef.current) {
-                          confirmedReadRefreshPendingRef.current = true;
-                        } else {
-                          void loadChats(false, "refresh");
+                    // A Evolution aceitou a marcacao, mas nao confirmou READ/PLAYED.
+                    // Uma nova listagem so repete a contagem; repetir UMA vez a
+                    // verificacao no servidor exige os mesmos IDs e a mesma
+                    // autorizacao/instancia. Nunca zerar badges localmente.
+                    window.setTimeout(() => {
+                      if (activeChatJidRef.current !== requestedChatJid) return;
+                      void (async () => {
+                        try {
+                          const verificationResponse = await fetch("/api/chat/read", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              remoteJid: requestedChatJid,
+                              messageIds: receivedIds,
+                              messageKeys: receivedMessageKeys,
+                            }),
+                          });
+                          const verification = await verificationResponse.json().catch(() => null);
+                          if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1") {
+                            console.info("[TF3-DIAG] read-recheck", {
+                              httpStatus: verificationResponse.status,
+                              state: typeof verification?.state === "string" ? verification.state : null,
+                              code: typeof verification?.tf3Code === "string" ? verification.tf3Code : null,
+                              verifiedCount: typeof verification?.verifiedCount === "number" ? verification.verifiedCount : null,
+                              confirmationAttempts: Array.isArray(verification?.tf3Confirmation?.attempts) ? verification.tf3Confirmation.attempts : null,
+                            });
+                          }
+                          if (verificationResponse.ok && (verification?.state === "CONFIRMED" || verification?.state === "PARTIALLY_CONFIRMED")) {
+                            if (activeChatJidRef.current !== requestedChatJid) return;
+                            if (loadChatsInFlightRef.current) {
+                              confirmedReadRefreshPendingRef.current = true;
+                            } else {
+                              await loadChats(false, "refresh");
+                            }
+                          } else {
+                            // Reabrir permite nova tentativa; nao declarar leitura.
+                            readAttemptsRef.current.delete(attemptKey);
+                          }
+                        } catch (verificationError) {
+                          readAttemptsRef.current.delete(attemptKey);
+                          console.warn("[TF3] Falha na reverificacao da Evolution", verificationError);
                         }
-                      }, delayMs);
-                    }
+                      })();
+                    }, 4000);
                   } else {
                     // Falha efetiva: permitir nova tentativa ao reabrir a conversa,
                     // sem aguardar o limite aplicado a solicitacoes aceitas.
