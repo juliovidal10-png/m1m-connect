@@ -15,7 +15,7 @@ function findings(source) {
   const output = JSON.parse(result.stdout);
   const counts = new Map();
   for (const message of output.flatMap((item) => item.messages || [])) {
-    const stableMessage = message.message.split("\\n\\n")[0];
+    const stableMessage = message.message.split("\n\n")[0];
     const key = JSON.stringify([message.ruleId, stableMessage, message.severity]);
     counts.set(key, (counts.get(key) || 0) + 1);
   }
