@@ -1356,7 +1356,7 @@ const loadContacts =
             : 30;
         const offset = mode === "append" ? chatsRef.current.length : 0;
         const response = await fetch(
-          `/api/chat/list?limit=${requestLimit}&offset=${offset}`,
+          `/api/chat/list?limit=${requestLimit}&offset=${offset}${typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1" ? "&tf3diag=1" : ""}`,
           { cache: "no-store" },
         );
         const data = await response.json();
