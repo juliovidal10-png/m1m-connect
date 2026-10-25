@@ -1414,7 +1414,9 @@ const loadContacts =
         setChats(nextItems);
 
         setSelectedChat((currentChat) => {
-          if (!currentChat) return nextItems[0] ?? null;
+          // TF3-A: carregar ou atualizar a lista nao equivale a abrir uma conversa.
+          // Apenas selecao explicita (clique/navegacao) autoriza leitura.
+          if (!currentChat) return null;
           const currentIdentity = currentChat.canonicalJid || getCanonicalJid(currentChat);
           return nextItems.find((chat) =>
             (chat.canonicalJid || getCanonicalJid(chat)) === currentIdentity,
