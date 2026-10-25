@@ -20,6 +20,7 @@ type EvolutionChat = {
     key?: {
       remoteJid?: string | null;
       remoteJidAlt?: string | null;
+      fromMe?: boolean | null;
     } | null;
   } | null;
   [key: string]: unknown;
