@@ -1032,6 +1032,21 @@ export async function GET(request: Request) {
     const wanted = offset + limit + 1;
     const collectedMap = new Map<string, EnrichedChat>();
     const seenRaw = new Set<string>();
+    // TF3-A: diagnostico agregado, somente em modo opt-in e sem identificadores.
+    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1";
+    const unreadDiagnostic = {
+      rawCount: 0,
+      rawPositive: 0,
+      rawZero: 0,
+      rawMissing: 0,
+      rawNonNumeric: 0,
+      enrichedCount: 0,
+      enrichedPositive: 0,
+      enrichedZero: 0,
+      consolidatedCount: 0,
+      consolidatedPositive: 0,
+      consolidatedZero: 0,
+    };
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
 
@@ -1054,9 +1069,32 @@ export async function GET(request: Request) {
         return true;
       });
 
+      if (tf3UnreadDiag) {
+        for (const chat of uniqueRaw) {
+          unreadDiagnostic.rawCount += 1;
+          if (chat.unreadCount === undefined || chat.unreadCount === null) {
+            unreadDiagnostic.rawMissing += 1;
+          } else if (typeof chat.unreadCount !== "number") {
+            unreadDiagnostic.rawNonNumeric += 1;
+          } else if (chat.unreadCount > 0) {
+            unreadDiagnostic.rawPositive += 1;
+          } else {
+            unreadDiagnostic.rawZero += 1;
+          }
+        }
+      }
+
       const enrichStartedAt = Date.now();
       const enrichedVisible = visible(await enrich(uniqueRaw));
       if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
+
+      if (tf3UnreadDiag) {
+        for (const chat of enrichedVisible) {
+          unreadDiagnostic.enrichedCount += 1;
+          if (getChatUnreadCount(chat) > 0) unreadDiagnostic.enrichedPositive += 1;
+          else unreadDiagnostic.enrichedZero += 1;
+        }
+      }
 
       for (const chat of enrichedVisible) {
         mergeIntoEnrichedChatMap(collectedMap, chat);
@@ -1078,6 +1116,12 @@ export async function GET(request: Request) {
         getChatUpdatedTime(secondChat) - getChatUpdatedTime(firstChat),
     );
     const pageItems = collected.slice(offset, offset + limit);
+    if (tf3UnreadDiag) {
+      unreadDiagnostic.consolidatedCount = collected.length;
+      unreadDiagnostic.consolidatedPositive = collected.filter((chat) => getChatUnreadCount(chat) > 0).length;
+      unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive;
+      console.info("[TF3-A-UNREAD-AGGREGATE]", JSON.stringify(unreadDiagnostic));
+    }
 
     perfLog("response", {
       limit,
