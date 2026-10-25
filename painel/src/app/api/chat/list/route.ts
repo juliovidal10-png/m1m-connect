@@ -1033,7 +1033,7 @@ export async function GET(request: Request) {
     const collectedMap = new Map<string, EnrichedChat>();
     const seenRaw = new Set<string>();
     // TF3-A: diagnostico agregado, somente em modo opt-in e sem identificadores.
-    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1";
+    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1" && String(company.name ?? "").trim().toUpperCase() === "EMPRESA TESTE";
     const unreadDiagnostic = {
       rawCount: 0,
       rawPositive: 0,
@@ -1046,6 +1046,15 @@ export async function GET(request: Request) {
       consolidatedCount: 0,
       consolidatedPositive: 0,
       consolidatedZero: 0,
+    };
+    // Somente contagens agregadas; nao registrar JID, LID, telefone, nome ou mensagens.
+    const unreadOriginDiagnostic = {
+      rawLidPositive: 0, rawLidZeroOrMissing: 0,
+      rawJidPositive: 0, rawJidZeroOrMissing: 0,
+      rawIncomingZeroOrMissing: 0,
+      duplicateMerges: 0, positiveToZeroMerges: 0,
+      zeroToPositiveMerges: 0, positivePreservedMerges: 0,
+      missingUnreadWithIncoming: 0,
     };
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
@@ -1071,6 +1080,19 @@ export async function GET(request: Request) {
 
       if (tf3UnreadDiag) {
         for (const chat of uniqueRaw) {
+          const rawJid = getPrimaryRemoteJid(chat);
+          const rawPositive = getChatUnreadCount(chat) > 0;
+          if (rawJid.endsWith("@lid")) {
+            if (rawPositive) unreadOriginDiagnostic.rawLidPositive += 1;
+            else unreadOriginDiagnostic.rawLidZeroOrMissing += 1;
+          } else if (rawJid.endsWith("@s.whatsapp.net")) {
+            if (rawPositive) unreadOriginDiagnostic.rawJidPositive += 1;
+            else unreadOriginDiagnostic.rawJidZeroOrMissing += 1;
+          }
+          if (chat.lastMessage?.key?.fromMe === false && !rawPositive) {
+            unreadOriginDiagnostic.rawIncomingZeroOrMissing += 1;
+            if (chat.unreadCount == null) unreadOriginDiagnostic.missingUnreadWithIncoming += 1;
+          }
           unreadDiagnostic.rawCount += 1;
           if (chat.unreadCount === undefined || chat.unreadCount === null) {
             unreadDiagnostic.rawMissing += 1;
@@ -1097,6 +1119,20 @@ export async function GET(request: Request) {
       }
 
       for (const chat of enrichedVisible) {
+        if (tf3UnreadDiag) {
+          const mergeKey = getEnrichedChatKey(chat);
+          const prior = mergeKey ? collectedMap.get(mergeKey) : undefined;
+          if (prior) {
+            const before = getChatUnreadCount(prior) > 0;
+            const incoming = getChatUnreadCount(chat) > 0;
+            const merged = mergeEnrichedChat(prior, chat);
+            const after = getChatUnreadCount(merged) > 0;
+            unreadOriginDiagnostic.duplicateMerges += 1;
+            if ((before || incoming) && !after) unreadOriginDiagnostic.positiveToZeroMerges += 1;
+            if (!before && incoming && after) unreadOriginDiagnostic.zeroToPositiveMerges += 1;
+            if ((before || incoming) && after) unreadOriginDiagnostic.positivePreservedMerges += 1;
+          }
+        }
         mergeIntoEnrichedChatMap(collectedMap, chat);
       }
 
@@ -1121,6 +1157,7 @@ export async function GET(request: Request) {
       unreadDiagnostic.consolidatedPositive = collected.filter((chat) => getChatUnreadCount(chat) > 0).length;
       unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive;
       console.info("[TF3-A-UNREAD-AGGREGATE]", JSON.stringify(unreadDiagnostic));
+      console.info("[TF3-A-UNREAD-ORIGIN]", JSON.stringify(unreadOriginDiagnostic));
     }
 
     perfLog("response", {
