@@ -1,6 +1,7 @@
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -1056,6 +1057,34 @@ export async function GET(request: Request) {
       zeroToPositiveMerges: 0, positivePreservedMerges: 0,
       missingUnreadWithIncoming: 0,
     };
+    // Identificador irreversivel, limitado ao escopo da empresa e a chave secreta do servidor.
+    // Nunca registrar JIDs, nomes, telefones, IDs de CRM ou conteudo.
+    const diagnosticIdentity = (chat: EvolutionChat) => {
+      const identity = getStableCanonicalJid(chat);
+      return identity && API_KEY
+        ? createHmac("sha256", API_KEY).update(companyId).update(":").update(identity).digest("hex").slice(0, 20)
+        : null;
+    };
+    const originTrace = new Map<string, {
+      rawCount: number; rawPositive: number; rawZeroOrMissing: number;
+      rawIncomingZeroOrMissing: number; mergedCount: number;
+      consolidatedPositive: boolean;
+    }>();
+    const traceRaw = (chat: EvolutionChat) => {
+      const token = diagnosticIdentity(chat);
+      if (!token) return;
+      const entry = originTrace.get(token) ?? {
+        rawCount: 0, rawPositive: 0, rawZeroOrMissing: 0,
+        rawIncomingZeroOrMissing: 0, mergedCount: 0, consolidatedPositive: false,
+      };
+      entry.rawCount += 1;
+      if (getChatUnreadCount(chat) > 0) entry.rawPositive += 1;
+      else {
+        entry.rawZeroOrMissing += 1;
+        if (chat.lastMessage?.key?.fromMe === false) entry.rawIncomingZeroOrMissing += 1;
+      }
+      originTrace.set(token, entry);
+    };
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
 
@@ -1080,6 +1109,7 @@ export async function GET(request: Request) {
 
       if (tf3UnreadDiag) {
         for (const chat of uniqueRaw) {
+          traceRaw(chat);
           const rawJid = getPrimaryRemoteJid(chat);
           const rawPositive = getChatUnreadCount(chat) > 0;
           if (rawJid.endsWith("@lid")) {
@@ -1128,6 +1158,8 @@ export async function GET(request: Request) {
             const merged = mergeEnrichedChat(prior, chat);
             const after = getChatUnreadCount(merged) > 0;
             unreadOriginDiagnostic.duplicateMerges += 1;
+            const token = diagnosticIdentity(chat);
+            if (token && originTrace.has(token)) originTrace.get(token)!.mergedCount += 1;
             if ((before || incoming) && !after) unreadOriginDiagnostic.positiveToZeroMerges += 1;
             if (!before && incoming && after) unreadOriginDiagnostic.zeroToPositiveMerges += 1;
             if ((before || incoming) && after) unreadOriginDiagnostic.positivePreservedMerges += 1;
@@ -1158,6 +1190,24 @@ export async function GET(request: Request) {
       unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive;
       console.info("[TF3-A-UNREAD-AGGREGATE]", JSON.stringify(unreadDiagnostic));
       console.info("[TF3-A-UNREAD-ORIGIN]", JSON.stringify(unreadOriginDiagnostic));
+      for (const chat of collected) {
+        const token = diagnosticIdentity(chat);
+        if (token && originTrace.has(token)) {
+          originTrace.get(token)!.consolidatedPositive = getChatUnreadCount(chat) > 0;
+        }
+      }
+      // Apenas anomalias; limite de 20 identidades por requisicao para conter volume de logs.
+      const anomalies = [...originTrace.entries()]
+        .filter(([, value]) => value.rawIncomingZeroOrMissing > 0 || (value.rawPositive > 0 && !value.consolidatedPositive))
+        .slice(0, 20)
+        .map(([token, value]) => ({ token, ...value }));
+      console.info("[TF3-A-UNREAD-TRACE]", JSON.stringify({
+        trackedIdentities: originTrace.size,
+        anomalyCount: [...originTrace.values()].filter((value) =>
+          value.rawIncomingZeroOrMissing > 0 || (value.rawPositive > 0 && !value.consolidatedPositive)
+        ).length,
+        anomalies,
+      }));
     }
 
     perfLog("response", {
