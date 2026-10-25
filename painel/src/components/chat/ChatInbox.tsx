@@ -1356,7 +1356,7 @@ const loadContacts =
             : 30;
         const offset = mode === "append" ? chatsRef.current.length : 0;
         const response = await fetch(
-          `/api/chat/list?limit=${requestLimit}&offset=${offset}`,
+          `/api/chat/list?limit=${requestLimit}&offset=${offset}${typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1" ? "&tf3diag=1" : ""}`,
           { cache: "no-store" },
         );
         const data = await response.json();
@@ -1414,7 +1414,9 @@ const loadContacts =
         setChats(nextItems);
 
         setSelectedChat((currentChat) => {
-          if (!currentChat) return nextItems[0] ?? null;
+          // TF3-A: carregar ou atualizar a lista nao equivale a abrir uma conversa.
+          // Apenas selecao explicita (clique/navegacao) autoriza leitura.
+          if (!currentChat) return null;
           const currentIdentity = currentChat.canonicalJid || getCanonicalJid(currentChat);
           return nextItems.find((chat) =>
             (chat.canonicalJid || getCanonicalJid(chat)) === currentIdentity,
