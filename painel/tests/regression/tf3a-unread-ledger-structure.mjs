@@ -28,4 +28,7 @@ assert.match(readRoute, /persistLedgerRead/);
 assert.match(readRoute, /recordConfirmedRead/);
 assert.match(readRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);
 assert.match(readRoute, /states.length !== 1/);
+assert.match(readRoute, /const alreadyReadIds = verified\.filter/);
+assert.match(readRoute, /persistLedgerRead\(alreadyReadIds\)/);
+assert.match(readRoute, /persistLedgerRead\(\[\.\.\.new Set\(\[\.\.\.alreadyReadIds, \.\.\.confirmed\]\)\]\)/);
 console.log("TF3-A: verificacoes estruturais aprovadas. Nao substituem testes de integracao.");
