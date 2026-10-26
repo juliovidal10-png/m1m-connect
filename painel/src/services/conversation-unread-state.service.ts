@@ -12,13 +12,24 @@ export type IncomingUnreadEvent = {
   receivedAt: Date;
 };
 
+async function retrySerialization<T>(fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await fn(); }
+    catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "P2034" || attempt === 2) throw error;
+    }
+  }
+  throw new Error("TF3-A: conflito de transacao");
+}
+
 export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
   const { companyId, instanceName, canonicalJid, evolutionMessageId, receivedAt } = event;
   if (![companyId, instanceName, canonicalJid, evolutionMessageId].every((value) => value.trim().length > 0) || !Number.isFinite(receivedAt.getTime())) {
     throw new Error("TF3-A: evento de entrada invalido");
   }
 
-  return prisma.$transaction(async (tx) => {
+  return retrySerialization(() => prisma.$transaction(async (tx) => {
     const state = await tx.m1MConversationState.upsert({
       where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
       create: { companyId, instanceName, canonicalJid },
@@ -59,7 +70,7 @@ export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
       },
     });
     return { inserted: true, stateId: state.id, hidden: false, reactivated: canReactivate };
-  }, { isolationLevel: "Serializable" });
+  }, { isolationLevel: "Serializable" }));
 }
 
 /** Leitura global do ledger, sem depender da pagina atual do frontend. */
@@ -117,7 +128,7 @@ export async function recordConfirmedRead(input: {
           },
         });
         return { confirmed: confirmed.count, remaining, stateFound: true };
-      }, { isolationLevel: "Serializable" });
+      }, { isolationLevel: "Serializable" }));
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
       if (code !== "P2034" || attempt === 2) throw error;
@@ -162,5 +173,5 @@ export async function hideConversationState(input: {
       },
     });
     return { hidden: true, stateId: state.id };
-  }, { isolationLevel: "Serializable" });
+  }, { isolationLevel: "Serializable" }));
 }
