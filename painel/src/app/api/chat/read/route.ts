@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
     };
     const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const pending = verified.filter((message) => !isRead(message.status));
+    const alreadyReadIds = verified.filter((message) => isRead(message.status)).map((message) => message.key!.id!);
     // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
     const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
     if (pending.length === 0) {
@@ -168,6 +169,7 @@ export async function POST(request: NextRequest) {
     // Reverificacao autorizada consulta a Evolution sem reenviar marcacao.
     // Mantem a identidade, a instancia e as permissoes ja verificadas acima.
     if ((payload as { verifyOnly?: unknown }).verifyOnly === true) {
+      await persistLedgerRead(alreadyReadIds);
       return NextResponse.json({
         ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
         tf3Code: "B_RECHECK_UNCONFIRMED", requested: requested.size,
@@ -234,8 +236,9 @@ export async function POST(request: NextRequest) {
           matchedCount: matched.size, readCount: read.size, playedCount: played.size,
           otherStatusCount: matched.size - confirmed.size,
         });
+        // Recibos ja confirmados sao persistidos mesmo se outros permanecerem pendentes.
+        await persistLedgerRead([...new Set([...alreadyReadIds, ...confirmed])]);
         if (confirmed.size === verified.length) {
-          await persistLedgerRead([...confirmed]);
           return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
             tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
