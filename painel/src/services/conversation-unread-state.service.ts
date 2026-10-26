@@ -128,7 +128,7 @@ export async function recordConfirmedRead(input: {
           },
         });
         return { confirmed: confirmed.count, remaining, stateFound: true };
-      }, { isolationLevel: "Serializable" }));
+      }, { isolationLevel: "Serializable" });
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
       if (code !== "P2034" || attempt === 2) throw error;
