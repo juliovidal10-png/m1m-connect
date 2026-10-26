@@ -1,6 +1,7 @@
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +20,7 @@ type EvolutionChat = {
     key?: {
       remoteJid?: string | null;
       remoteJidAlt?: string | null;
+      fromMe?: boolean | null;
     } | null;
   } | null;
   [key: string]: unknown;
@@ -1033,7 +1035,7 @@ export async function GET(request: Request) {
     const collectedMap = new Map<string, EnrichedChat>();
     const seenRaw = new Set<string>();
     // TF3-A: diagnostico agregado, somente em modo opt-in e sem identificadores.
-    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1";
+    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1" && String(company.name ?? "").trim().toUpperCase() === "EMPRESA TESTE";
     const unreadDiagnostic = {
       rawCount: 0,
       rawPositive: 0,
@@ -1046,6 +1048,43 @@ export async function GET(request: Request) {
       consolidatedCount: 0,
       consolidatedPositive: 0,
       consolidatedZero: 0,
+    };
+    // Somente contagens agregadas; nao registrar JID, LID, telefone, nome ou mensagens.
+    const unreadOriginDiagnostic = {
+      rawLidPositive: 0, rawLidZeroOrMissing: 0,
+      rawJidPositive: 0, rawJidZeroOrMissing: 0,
+      rawIncomingZeroOrMissing: 0,
+      duplicateMerges: 0, positiveToZeroMerges: 0,
+      zeroToPositiveMerges: 0, positivePreservedMerges: 0,
+      missingUnreadWithIncoming: 0,
+    };
+    // Identificador irreversivel, limitado ao escopo da empresa e a chave secreta do servidor.
+    // Nunca registrar JIDs, nomes, telefones, IDs de CRM ou conteudo.
+    const diagnosticIdentity = (chat: EvolutionChat) => {
+      const identity = getStableCanonicalJid(chat);
+      return identity && API_KEY
+        ? createHmac("sha256", API_KEY).update(companyId).update(":").update(identity).digest("hex").slice(0, 20)
+        : null;
+    };
+    const originTrace = new Map<string, {
+      rawCount: number; rawPositive: number; rawZeroOrMissing: number;
+      rawIncomingZeroOrMissing: number; mergedCount: number;
+      consolidatedPositive: boolean;
+    }>();
+    const traceRaw = (chat: EvolutionChat) => {
+      const token = diagnosticIdentity(chat);
+      if (!token) return;
+      const entry = originTrace.get(token) ?? {
+        rawCount: 0, rawPositive: 0, rawZeroOrMissing: 0,
+        rawIncomingZeroOrMissing: 0, mergedCount: 0, consolidatedPositive: false,
+      };
+      entry.rawCount += 1;
+      if (getChatUnreadCount(chat) > 0) entry.rawPositive += 1;
+      else {
+        entry.rawZeroOrMissing += 1;
+        if (chat.lastMessage?.key?.fromMe === false) entry.rawIncomingZeroOrMissing += 1;
+      }
+      originTrace.set(token, entry);
     };
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
@@ -1071,6 +1110,20 @@ export async function GET(request: Request) {
 
       if (tf3UnreadDiag) {
         for (const chat of uniqueRaw) {
+          traceRaw(chat);
+          const rawJid = getPrimaryRemoteJid(chat);
+          const rawPositive = getChatUnreadCount(chat) > 0;
+          if (rawJid.endsWith("@lid")) {
+            if (rawPositive) unreadOriginDiagnostic.rawLidPositive += 1;
+            else unreadOriginDiagnostic.rawLidZeroOrMissing += 1;
+          } else if (rawJid.endsWith("@s.whatsapp.net")) {
+            if (rawPositive) unreadOriginDiagnostic.rawJidPositive += 1;
+            else unreadOriginDiagnostic.rawJidZeroOrMissing += 1;
+          }
+          if (chat.lastMessage?.key?.fromMe === false && !rawPositive) {
+            unreadOriginDiagnostic.rawIncomingZeroOrMissing += 1;
+            if (chat.unreadCount == null) unreadOriginDiagnostic.missingUnreadWithIncoming += 1;
+          }
           unreadDiagnostic.rawCount += 1;
           if (chat.unreadCount === undefined || chat.unreadCount === null) {
             unreadDiagnostic.rawMissing += 1;
@@ -1097,6 +1150,22 @@ export async function GET(request: Request) {
       }
 
       for (const chat of enrichedVisible) {
+        if (tf3UnreadDiag) {
+          const mergeKey = getEnrichedChatKey(chat);
+          const prior = mergeKey ? collectedMap.get(mergeKey) : undefined;
+          if (prior) {
+            const before = getChatUnreadCount(prior) > 0;
+            const incoming = getChatUnreadCount(chat) > 0;
+            const merged = mergeEnrichedChat(prior, chat);
+            const after = getChatUnreadCount(merged) > 0;
+            unreadOriginDiagnostic.duplicateMerges += 1;
+            const token = diagnosticIdentity(chat);
+            if (token && originTrace.has(token)) originTrace.get(token)!.mergedCount += 1;
+            if ((before || incoming) && !after) unreadOriginDiagnostic.positiveToZeroMerges += 1;
+            if (!before && incoming && after) unreadOriginDiagnostic.zeroToPositiveMerges += 1;
+            if ((before || incoming) && after) unreadOriginDiagnostic.positivePreservedMerges += 1;
+          }
+        }
         mergeIntoEnrichedChatMap(collectedMap, chat);
       }
 
@@ -1121,6 +1190,25 @@ export async function GET(request: Request) {
       unreadDiagnostic.consolidatedPositive = collected.filter((chat) => getChatUnreadCount(chat) > 0).length;
       unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive;
       console.info("[TF3-A-UNREAD-AGGREGATE]", JSON.stringify(unreadDiagnostic));
+      console.info("[TF3-A-UNREAD-ORIGIN]", JSON.stringify(unreadOriginDiagnostic));
+      for (const chat of collected) {
+        const token = diagnosticIdentity(chat);
+        if (token && originTrace.has(token)) {
+          originTrace.get(token)!.consolidatedPositive = getChatUnreadCount(chat) > 0;
+        }
+      }
+      // Apenas anomalias; limite de 20 identidades por requisicao para conter volume de logs.
+      const anomalies = [...originTrace.entries()]
+        .filter(([, value]) => value.rawIncomingZeroOrMissing > 0 || (value.rawPositive > 0 && !value.consolidatedPositive))
+        .slice(0, 20)
+        .map(([token, value]) => ({ token, ...value }));
+      console.info("[TF3-A-UNREAD-TRACE]", JSON.stringify({
+        trackedIdentities: originTrace.size,
+        anomalyCount: [...originTrace.values()].filter((value) =>
+          value.rawIncomingZeroOrMissing > 0 || (value.rawPositive > 0 && !value.consolidatedPositive)
+        ).length,
+        anomalies,
+      }));
     }
 
     perfLog("response", {
