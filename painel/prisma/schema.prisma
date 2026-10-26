@@ -137,6 +137,7 @@ model M1MCompany {
   attendances  M1MAttendance[]
   messages     M1MMessage[]
   messageFlags M1MMessageFlag[]
+  conversationStates M1MConversationState[]
 
   schedules       M1MCompanySchedule[]
   sectors         M1MSector[]
@@ -686,3 +687,30 @@ model M1MLegalAcceptance {
   @@map("m1m_legal_acceptances")
 }
 
+
+// TF3-A: estado persistente da conversa, independente do historico e do atendimento.
+// Nenhum contador legado e migrado automaticamente para este modelo.
+model M1MConversationState {
+  id                       String   @id @default(cuid())
+  companyId                String
+  instanceName             String
+  canonicalJid             String
+  unreadCount              Int      @default(0)
+  lastIncomingMessageId    String?
+  lastIncomingAt           DateTime?
+  lastReadMessageId        String?
+  lastReadAt               DateTime?
+  hiddenAt                 DateTime?
+  hiddenThroughMessageId   String?
+  hiddenThroughAt          DateTime?
+  revision                 Int      @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, instanceName, canonicalJid])
+  @@index([companyId, instanceName, unreadCount])
+  @@index([companyId, instanceName, hiddenAt])
+  @@map("m1m_conversation_states")
+}
