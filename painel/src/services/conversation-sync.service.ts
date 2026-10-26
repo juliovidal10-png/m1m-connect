@@ -1,3 +1,4 @@
+import { recordIncomingUnreadEvent } from "@/services/conversation-unread-state.service";
 import {
   M1MMessageAuthorType,
   M1MMessageDirection,
@@ -1559,7 +1560,7 @@ export const conversationSyncService = {
         customer.id,
       );
 
-    return messageService.registerMessage({
+    const storedMessage = await messageService.registerMessage({
       companyId: resolvedCompanyId,
       customerId: customer.id,
       attendanceId: attendance?.id ?? null,
@@ -1599,6 +1600,21 @@ export const conversationSyncService = {
       rawPayload: message.rawPayload,
       sentAt: message.sentAt,
     });
+
+    // TF3-A: integracao opt-in, desativada ate migracao e validacao.
+    // O ledger deduplica pelo ID Evolution; mensagens enviadas nao contam.
+    if (process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true" &&
+        !message.fromMe && message.direction === M1MMessageDirection.IN) {
+      await recordIncomingUnreadEvent({
+        companyId: resolvedCompanyId,
+        instanceName,
+        canonicalJid: canonicalCustomerRemoteJid,
+        evolutionMessageId: message.evolutionMessageId,
+        receivedAt: message.sentAt,
+      });
+    }
+
+    return storedMessage;
   },
 };
 
