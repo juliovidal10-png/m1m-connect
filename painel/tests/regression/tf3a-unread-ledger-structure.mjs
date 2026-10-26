@@ -22,6 +22,8 @@ assert.match(migration, /CREATE UNIQUE INDEX "m1m_conversation_unread_messages_c
 assert.match(service, /skipDuplicates: true/);
 assert.match(service, /isolationLevel: "Serializable"/);
 assert.match(service, /retrySerialization/);
+assert.doesNotMatch(service, /const canReactivate = state\.hiddenAt !== null &&/);
+assert.match(service, /const canReactivate = false/);
 assert.match(service, /confirmedEvolutionMessageIds/);
 assert.match(service, /hiddenAt: now/);
 assert.match(sync, /M1M_TF3A_UNREAD_LEDGER_ENABLED === "true"/);
