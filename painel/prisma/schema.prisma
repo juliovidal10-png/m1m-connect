@@ -138,6 +138,7 @@ model M1MCompany {
   messages     M1MMessage[]
   messageFlags M1MMessageFlag[]
   conversationStates M1MConversationState[]
+  conversationUnreadMessages M1MConversationUnreadMessage[]
 
   schedules       M1MCompanySchedule[]
   sectors         M1MSector[]
@@ -708,9 +709,30 @@ model M1MConversationState {
   updatedAt                DateTime @updatedAt
 
   company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  unreadMessages M1MConversationUnreadMessage[]
 
   @@unique([companyId, instanceName, canonicalJid])
   @@index([companyId, instanceName, unreadCount])
   @@index([companyId, instanceName, hiddenAt])
   @@map("m1m_conversation_states")
+}
+
+// Ledger idempotente: uma mensagem recebida conta uma unica vez, mesmo com webhook repetido.
+model M1MConversationUnreadMessage {
+  id                  String   @id @default(cuid())
+  companyId           String
+  instanceName        String
+  evolutionMessageId  String
+  conversationStateId String
+  receivedAt          DateTime
+  readAt              DateTime?
+  createdAt           DateTime @default(now())
+
+  company M1MCompany @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  conversationState M1MConversationState @relation(fields: [conversationStateId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, instanceName, evolutionMessageId])
+  @@index([conversationStateId, readAt])
+  @@index([companyId, instanceName, readAt])
+  @@map("m1m_conversation_unread_messages")
 }
