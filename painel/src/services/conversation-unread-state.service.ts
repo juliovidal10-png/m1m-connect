@@ -151,7 +151,7 @@ export async function hideConversationState(input: {
   if (![companyId, instanceName, canonicalJid].every((value) => value.trim())) {
     throw new Error("TF3-A: identidade de conversa invalida");
   }
-  return prisma.$transaction(async (tx) => {
+  return retrySerialization(() => prisma.$transaction(async (tx) => {
     const state = await tx.m1MConversationState.upsert({
       where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
       create: { companyId, instanceName, canonicalJid },
