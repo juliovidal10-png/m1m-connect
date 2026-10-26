@@ -59,7 +59,7 @@ export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
       },
     });
     return { inserted: true, stateId: state.id, hidden: false, reactivated: canReactivate };
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 /** Leitura global do ledger, sem depender da pagina atual do frontend. */
