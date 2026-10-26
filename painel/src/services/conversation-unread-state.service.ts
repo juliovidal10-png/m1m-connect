@@ -125,3 +125,42 @@ export async function recordConfirmedRead(input: {
   }
   throw new Error("TF3-A: leitura nao persistida");
 }
+
+/**
+ * Exclusao logica do estado da conversa. Nao remove mensagens, CRM ou financeiro.
+ * O chamador deve comprovar permissao e identidade antes de invocar.
+ * Reativacao por evento posterior permanece bloqueada ate sequenciamento validado.
+ */
+export async function hideConversationState(input: {
+  companyId: string;
+  instanceName: string;
+  canonicalJid: string;
+}) {
+  const { companyId, instanceName, canonicalJid } = input;
+  if (![companyId, instanceName, canonicalJid].every((value) => value.trim())) {
+    throw new Error("TF3-A: identidade de conversa invalida");
+  }
+  return prisma.$transaction(async (tx) => {
+    const state = await tx.m1MConversationState.upsert({
+      where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
+      create: { companyId, instanceName, canonicalJid },
+      update: {},
+    });
+    const now = new Date();
+    await tx.m1MConversationUnreadMessage.updateMany({
+      where: { conversationStateId: state.id, readAt: null },
+      data: { readAt: now },
+    });
+    await tx.m1MConversationState.update({
+      where: { id: state.id },
+      data: {
+        hiddenAt: now,
+        hiddenThroughAt: state.lastIncomingAt ?? now,
+        hiddenThroughMessageId: state.lastIncomingMessageId,
+        unreadCount: 0,
+        revision: { increment: 1 },
+      },
+    });
+    return { hidden: true, stateId: state.id };
+  }, { isolationLevel: "Serializable" });
+}
