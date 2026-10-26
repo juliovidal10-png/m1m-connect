@@ -32,3 +32,11 @@
 ## Status
 
 Schema Prisma e SQL de migração preparados. Integração dos eventos, serviço de estado, APIs, interface e testes ainda NÃO implementados. Não aplicar esta migração em produção isoladamente.
+
+## Etapa de leitura confirmada (2026-10-26)
+
+- Implementada `recordConfirmedRead`: aceita somente IDs ja verificados pelo caller, atualiza o ledger e recalcula a contagem em transacao serializavel com retry de conflito P2034.
+- A integracao da rota `/api/chat/read` com esse metodo ainda nao foi realizada; nao presumir que o retorno atual da Evolution comprova todos os IDs.
+- Reativacao de conversa oculta foi temporariamente bloqueada: timestamp isolado nao prova que a mensagem foi recebida apos a exclusao. Exige sequenciamento confiavel e teste de eventos atrasados.
+- O fluxo de entrada ainda nao usa este servico. Nenhuma tela ou contador foi alterado.
+- **Bloqueio para deploy:** nao publicar esta branch antes de concluir integracao, reconciliacao, testes e revisao de concorrencia. O novo ledger nao tem backfill validado.
