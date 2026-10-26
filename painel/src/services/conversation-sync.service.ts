@@ -845,6 +845,7 @@ export const conversationSyncService = {
     rawMessage: unknown,
     instanceName: string,
     companyId: string,
+    options: { countNewWebhookEvent?: boolean } = {},
   ) {
     const message =
       normalizeEvolutionMessage(rawMessage);
@@ -1603,7 +1604,8 @@ export const conversationSyncService = {
 
     // TF3-A: integracao opt-in, desativada ate migracao e validacao.
     // O ledger deduplica pelo ID Evolution; mensagens enviadas nao contam.
-    if (process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true" &&
+    if (options.countNewWebhookEvent === true &&
+        process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true" &&
         !message.fromMe && message.direction === M1MMessageDirection.IN) {
       await recordIncomingUnreadEvent({
         companyId: resolvedCompanyId,
