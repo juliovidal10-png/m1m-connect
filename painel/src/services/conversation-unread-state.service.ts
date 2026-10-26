@@ -34,10 +34,17 @@ export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
 
     // Mensagem antiga apos exclusao: registrar no ledger, mas nao reabrir.
     // Mesmo timestamp e tratado conservadoramente como nao comprovadamente novo.
-    const canReactivate = state.hiddenAt !== null &&
-      state.hiddenThroughAt !== null && receivedAt.getTime() > state.hiddenThroughAt.getTime();
+    // Uma data enviada pela origem nao comprova a ordem de entrega.
+    // Reativacao fica bloqueada ate existir sequenciamento confiavel de eventos.
+    const canReactivate = false;
     const remainsHidden = state.hiddenAt !== null && !canReactivate;
-    if (remainsHidden) return { inserted: true, stateId: state.id, hidden: true };
+    if (remainsHidden) {
+      await tx.m1MConversationUnreadMessage.updateMany({
+        where: { companyId, instanceName, evolutionMessageId, conversationStateId: state.id },
+        data: { readAt: new Date() },
+      });
+      return { inserted: true, stateId: state.id, hidden: true };
+    }
 
     // Atualizacao atomica: nao perde incrementos em webhooks concorrentes.
     await tx.m1MConversationState.update({
@@ -60,4 +67,61 @@ export async function countUnreadConversations(companyId: string, instanceName: 
   return prisma.m1MConversationState.count({
     where: { companyId, instanceName, hiddenAt: null, unreadCount: { gt: 0 } },
   });
+}
+
+/**
+ * Aplica somente IDs de mensagens cujo READ/PLAYED ja foi comprovado na origem.
+ * O chamador deve validar empresa, identidade, permissao e recibos na Evolution.
+ * IDs nao encontrados ou de outra conversa nao alteram o contador.
+ * O isolamento transacional SERIALIZABLE protege a contagem contra novas entradas.
+ */
+export async function recordConfirmedRead(input: {
+  companyId: string;
+  instanceName: string;
+  canonicalJid: string;
+  confirmedEvolutionMessageIds: string[];
+}) {
+  const { companyId, instanceName, canonicalJid } = input;
+  const ids = [...new Set(input.confirmedEvolutionMessageIds)];
+  if (![companyId, instanceName, canonicalJid].every((value) => value.trim()) ||
+      ids.length === 0 || ids.length > 100 || ids.some((id) => !id.trim())) {
+    throw new Error("TF3-A: confirmacao de leitura invalida");
+  }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const state = await tx.m1MConversationState.findUnique({
+          where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
+        });
+        if (!state) return { confirmed: 0, remaining: 0, stateFound: false };
+
+        const unread = await tx.m1MConversationUnreadMessage.findMany({
+          where: {
+            companyId, instanceName, conversationStateId: state.id,
+            evolutionMessageId: { in: ids }, readAt: null,
+          },
+          select: { id: true },
+        });
+        const confirmed = await tx.m1MConversationUnreadMessage.updateMany({
+          where: { id: { in: unread.map((message) => message.id) }, readAt: null },
+          data: { readAt: new Date() },
+        });
+        const remaining = await tx.m1MConversationUnreadMessage.count({
+          where: { conversationStateId: state.id, readAt: null },
+        });
+        await tx.m1MConversationState.update({
+          where: { id: state.id },
+          data: { unreadCount: remaining, revision: { increment: 1 },
+            ...(remaining === 0 ? { lastReadAt: new Date(), lastReadMessageId: ids[ids.length - 1] } : {}),
+          },
+        });
+        return { confirmed: confirmed.count, remaining, stateFound: true };
+      }, { isolationLevel: "Serializable" });
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+      if (code !== "P2034" || attempt === 2) throw error;
+    }
+  }
+  throw new Error("TF3-A: leitura nao persistida");
 }
