@@ -11,6 +11,8 @@ on:
       - "painel/src/services/conversation-unread-state.service.ts"
       - "painel/src/services/conversation-sync.service.ts"
       - "painel/src/services/incoming-message-pipeline.service.ts"
+      - "painel/src/services/tf3a-webhook-evidence.ts"
+      - "painel/src/app/api/webhooks/evolution/messages/route.ts"
       - "painel/src/app/api/chat/unread-count/route.ts"
       - "painel/src/app/api/chat/hide-conversation/route.ts"
       - ".github/workflows/tf3-a-validation.yml"
@@ -43,6 +45,7 @@ jobs:
         run: |
           node tests/regression/tf3a-unread-ledger-structure.mjs
           node tests/regression/tf3a-unread-ledger-behavior.mjs
+          node tests/regression/tf3a-webhook-evidence.mjs
       - name: Compare ESLint against main (no new findings)
         run: |
           git fetch --no-tags --depth=1 origin main

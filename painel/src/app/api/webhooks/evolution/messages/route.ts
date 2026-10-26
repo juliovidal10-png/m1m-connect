@@ -10,6 +10,7 @@ import {
 import {
   incomingMessagePipelineService,
 } from "@/services/incoming-message-pipeline.service";
+import { collectWebhookEvidence } from "@/services/tf3a-webhook-evidence";
 
 type UnknownRecord =
   Record<string, unknown>;
@@ -176,6 +177,8 @@ export async function POST(
         },
       );
     }
+
+    collectWebhookEvidence(body);
 
     const eventName =
       getText(body.event)

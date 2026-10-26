@@ -56,6 +56,8 @@ Schema Prisma, migration aditiva, servico persistente e endpoints de leitura, co
 
 ## Pendencias comprovadas nesta revisao
 
+Revisao de origem: preparada coleta opt-in do envelope autenticado, restrita por instancia e sem conteudo/IDs brutos. Ver `TF3-A-COLETA-ORIGEM-WEBHOOK.md` para evidencia indispensavel e procedimento. Esta entrega nao corrige ainda a classificacao de replay nem libera reabertura. Instrumentacao permanece desativada, sem deploy. TypeScript, schema Prisma e dez arquivos de regressao/diagnostico aprovados nesta revisao; nenhum banco real foi utilizado.
+
 - Webhook aceita MESSAGES_UPSERT (e evento ausente) e o pipeline marca `countNewWebhookEvent: true`; essa marcacao sozinha nao distingue replay historico ainda ausente do ledger de mensagem realmente nova.
 - Replay de ID ja registrado foi testado; replay de ID historico desconhecido continua sem protecao comprovada.
 - Conversas ocultas permanecem ocultas mesmo com nova mensagem: comportamento conservador temporario, nao implementacao concluida do reaparecimento.
