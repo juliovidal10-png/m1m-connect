@@ -47,12 +47,9 @@ export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
     // Mesmo timestamp e tratado conservadoramente como nao comprovadamente novo.
     // Uma data enviada pela origem nao comprova a ordem de entrega.
     // Reativacao fica bloqueada ate existir sequenciamento confiavel de eventos.
-    // Apenas mensagem nao registrada anteriormente e com horario da origem
-    // estritamente posterior ao instante da exclusao pode reabrir.
-    // Timestamps ausentes, iguais ou antigos mantem o tombstone.
-    // A verificacao ocorre sob isolamento serializavel e com deduplicacao por ID.
-    const canReactivate = state.hiddenAt !== null &&
-      receivedAt.getTime() > state.hiddenAt.getTime();
+    // Horario da origem nao comprova ordem de entrega nem impede replay historico.
+    // Reativacao permanece desativada ate existir sequenciamento confiavel.
+    const canReactivate = false;
     const remainsHidden = state.hiddenAt !== null && !canReactivate;
     if (remainsHidden) {
       await tx.m1MConversationUnreadMessage.updateMany({
