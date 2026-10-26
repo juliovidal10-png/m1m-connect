@@ -11,6 +11,7 @@ const migration = read("prisma/migrations/20261026180000_tf3a_conversation_state
 const service = read("src/services/conversation-unread-state.service.ts");
 const sync = read("src/services/conversation-sync.service.ts");
 const readRoute = read("src/app/api/chat/read/route.ts");
+const countRoute = read("src/app/api/chat/unread-count/route.ts");
 
 assert.match(schema, /model M1MConversationState/);
 assert.match(schema, /model M1MConversationUnreadMessage/);
@@ -31,4 +32,8 @@ assert.match(readRoute, /states.length !== 1/);
 assert.match(readRoute, /const alreadyReadIds = verified\.filter/);
 assert.match(readRoute, /persistLedgerRead\(alreadyReadIds\)/);
 assert.match(readRoute, /persistLedgerRead\(\[\.\.\.new Set\(\[\.\.\.alreadyReadIds, \.\.\.confirmed\]\)\]\)/);
+assert.match(countRoute, /countUnreadConversations\(user\.companyId, instanceName\)/);
+assert.match(countRoute, /VIEW_ALL_CONVERSATIONS/);
+assert.match(countRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);
+assert.match(countRoute, /Cache-Control/);
 console.log("TF3-A: verificacoes estruturais aprovadas. Nao substituem testes de integracao.");
