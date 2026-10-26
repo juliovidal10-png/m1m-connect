@@ -845,7 +845,6 @@ export const conversationSyncService = {
     rawMessage: unknown,
     instanceName: string,
     companyId: string,
-    options: { countNewWebhookEvent?: boolean } = {},
   ) {
     const message =
       normalizeEvolutionMessage(rawMessage);
@@ -1498,6 +1497,7 @@ export const conversationSyncService = {
     rawMessage: unknown,
     instanceName: string,
     companyId: string,
+    options: { countNewWebhookEvent?: boolean } = {},
   ) {
     const message =
       normalizeEvolutionMessage(rawMessage);
