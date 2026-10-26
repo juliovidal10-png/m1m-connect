@@ -31,12 +31,32 @@
 
 ## Status
 
-Schema Prisma e SQL de migração preparados. Integração dos eventos, serviço de estado, APIs, interface e testes ainda NÃO implementados. Não aplicar esta migração em produção isoladamente.
+Schema Prisma, migration aditiva, servico persistente e endpoints de leitura, contagem e ocultacao implementados parcialmente. Pipeline integrado de forma opt-in pela flag M1M_TF3A_UNREAD_LEDGER_ENABLED. Interface, reconciliacao inicial e reativacao segura continuam pendentes. Nao aplicar esta migration em producao isoladamente.
 
 ## Etapa de leitura confirmada (2026-10-26)
 
 - Implementada `recordConfirmedRead`: aceita somente IDs ja verificados pelo caller, atualiza o ledger e recalcula a contagem em transacao serializavel com retry de conflito P2034.
-- A integracao da rota `/api/chat/read` com esse metodo ainda nao foi realizada; nao presumir que o retorno atual da Evolution comprova todos os IDs.
+- Rota `/api/chat/read` integrada a `recordConfirmedRead`, inclusive confirmacoes parciais. Validacao funcional com Evolution continua pendente.
 - Reativacao de conversa oculta foi temporariamente bloqueada: timestamp isolado nao prova que a mensagem foi recebida apos a exclusao. Exige sequenciamento confiavel e teste de eventos atrasados.
-- O fluxo de entrada ainda nao usa este servico. Nenhuma tela ou contador foi alterado.
+- Pipeline chama o servico por `syncIncomingMessage` com `countNewWebhookEvent: true`, condicionado a flag. Telas e contador lateral ainda nao integrados.
 - **Bloqueio para deploy:** nao publicar esta branch antes de concluir integracao, reconciliacao, testes e revisao de concorrencia. O novo ledger nao tem backfill validado.
+
+
+## Validacoes isoladas em 26/10/2026
+
+- Corrigido parametro `options` declarado no metodo errado: movido de `hasExistingCustomerForMessage` para `syncIncomingMessage` (commit d200d12f).
+- `prisma validate` aprovado e cliente Prisma 7.9.0 gerado; nenhuma migration executada.
+- `tsc --noEmit` aprovado apos geracao do cliente e correcao da assinatura.
+- Oito arquivos de regressao existentes aprovados; teste estrutural do ledger incluido.
+- Comparacao ESLint de ChatInbox com main sem novas ocorrencias (5 erros e 3 avisos em ambas). Isso nao representa lint integral aprovado.
+- Build compilou e concluiu verificacao de tipos, mas falhou na coleta de paginas por DATABASE_URL ausente no ambiente isolado. Build completo nao aprovado.
+- Novo teste `tf3a-unread-ledger-behavior.mjs`: oito cenarios aprovados executando o servico real com persistencia simulada. Cobre duplicidade, contagem por conversa, isolamento por empresa/instancia, IDs de outra conversa, leitura parcial/idempotente, replay de ID conhecido, ocultacao, retry P2034 e entradas invalidas.
+- O teste de retry injeta conflitos antes da transacao: nao comprova concorrencia real, rollback ou integridade de PostgreSQL.
+- Testes do ledger e validacao do schema incluidos no workflow TF3-A. Execucao remota desse workflow ainda nao comprovada.
+
+## Pendencias comprovadas nesta revisao
+
+- Webhook aceita MESSAGES_UPSERT (e evento ausente) e o pipeline marca `countNewWebhookEvent: true`; essa marcacao sozinha nao distingue replay historico ainda ausente do ledger de mensagem realmente nova.
+- Replay de ID ja registrado foi testado; replay de ID historico desconhecido continua sem protecao comprovada.
+- Conversas ocultas permanecem ocultas mesmo com nova mensagem: comportamento conservador temporario, nao implementacao concluida do reaparecimento.
+- Faltam reconciliacao inicial/backfill validado, recibos externos de leitura, JID/LID, permissoes por setor, concorrencia em banco e integracao visual.
