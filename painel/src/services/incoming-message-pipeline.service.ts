@@ -409,6 +409,7 @@ export const incomingMessagePipelineService = {
         rawMessage,
         normalizedInstanceName,
         companyId,
+        { countNewWebhookEvent: true },
       );
 
     const processingClaimed =
