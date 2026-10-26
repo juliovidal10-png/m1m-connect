@@ -1035,7 +1035,7 @@ export async function GET(request: Request) {
     const collectedMap = new Map<string, EnrichedChat>();
     const seenRaw = new Set<string>();
     // TF3-A: diagnostico agregado, somente em modo opt-in e sem identificadores.
-    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1" && String(company.name ?? "").trim().toUpperCase() === "EMPRESA TESTE";
+    const tf3UnreadDiag = new URL(request.url).searchParams.get("tf3diag") === "1" && String(company.name ?? "").trim().toUpperCase() === "MARKETING1MINUTO";
     const unreadDiagnostic = {
       rawCount: 0,
       rawPositive: 0,
