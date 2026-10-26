@@ -1,3 +1,4 @@
+import { recordConfirmedRead } from "@/services/conversation-unread-state.service";
 import { NextRequest, NextResponse } from "next/server";
 import { authorizationService } from "@/services/auth/authorization.service";
 import { companyRepository } from "@/repositories/company.repository";
@@ -135,12 +136,32 @@ export async function POST(request: NextRequest) {
       });
       if (!attendance) return NextResponse.json({ error: "Conversa nao autorizada" }, { status: 403 });
     }
+    // TF3-A: persistir apenas recibos confirmados pela Evolution.
+    // A identidade do ledger deve estar previamente registrada e ser unica.
+    const persistLedgerRead = async (confirmedIds: string[]) => {
+      if (process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true" || confirmedIds.length === 0) return;
+      const identityCandidates = new Set<string>(candidateJids);
+      for (const message of verified) {
+        if (message.key?.remoteJid) identityCandidates.add(message.key.remoteJid);
+        if (message.key?.remoteJidAlt) identityCandidates.add(message.key.remoteJidAlt);
+      }
+      const states = await prisma.m1MConversationState.findMany({
+        where: { companyId: user.companyId, instanceName: instance, canonicalJid: { in: [...identityCandidates] } },
+        select: { canonicalJid: true },
+      });
+      if (states.length === 0) return; // Nenhum registro novo para reconciliar.
+      if (states.length !== 1) throw new Error("TF3-A: identidade do ledger ambigua");
+      await recordConfirmedRead({
+        companyId: user.companyId, instanceName: instance,
+        canonicalJid: states[0].canonicalJid,
+        confirmedEvolutionMessageIds: confirmedIds,
+      });
+    };
     const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const pending = verified.filter((message) => !isRead(message.status));
     // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
     const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
-    if (pending.length === 0) return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
-    // Reverificacao autorizada consulta a Evolution sem reenviar marcacao.
+    if (pending.length === 0) {\n      await persistLedgerRead(verified.map((message) => message.key!.id!));\n      return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });\n    }\n    // Reverificacao autorizada consulta a Evolution sem reenviar marcacao.
     // Mantem a identidade, a instancia e as permissoes ja verificadas acima.
     if ((payload as { verifyOnly?: unknown }).verifyOnly === true) {
       return NextResponse.json({
@@ -209,8 +230,7 @@ export async function POST(request: NextRequest) {
           matchedCount: matched.size, readCount: read.size, playedCount: played.size,
           otherStatusCount: matched.size - confirmed.size,
         });
-        if (confirmed.size === verified.length) {
-          return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
+        if (confirmed.size === verified.length) {\n          await persistLedgerRead([...confirmed]);\n          return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
             tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
       }
