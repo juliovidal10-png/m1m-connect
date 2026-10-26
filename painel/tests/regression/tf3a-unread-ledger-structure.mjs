@@ -12,6 +12,8 @@ const service = read("src/services/conversation-unread-state.service.ts");
 const sync = read("src/services/conversation-sync.service.ts");
 const readRoute = read("src/app/api/chat/read/route.ts");
 const countRoute = read("src/app/api/chat/unread-count/route.ts");
+const hideRoute = read("src/app/api/chat/hide-conversation/route.ts");
+const pipeline = read("src/services/incoming-message-pipeline.service.ts");
 
 assert.match(schema, /model M1MConversationState/);
 assert.match(schema, /model M1MConversationUnreadMessage/);
@@ -36,4 +38,9 @@ assert.match(countRoute, /countUnreadConversations\(user\.companyId, instanceNam
 assert.match(countRoute, /VIEW_ALL_CONVERSATIONS/);
 assert.match(countRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);
 assert.match(countRoute, /Cache-Control/);
+assert.match(hideRoute, /input.confirm !== true/);
+assert.match(hideRoute, /hideConversationState/);
+assert.match(hideRoute, /VIEW_ALL_CONVERSATIONS/);
+assert.match(sync, /options.countNewWebhookEvent === true/);
+assert.match(pipeline, /countNewWebhookEvent: true/);
 console.log("TF3-A: verificacoes estruturais aprovadas. Nao substituem testes de integracao.");
