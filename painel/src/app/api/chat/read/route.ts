@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
     type EvolutionMessage = {
       key?: { id?: string; remoteJid?: string; remoteJidAlt?: string; fromMe?: boolean; participant?: string };
       status?: string | null;
+      messageTimestamp?: number | string;
     };
     const requested = new Set(ids as string[]);
     if (requested.size !== ids.length) return NextResponse.json({ error: "IDs duplicados" }, { status: 400 });
@@ -170,6 +171,28 @@ export async function POST(request: NextRequest) {
       });
       const canonicalJids = new Set(ledgerStates.map((state) => state.canonicalJid));
       for (const message of stored) canonicalJids.add(message.customer.remoteJid);
+      const confirmedRecords = verified.filter((message) => confirmedIds.includes(message.key!.id!));
+      const confirmedMessages = confirmedRecords.flatMap((message) => {
+        const raw = message.messageTimestamp;
+        const seconds = typeof raw === "number" ? raw :
+          typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : NaN;
+        const receivedAt = new Date(seconds * 1000);
+        return Number.isSafeInteger(seconds) && seconds >= 0 && Number.isFinite(receivedAt.getTime())
+          ? [{ evolutionMessageId: message.key!.id!, receivedAt }] : [];
+      });
+      if (canonicalJids.size === 0 && confirmedMessages.length === confirmedIds.length) {
+        // Sem historico: aceitar somente uma identidade oficial/grupo unica
+        // comprovada nas chaves da Evolution para TODOS os IDs confirmados.
+        const sourceIdentities = confirmedRecords.map((message) => new Set(
+          [message.key?.remoteJid, message.key?.remoteJidAlt].filter(
+            (jid): jid is string => typeof jid === "string" && /@(s\.whatsapp\.net|g\.us)$/.test(jid),
+          ),
+        ));
+        const sourceJids = new Set(sourceIdentities.flatMap((set) => [...set]));
+        if (sourceIdentities.every((set) => set.size === 1) && sourceJids.size === 1) {
+          for (const jid of sourceJids) canonicalJids.add(jid);
+        }
+      }
       const states = [...canonicalJids].map((canonicalJid) => ({ canonicalJid }));
       if (states.length === 0) return; // Sem identidade persistida comprovada.
       if (states.length !== 1) throw new Error("TF3-A: identidade do ledger ambigua");
@@ -177,6 +200,7 @@ export async function POST(request: NextRequest) {
         companyId: user.companyId, instanceName: instance,
         canonicalJid: states[0].canonicalJid,
         confirmedEvolutionMessageIds: confirmedIds,
+        confirmedMessages,
       });
     };
     const isRead = isConfirmedReadStatus;

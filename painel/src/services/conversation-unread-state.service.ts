@@ -85,12 +85,21 @@ export async function recordConfirmedRead(input: {
   instanceName: string;
   canonicalJid: string;
   confirmedEvolutionMessageIds: string[];
+  // Evidencia obtida pelo caller na Evolution, nunca diretamente do navegador.
+  confirmedMessages?: { evolutionMessageId: string; receivedAt: Date }[];
 }) {
   const { companyId, instanceName, canonicalJid } = input;
   const ids = [...new Set(input.confirmedEvolutionMessageIds)];
+  const evidence = input.confirmedMessages ?? [];
   if (![companyId, instanceName, canonicalJid].every((value) => value.trim()) ||
       ids.length === 0 || ids.length > 100 || ids.some((id) => !id.trim())) {
     throw new Error("TF3-A: confirmacao de leitura invalida");
+  }
+  if (evidence.length > ids.length ||
+      new Set(evidence.map((message) => message.evolutionMessageId)).size !== evidence.length ||
+      evidence.some((message) => !ids.includes(message.evolutionMessageId) ||
+        !Number.isFinite(message.receivedAt.getTime()))) {
+    throw new Error("TF3-A: evidencia de leitura invalida");
   }
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -106,10 +115,22 @@ export async function recordConfirmedRead(input: {
           },
           select: { evolutionMessageId: true, sentAt: true },
         });
+        const seedMessages = new Map(stored.map((message) => [message.evolutionMessageId, message.sentAt]));
+        const missing = evidence.filter((message) => !seedMessages.has(message.evolutionMessageId));
+        if (missing.length > 0) {
+          // Nao criar estado alternativo se o mesmo ID ja pertence a outro
+          // cliente/direcao no historico local desta empresa e instancia.
+          const conflicts = await tx.m1MMessage.findMany({
+            where: { companyId, instanceName, evolutionMessageId: { in: missing.map((message) => message.evolutionMessageId) } },
+            select: { evolutionMessageId: true },
+          });
+          if (conflicts.length > 0) throw new Error("TF3-A: identidade persistida diverge do recibo");
+          for (const message of missing) seedMessages.set(message.evolutionMessageId, message.receivedAt);
+        }
         let state = await tx.m1MConversationState.findUnique({
           where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
         });
-        if (!state && stored.length === 0) return { confirmed: 0, remaining: 0, stateFound: false };
+        if (!state && seedMessages.size === 0) return { confirmed: 0, remaining: 0, stateFound: false };
         if (!state) {
           state = await tx.m1MConversationState.upsert({
             where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
@@ -118,10 +139,10 @@ export async function recordConfirmedRead(input: {
         }
         const readAt = new Date();
         const stateId = state.id;
-        const seeded = stored.length === 0 ? { count: 0 } : await tx.m1MConversationUnreadMessage.createMany({
-          data: stored.map((message) => ({
-            companyId, instanceName, evolutionMessageId: message.evolutionMessageId,
-            conversationStateId: stateId, receivedAt: message.sentAt, readAt,
+        const seeded = seedMessages.size === 0 ? { count: 0 } : await tx.m1MConversationUnreadMessage.createMany({
+          data: [...seedMessages].map(([evolutionMessageId, receivedAt]) => ({
+            companyId, instanceName, evolutionMessageId,
+            conversationStateId: stateId, receivedAt, readAt,
           })),
           skipDuplicates: true,
         });

@@ -194,4 +194,32 @@ await check("recibo antecipado nao usa historico de outra empresa instancia conv
     assert.ok(!states.some((row) => row.companyId === scope.companyId));
   }
 });
+await check("recibo com data comprovada na origem precede qualquer historico local", async () => {
+  const scope = { ...identity, companyId: "synthetic-source-first" };
+  const receivedAt = new Date("2024-01-01T00:00:00Z");
+  const input = { ...scope, confirmedEvolutionMessageIds: ["source-first"],
+    confirmedMessages: [{ evolutionMessageId: "source-first", receivedAt }] };
+  const result = await ledger.recordConfirmedRead(input);
+  assert.equal(result.stateFound, true); assert.equal(result.confirmed, 1);
+  assert.equal(await count(scope), 0);
+  const entry = messages.find((row) => row.companyId === scope.companyId && row.evolutionMessageId === "source-first");
+  assert.equal(entry.receivedAt.getTime(), receivedAt.getTime()); assert.ok(entry.readAt);
+  assert.equal((await incoming("source-first", scope)).inserted, false);
+  assert.equal((await ledger.recordConfirmedRead(input)).confirmed, 0);
+  await incoming("source-next", scope); assert.equal(await count(scope), 1);
+});
+await check("evidencia de origem invalida ou conflitante nao cria estado", async () => {
+  const scope = { ...identity, companyId: "synthetic-source-denied" };
+  const base = { ...scope, confirmedEvolutionMessageIds: ["source-conflict"] };
+  await assert.rejects(ledger.recordConfirmedRead({ ...base,
+    confirmedMessages: [{ evolutionMessageId: "unconfirmed-id", receivedAt: new Date() }] }));
+  await assert.rejects(ledger.recordConfirmedRead({ ...base,
+    confirmedMessages: [{ evolutionMessageId: "source-conflict", receivedAt: new Date(NaN) }] }));
+  const evidence = { evolutionMessageId: "source-conflict", receivedAt: new Date() };
+  await assert.rejects(ledger.recordConfirmedRead({ ...base, confirmedMessages: [evidence, evidence] }));
+  storedMessages.push({ ...scope, evolutionMessageId: "source-conflict", fromMe: false, direction: "IN",
+    sentAt: new Date(), customer: { companyId: scope.companyId, remoteJid: "other@s.whatsapp.net" } });
+  await assert.rejects(ledger.recordConfirmedRead({ ...base, confirmedMessages: [evidence] }), /identidade persistida diverge/);
+  assert.ok(!states.some((row) => row.companyId === scope.companyId));
+});
 console.log(`TF3-A: ${checks.length} cenarios comportamentais aprovados com persistencia simulada. Concorrencia real, JID/LID e Evolution nao validados.`);

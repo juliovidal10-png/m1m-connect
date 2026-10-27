@@ -38,3 +38,16 @@ A revisao seguinte reproduziu outra falha na rota: READ seguido de DELIVERY_ACK 
 Correcao: depois de validar que as ocorrencias pertencem a mesma identidade ou a par JID/LID espelhado comprovado, preservar qualquer READ/PLAYED contra duplicata sem recibo. Empates continuam preferindo identidade solicitada. Isso nao cria recibo, nao relaxa identidade/permissao e nao muda a classificacao de evento novo/historico.
 
 Onze cenarios da rota aprovados com dependencias simuladas: os quatro anteriores, quatro ordens READ/PLAYED versus DELIVERY_ACK, conflito de identidade mesmo com READ e dois pares JID/LID espelhados com estados divergentes. Mantidos doze cenarios do servico e teste estrutural aprovados. TypeScript, ESLint da rota e diff-check aprovados. Nenhum teste de banco real, rede Evolution, migration, merge ou deploy executado nesta revisao.
+
+
+## Recibo anterior a qualquer historico local
+
+Reproducao adicional: a fonte 3d51a138, com o novo teste do servico, descarta o recibo quando ainda nao ha historico/ledger, mesmo havendo evidencia de data na origem. A revisao adiciona confirmedMessages opcional ao contrato interno do servico (IDs e datas da origem). Nao recebe esses metadados diretamente do navegador.
+
+A rota extrai a data somente de messageTimestamp das mensagens verificadas na Evolution, apos confirmacao READ/PLAYED; aceita segundos Unix inteiros numericos ou string decimal com data representavel, sem janela de idade. Sem identidade local, somente uma identidade oficial/grupo comprovada para todos os IDs confirmados permite criar o estado. Apenas LID sem vinculo oficial nao cria estado novo por suposicao. Existindo identidade local comprovada, ela continua guiando a reconciliacao.
+
+O servico valida IDs, datas e duplicidade da evidencia. Usa primeiro datas locais ja persistidas. Para IDs ausentes daquele historico, consulta colisao na mesma empresa/instancia: um registro de outra conversa/direcao bloqueia criacao alternativa. Sem colisao, persiste o recibo com a data da origem na transacao SERIALIZABLE. Um evento posterior com o mesmo ID encontra entrada ja lida e nao incrementa o contador. Isso nao classifica eventos desconhecidos como novos nem implementa replay/reabertura.
+
+Validacoes desta revisao: quatorze cenarios do servico e dezesseis da rota aprovados com persistencia/dependencias simuladas; preservados os oito originais. Incluidos data numerica/string, mensagem antiga legitima, repeticao, chegada posterior, evidencia invalida e conflito com historico. Reproduzida a falha com a fonte anterior. Teste estrutural, TypeScript, ESLint dos TS alterados e diff-check aprovados. Nao executados PostgreSQL, migrations, merge, restart ou deploy.
+
+O limite anterior de ausencia de historico foi reduzido, nao eliminado universalmente: sem data valida ou identidade canonica comprovada, o recibo da Evolution pode ser confirmado pela rota, mas a reconciliacao antecipada do ledger continua pendente. Ainda e necessario tratar esse estado antes de ativar o contador. Os testes nao comprovam integracao JID/LID real, concorrencia real ou comportamento funcional em producao. Ledger permanece desligado.

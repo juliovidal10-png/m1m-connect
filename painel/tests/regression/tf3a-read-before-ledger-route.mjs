@@ -7,7 +7,7 @@ const ts = require('typescript');
 const compiled = ts.transpileModule(fs.readFileSync('src/app/api/chat/read/route.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys } = {}) {
+async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys, requestedJid = '100@s.whatsapp.net' } = {}) {
   const calls = [];
   const prisma = {
     m1MMessage: { async findMany({ where }) {
@@ -48,7 +48,7 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
       throw Error('Import inesperado: ' + name);
     },
   });
-  const response = await mod.exports.POST({ async json() { return { remoteJid: '100@s.whatsapp.net', messageIds: ['read-1'], ...(messageKeys ? { messageKeys } : {}) }; } });
+  const response = await mod.exports.POST({ async json() { return { remoteJid: requestedJid, messageIds: ['read-1'], ...(messageKeys ? { messageKeys } : {}) }; } });
   return { response, calls };
 }
 const early = await scenario();
@@ -91,4 +91,21 @@ for (const [primaryStatus, alternateStatus] of [['DELIVERY_ACK', 'READ'], ['READ
   assert.equal(result.calls.length, 1);
   console.log('PASSOU: par JID/LID espelhado preserva recibo confirmado: ' + primaryStatus + ' / ' + alternateStatus);
 }
-console.log('TF3-A: onze cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
+for (const timestamp of [1704067200, '1704067200']) {
+  const result = await scenario({ stored: [], records: [{ key, status: 'READ', messageTimestamp: timestamp }] });
+  assert.equal(result.response.status, 200); assert.equal(result.calls.length, 1);
+  assert.equal(result.calls[0].canonicalJid, key.remoteJid);
+  assert.equal(result.calls[0].confirmedMessages[0].receivedAt.toISOString(), '2024-01-01T00:00:00.000Z');
+  console.log('PASSOU: recibo sem historico usa identidade/data comprovadas na origem: ' + typeof timestamp);
+}
+for (const timestamp of [-1, 'not-a-date']) {
+  const result = await scenario({ stored: [], records: [{ key, status: 'READ', messageTimestamp: timestamp }] });
+  assert.equal(result.response.status, 200); assert.equal(result.calls.length, 0);
+  console.log('PASSOU: sem data valida nao cria entrada antecipada.');
+}
+const lidOnly = await scenario({ stored: [], requestedJid: 'alternate@lid', records: [{
+  key: { id: 'read-1', remoteJid: 'alternate@lid', fromMe: false }, status: 'READ', messageTimestamp: 1704067200,
+}] });
+assert.equal(lidOnly.response.status, 200); assert.equal(lidOnly.calls.length, 0);
+console.log('PASSOU: LID sem vinculo oficial ou identidade local nao e promovido a identidade canonica.');
+console.log('TF3-A: dezesseis cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
