@@ -77,3 +77,39 @@ O package.json e o package-lock.json dessa tag fixam baileys 7.0.0-rc.9. Inspeci
 6. Logs existentes ja mostram o envelope: nao publicar instrumentacao apenas para reproduzir os mesmos campos ausentes. Nao alterar a Evolution compartilhada para obter metadados sem plano isolado e autorizacao especifica.
 
 Nenhuma alteracao funcional, migration, merge, ativacao ou deploy foi executado nesta revisao. Validacao desta etapa: inspecao estatica de fontes versionadas e comparacao com o envelope real; nao foram executados novos testes de banco ou testes funcionais de replay. Os resultados anteriores de testes simulados nao sao promovidos a validacao da origem.
+
+
+## Identificacao do artefato implantado — 27/10/2026
+
+Consulta somente leitura executada pelo proprietario no terminal do servidor Docker:
+- ImagemConfigurada: evoapicloud/evolution-api:v2.3.7.
+- ImageID informado pelo Docker: sha256:1bd8afc4a6cf48822e6cf02469aeae7bd35a12a6b616eacd1291926307f4d339.
+- RepoDigests: evoapicloud/evolution-api@sha256:1bd8afc4a6cf48822e6cf02469aeae7bd35a12a6b616eacd1291926307f4d339.
+
+Consulta independente ao Docker Registry publico, sem acessar o servidor do proprietario:
+- O RepoDigest resolve um OCI image index multiplataforma; nao e, por si so, um commit Git nem a prova da arquitetura em execucao.
+- Manifest linux/amd64: sha256:456b4104b0ddffbb092d6b3c0560a4ae86fc3e014e885b882aca4b1b371dfc81.
+- Labels desse manifest: org.opencontainers.image.revision=cd800f2976e1e5b682fbf86a01ee4d85ae61f370 e org.opencontainers.image.version=v2.3.7.
+- A attestation publicada vinculada a esse manifest (sha256:2871365c6e2bf554b26309412d06ec866693e196a15e9f70b96e267765a28ddb) tambem informa o mesmo commit em materials/configSource.
+- Build publicado: https://github.com/EvolutionAPI/evolution-api/actions/runs/19966038150/attempts/1.
+- Fonte: https://github.com/EvolutionAPI/evolution-api/blob/cd800f2976e1e5b682fbf86a01ee4d85ae61f370/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts.
+
+Limites: trata-se de metadata/procedencia publicada pelo fornecedor, nao de reproducao independente do build ou verificacao de assinatura. Nao foi inspecionado o filesystem vivo para excluir modificacoes posteriores no container. A arquitetura efetiva nao foi solicitada ao proprietario, pois nao altera a decisao funcional atual.
+
+### Decisao concreta
+
+A referencia de fonte analisada coincide com a revisao declarada pelo artefato linux/amd64 do indice implantado. A identificacao nao justifica atualizar versao, substituir imagem nem repetir consultas ja concluidas. O codigo recebe type/requestId no handler e projeta o webhook sem esses campos, coerente com o payload real fornecido. A observacao no receptor M1M nao recupera informacao removida antes do envio.
+
+Mesmo expor type nao basta: append pode ser entrega offline legitima; notify nao exclui reentrega de evento originalmente novo. Nao propor deploy da Evolution compartilhada apenas para obter esse campo. O preparador de laboratorio preservado nao e publicavel no servico compartilhado: ele nao limita a instrumentacao por instancia e sua publicacao exigiria build/substituicao do processo. Nao foi executado.
+
+O impedimento nao e falta de outro numero, banco ou Redis. Falta evidencia correlacionada que demonstre a origem historica ou entrega nova dos IDs ambiguos no instante de entrada. Nao ha replay historico desconhecido controlado comprovado nas amostras recebidas. A assinatura messages.upsert atual, ID desconhecido e timestamp isolados nao resolvem essa ambiguidade.
+
+### Limite operacional e coleta minima admissivel
+
+Servico existente: cinco instancias, quatro alem de M1MTesteIA e duas dessas conectadas conforme consulta anterior. Nao identificar automaticamente essas instancias como clientes especificos. Uma imagem filtrada por instancia ainda compartilha o ciclo de vida do processo; substituicao/reinicio nao garante preservar suas conexoes. Portanto nao liberar publicacao compartilhada sob a exigencia atual de nao interromper as demais.
+
+MESSAGES_SET permanece habilitado exclusivamente na M1MTesteIA, com backup de restauracao ja confirmado. Nao provoca sincronizacao. Nao pedir novas buscas repetidas nos mesmos mil registros; eventual evento natural precisa ser registrado com periodo coberto e correlacao. Para cada amostra necessaria: acao controlada correspondente, evento, token estavel do ID (sem ID bruto), identidade de instancia de teste, marcadores de origem, ordem de recepcao e resultado de contagem/ocultacao. Horarios sao observacoes, nao criterio de novidade. Credenciais e corpo das mensagens nao sao necessarios.
+
+Nao existe nesta revisao uma operacao adicional no Coolify que simultaneamente produza os metadados ausentes e tenha demonstracao de impacto nulo nas conexoes compartilhadas. Nao fabricar esse procedimento nem pedir reinicio como se fosse consulta. Antes de solicitar autorizacao de publicacao, apresentar pacote concreto com instrumentacao por instancia, testes de isolamento, impacto de substituicao e retorno. A necessidade da coleta nao constitui autorizacao de deploy.
+
+Nenhum codigo funcional alterado nesta revisao documental; nenhum teste de banco real, migration, merge, deploy, reinicio ou desconexao executado. Ledger permanece desativado. Contadores, replay desconhecido e reabertura nao estao concluidos.
