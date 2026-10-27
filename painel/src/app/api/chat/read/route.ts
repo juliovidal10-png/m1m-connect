@@ -244,6 +244,8 @@ export async function POST(request: NextRequest) {
         ...verificationCounts, ...tf3ReadCounts,
       });
     }
+    // Preserve recibos comprovados antes de marcar os demais IDs.
+    await persistLedgerRead(alreadyReadIds);
     const readMessages = pending.map((message) => {
       const key = message.key!;
       const participant =
@@ -279,6 +281,7 @@ export async function POST(request: NextRequest) {
       attempt: number; confirmedCount: number; matchedCount: number;
       readCount: number; playedCount: number; otherStatusCount: number;
     }> = [];
+    const confirmedAcrossAttempts = new Set<string>(alreadyReadIds);
     try {
       for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 650));
@@ -305,8 +308,9 @@ export async function POST(request: NextRequest) {
           otherStatusCount: matched.size - confirmed.size,
         });
         // Recibos ja confirmados sao persistidos mesmo se outros permanecerem pendentes.
-        await persistLedgerRead([...new Set([...alreadyReadIds, ...confirmed])]);
-        if (confirmed.size === verified.length) {
+        for (const id of confirmed) confirmedAcrossAttempts.add(id);
+        await persistLedgerRead([...confirmedAcrossAttempts]);
+        if (confirmedAcrossAttempts.size === verified.length) {
           if (ledgerReadResult.state === "PENDING_EVIDENCE") return ledgerPendingResponse();
           return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
             ledgerRead: ledgerReadResult, tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });

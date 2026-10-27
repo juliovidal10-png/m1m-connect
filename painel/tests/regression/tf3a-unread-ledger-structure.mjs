@@ -35,7 +35,7 @@ assert.match(readRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);
 assert.match(readRoute, /states.length !== 1/);
 assert.match(readRoute, /const alreadyReadIds = verified\.filter/);
 assert.match(readRoute, /persistLedgerRead\(alreadyReadIds\)/);
-assert.match(readRoute, /persistLedgerRead\(\[\.\.\.new Set\(\[\.\.\.alreadyReadIds, \.\.\.confirmed\]\)\]\)/);
+assert.match(readRoute, /persistLedgerRead\(\[\.\.\.confirmedAcrossAttempts\]\)/);
 assert.match(countRoute, /countUnreadConversations\(user\.companyId, instanceName\)/);
 assert.match(countRoute, /VIEW_ALL_CONVERSATIONS/);
 assert.match(countRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);

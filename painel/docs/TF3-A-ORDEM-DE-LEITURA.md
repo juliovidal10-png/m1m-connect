@@ -31,38 +31,10 @@ Nenhum schema/migration alterado. Nenhuma conexao a banco real, webhook real, mi
 Se o recibo chega antes de existir qualquer historico local e qualquer identidade persistida, este caminho nao cria identidade por suposicao e a reconciliacao desse caso continua pendente. O replay de ID historico desconhecido e a reabertura segura continuam pendentes. Mudancas JID/LID concorrentes ainda exigem integracao. Nao habilitar o ledger com base apenas nestes testes.
 
 
-## Duplicatas com status divergentes
+## Preservacao de recibos parciais durante marcacao
 
-A revisao seguinte reproduziu outra falha na rota: READ seguido de DELIVERY_ACK para o mesmo ID/identidade resultava em pendencia e tentativa desnecessaria de marcacao de leitura. A escolha anterior preferia a ultima ocorrencia da identidade solicitada e ignorava o recibo confirmado da ocorrencia anterior.
+Revisao do HEAD c5e52999 identificou que recibos READ/PLAYED ja comprovados na consulta inicial somente eram persistidos depois de marcar os IDs restantes. Uma recusa ou falha nessa marcacao impedia a reconciliacao da parte ja comprovada. A rota agora persiste essa parte antes do POST, sem promover IDs pendentes a lidos.
 
-Correcao: depois de validar que as ocorrencias pertencem a mesma identidade ou a par JID/LID espelhado comprovado, preservar qualquer READ/PLAYED contra duplicata sem recibo. Empates continuam preferindo identidade solicitada. Isso nao cria recibo, nao relaxa identidade/permissao e nao muda a classificacao de evento novo/historico.
+As consultas posteriores acumulam recibos confirmados na mesma requisicao, mantendo a validacao de identidade. Um resultado atrasado com DELIVERY_ACK ou ausencia de um ID nao apaga uma confirmacao anterior. Nao ha janela temporal nem alteracao do criterio de novidade de mensagens.
 
-Onze cenarios da rota aprovados com dependencias simuladas: os quatro anteriores, quatro ordens READ/PLAYED versus DELIVERY_ACK, conflito de identidade mesmo com READ e dois pares JID/LID espelhados com estados divergentes. Mantidos doze cenarios do servico e teste estrutural aprovados. TypeScript, ESLint da rota e diff-check aprovados. Nenhum teste de banco real, rede Evolution, migration, merge ou deploy executado nesta revisao.
-
-
-## Recibo anterior a qualquer historico local
-
-Reproducao adicional: a fonte 3d51a138, com o novo teste do servico, descarta o recibo quando ainda nao ha historico/ledger, mesmo havendo evidencia de data na origem. A revisao adiciona confirmedMessages opcional ao contrato interno do servico (IDs e datas da origem). Nao recebe esses metadados diretamente do navegador.
-
-A rota extrai a data somente de messageTimestamp das mensagens verificadas na Evolution, apos confirmacao READ/PLAYED; aceita segundos Unix inteiros numericos ou string decimal com data representavel, sem janela de idade. Sem identidade local, somente uma identidade oficial/grupo comprovada para todos os IDs confirmados permite criar o estado. Apenas LID sem vinculo oficial nao cria estado novo por suposicao. Existindo identidade local comprovada, ela continua guiando a reconciliacao.
-
-O servico valida IDs, datas e duplicidade da evidencia. Usa primeiro datas locais ja persistidas. Para IDs ausentes daquele historico, consulta colisao na mesma empresa/instancia: um registro de outra conversa/direcao bloqueia criacao alternativa. Sem colisao, persiste o recibo com a data da origem na transacao SERIALIZABLE. Um evento posterior com o mesmo ID encontra entrada ja lida e nao incrementa o contador. Isso nao classifica eventos desconhecidos como novos nem implementa replay/reabertura.
-
-Validacoes desta revisao: quatorze cenarios do servico e dezesseis da rota aprovados com persistencia/dependencias simuladas; preservados os oito originais. Incluidos data numerica/string, mensagem antiga legitima, repeticao, chegada posterior, evidencia invalida e conflito com historico. Reproduzida a falha com a fonte anterior. Teste estrutural, TypeScript, ESLint dos TS alterados e diff-check aprovados. Nao executados PostgreSQL, migrations, merge, restart ou deploy.
-
-O limite anterior de ausencia de historico foi reduzido, nao eliminado universalmente: sem data valida ou identidade canonica comprovada, o recibo da Evolution pode ser confirmado pela rota, mas a reconciliacao antecipada do ledger continua pendente. Ainda e necessario tratar esse estado antes de ativar o contador. Os testes nao comprovam integracao JID/LID real, concorrencia real ou comportamento funcional em producao. Ledger permanece desligado.
-
-
-## Contrato de reconciliacao pendente
-
-A rota anterior podia retornar CONFIRMED mesmo quando persistLedgerRead nao encontrava identidade e retornava sem persistir. Isso confirmava o recibo da Evolution, mas nao a reconciliacao do ledger.
-
-O servico agora conta os IDs efetivamente presentes como lidos na mesma empresa/instancia/estado e retorna persistedReadCount e unresolvedReadCount. Contagem e feita dentro da transacao; o numero de linhas inseridas/alteradas isoladamente nao comprova que todos os IDs ficaram cobertos.
-
-Com ledger habilitado, a rota expoe ledgerRead.state (NO_CONFIRMED_IDS, PENDING_EVIDENCE ou PERSISTED) e contagens agregadas, sem IDs ou conteudo. Se a origem confirma leitura mas faltam identidade/data/entradas de ledger, responde ACCEPTED_UNCONFIRMED, confirmed=false, verifiedConfirmed=true, tf3Code=B_LEDGER_RECONCILIATION_PENDING. Isso permite distinguir o recibo da origem da reconciliacao local. Usa o estado de pendencia ja reconhecido pelo ChatInbox; nenhuma tela foi alterada. O frontend existente faz uma reverificacao e permite nova tentativa ao reabrir, sem zerar badges localmente. Nao foi realizado teste visual/end-to-end.
-
-Com flag desligada, nao consulta o ledger nem altera o estado funcional legado; acrescenta ledgerRead.state=DISABLED. Recibos parcialmente confirmados continuam sendo persistidos. Falhas de identidade seguem bloqueadas.
-
-Validacoes: 14 cenarios comportamentais do servico, 17 da rota e teste estrutural aprovados com dependencias simuladas. TypeScript, ESLint dos dois arquivos TS e diff-check aprovados. Nenhum PostgreSQL, migration, merge, deploy, reinicio ou nova configuracao real nesta revisao.
-
-As observacoes anteriores de CONFIRMED sem identidade descrevem o comportamento anterior. A reconciliacao desses casos continua pendente, mas agora isso e informado explicitamente. Replay desconhecido, reaparecimento seguro e integracao completa do contador permanecem abertos. Flag do ledger continua desativada.
+Validacoes desta revisao: 19 cenarios da rota, 14 do servico (incluindo os oito originais), teste estrutural, TypeScript e ESLint do arquivo alterado. Persistencia e Evolution simuladas; nenhum banco real foi usado. Replay desconhecido e reabertura continuam pendentes; ledger desativado. Nenhuma migration, merge ou deploy.

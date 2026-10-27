@@ -7,15 +7,17 @@ const ts = require('typescript');
 const compiled = ts.transpileModule(fs.readFileSync('src/app/api/chat/read/route.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys, requestedJid = '100@s.whatsapp.net', ledgerResult } = {}) {
+async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys, requestedJid = '100@s.whatsapp.net', ledgerResult, requestedIds = ['read-1'], sourceBatches, markResponse } = {}) {
   const calls = [];
+  let sourceCall = 0;
+  const markCalls = [];
   const prisma = {
     m1MMessage: { async findMany({ where }) {
       assert.equal(where.companyId, 'synthetic-company');
       assert.equal(where.instanceName, 'synthetic-instance');
       assert.equal(where.fromMe, false); assert.equal(where.direction, 'IN');
       assert.equal(where.customer.companyId, 'synthetic-company');
-      assert.equal(JSON.stringify(where.evolutionMessageId.in), JSON.stringify(['read-1']));
+      assert.ok(where.evolutionMessageId.in.every(id => requestedIds.includes(id)));
       return stored;
     } },
     m1MConversationState: { async findMany({ where }) {
@@ -28,7 +30,12 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
     process: { env: { EVOLUTION_API_URL: 'https://synthetic.invalid', EVOLUTION_API_KEY: 'fake',
       M1M_TF3A_UNREAD_LEDGER_ENABLED: enabled ? 'true' : 'false' } },
     console: { log() {}, error() {}, warn() {} },
-    fetch() { throw Error('Nenhuma chamada externa permitida'); },
+    AbortSignal, setTimeout(callback) { callback(); },
+    async fetch(url, options) {
+      assert.ok(url.endsWith('/chat/markMessageAsRead/synthetic-instance'));
+      markCalls.push(JSON.parse(options.body));
+      return markResponse ?? { ok: true, async text() { return '{}'; } };
+    },
     require(name) {
       if (name === 'next/server') return { NextResponse: { json(body, options) { return { body, status: options?.status ?? 200 }; } } };
       if (name === '@/lib/prisma') return { prisma };
@@ -40,6 +47,7 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
         async findById() { return { whatsappInstanceName: 'synthetic-instance' }; },
       } };
       if (name === '@/lib/evolution') return { async getMessages() {
+        if (sourceBatches) return sourceBatches[Math.min(sourceCall++, sourceBatches.length - 1)];
         return records ?? [{ key: { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false }, status: 'READ' }];
       } };
       if (name === '@/services/conversation-unread-state.service') return {
@@ -50,8 +58,8 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
       throw Error('Import inesperado: ' + name);
     },
   });
-  const response = await mod.exports.POST({ async json() { return { remoteJid: requestedJid, messageIds: ['read-1'], ...(messageKeys ? { messageKeys } : {}) }; } });
-  return { response, calls };
+  const response = await mod.exports.POST({ async json() { return { remoteJid: requestedJid, messageIds: requestedIds, ...(messageKeys ? { messageKeys } : {}) }; } });
+  return { response, calls, markCalls };
 }
 const early = await scenario();
 assert.equal(early.response.status, 200); assert.equal(early.calls.length, 1);
@@ -129,4 +137,19 @@ assert.equal(unpersisted.response.body.confirmed, false);
 assert.equal(unpersisted.response.body.verifiedConfirmed, true);
 assert.equal(unpersisted.response.body.ledgerRead.state, 'PENDING_EVIDENCE');
 console.log('PASSOU: recibo Evolution sem entrada comprovada no ledger permanece pendente.');
-console.log('TF3-A: dezessete cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
+const secondKey = { ...key, id: 'read-2' };
+const mixed = [{ key, status: 'READ' }, { key: secondKey, status: 'DELIVERY_ACK' }];
+const rejected = await scenario({ records: mixed, requestedIds: ['read-1', 'read-2'], markResponse: { ok: false } });
+assert.equal(rejected.response.status, 502);
+assert.equal(rejected.calls.length, 1);
+assert.equal(JSON.stringify(rejected.calls[0].confirmedEvolutionMessageIds), JSON.stringify(['read-1']));
+assert.equal(rejected.markCalls[0].readMessages.length, 1);
+assert.equal(rejected.markCalls[0].readMessages[0].id, 'read-2');
+console.log('PASSOU: recusa da marcacao restante preserva recibo parcial comprovado.');
+const cumulative = await scenario({ requestedIds: ['read-1', 'read-2'], sourceBatches: [mixed, [
+  { key, status: 'DELIVERY_ACK' }, { key: secondKey, status: 'READ' },
+]] });
+assert.equal(cumulative.response.body.state, 'CONFIRMED');
+assert.equal(JSON.stringify(cumulative.calls.at(-1).confirmedEvolutionMessageIds), JSON.stringify(['read-1', 'read-2']));
+console.log('PASSOU: consultas fora de ordem preservam recibos anteriores.');
+console.log('TF3-A: dezenove cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
