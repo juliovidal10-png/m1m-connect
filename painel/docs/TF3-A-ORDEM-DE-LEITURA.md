@@ -29,3 +29,12 @@ Nenhum schema/migration alterado. Nenhuma conexao a banco real, webhook real, mi
 ## Limites restantes
 
 Se o recibo chega antes de existir qualquer historico local e qualquer identidade persistida, este caminho nao cria identidade por suposicao e a reconciliacao desse caso continua pendente. O replay de ID historico desconhecido e a reabertura segura continuam pendentes. Mudancas JID/LID concorrentes ainda exigem integracao. Nao habilitar o ledger com base apenas nestes testes.
+
+
+## Duplicatas com status divergentes
+
+A revisao seguinte reproduziu outra falha na rota: READ seguido de DELIVERY_ACK para o mesmo ID/identidade resultava em pendencia e tentativa desnecessaria de marcacao de leitura. A escolha anterior preferia a ultima ocorrencia da identidade solicitada e ignorava o recibo confirmado da ocorrencia anterior.
+
+Correcao: depois de validar que as ocorrencias pertencem a mesma identidade ou a par JID/LID espelhado comprovado, preservar qualquer READ/PLAYED contra duplicata sem recibo. Empates continuam preferindo identidade solicitada. Isso nao cria recibo, nao relaxa identidade/permissao e nao muda a classificacao de evento novo/historico.
+
+Onze cenarios da rota aprovados com dependencias simuladas: os quatro anteriores, quatro ordens READ/PLAYED versus DELIVERY_ACK, conflito de identidade mesmo com READ e dois pares JID/LID espelhados com estados divergentes. Mantidos doze cenarios do servico e teste estrutural aprovados. TypeScript, ESLint da rota e diff-check aprovados. Nenhum teste de banco real, rede Evolution, migration, merge ou deploy executado nesta revisao.

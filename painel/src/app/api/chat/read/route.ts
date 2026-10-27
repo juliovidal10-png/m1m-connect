@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       }
     }
     if (candidateJids.size > 2) return NextResponse.json({ error: "Identidades ambiguas" }, { status: 409 });
+    const isConfirmedReadStatus = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
     const byId = new Map<string, EvolutionMessage>();
     for (const jid of candidateJids) {
       const records = await getMessages(jid, instance, 100) as EvolutionMessage[];
@@ -99,8 +100,14 @@ export async function POST(request: NextRequest) {
               tf3ConflictKind,
             }, { status: 409 });
           }
-          // Prefere o registro da identidade solicitada, sem alterar IDs ou permissões.
-          if (key.remoteJid === remoteJid) byId.set(key.id, record);
+          // Identidade ja validada: recibo confirmado nao pode ser substituido
+          // por uma duplicata antiga sem READ/PLAYED, qualquer que seja a ordem.
+          const existingRead = isConfirmedReadStatus(existing.status);
+          const recordRead = isConfirmedReadStatus(record.status);
+          if ((!existingRead && recordRead) ||
+              (existingRead === recordRead && key.remoteJid === remoteJid)) {
+            byId.set(key.id, record);
+          }
           continue;
         }
         byId.set(key.id, record);
@@ -172,7 +179,7 @@ export async function POST(request: NextRequest) {
         confirmedEvolutionMessageIds: confirmedIds,
       });
     };
-    const isRead = (status: string | null | undefined) => status === "READ" || status === "PLAYED";
+    const isRead = isConfirmedReadStatus;
     const pending = verified.filter((message) => !isRead(message.status));
     const alreadyReadIds = verified.filter((message) => isRead(message.status)).map((message) => message.key!.id!);
     // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.

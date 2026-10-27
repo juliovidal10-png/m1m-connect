@@ -7,7 +7,7 @@ const ts = require('typescript');
 const compiled = ts.transpileModule(fs.readFileSync('src/app/api/chat/read/route.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }] } = {}) {
+async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys } = {}) {
   const calls = [];
   const prisma = {
     m1MMessage: { async findMany({ where }) {
@@ -40,7 +40,7 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
         async findById() { return { whatsappInstanceName: 'synthetic-instance' }; },
       } };
       if (name === '@/lib/evolution') return { async getMessages() {
-        return [{ key: { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false }, status: 'READ' }];
+        return records ?? [{ key: { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false }, status: 'READ' }];
       } };
       if (name === '@/services/conversation-unread-state.service') return {
         async recordConfirmedRead(input) { calls.push(input); },
@@ -48,7 +48,7 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
       throw Error('Import inesperado: ' + name);
     },
   });
-  const response = await mod.exports.POST({ async json() { return { remoteJid: '100@s.whatsapp.net', messageIds: ['read-1'] }; } });
+  const response = await mod.exports.POST({ async json() { return { remoteJid: '100@s.whatsapp.net', messageIds: ['read-1'], ...(messageKeys ? { messageKeys } : {}) }; } });
   return { response, calls };
 }
 const early = await scenario();
@@ -67,4 +67,28 @@ console.log('PASSOU: flag desligada nao chama reconciliacao do ledger.');
 const absent = await scenario({ stored: [] });
 assert.equal(absent.response.status, 200); assert.equal(absent.calls.length, 0);
 console.log('PASSOU: sem identidade persistida nao inventa estado de conversa.');
-console.log('TF3-A: quatro cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
+const key = { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false };
+for (const statuses of [['READ', 'DELIVERY_ACK'], ['DELIVERY_ACK', 'READ'], ['PLAYED', 'DELIVERY_ACK'], ['DELIVERY_ACK', 'PLAYED']]) {
+  const result = await scenario({ records: statuses.map(status => ({ key, status })) });
+  assert.equal(result.response.status, 200, 'recibo nao pode regredir: ' + statuses.join(' -> '));
+  assert.equal(result.response.body.verifiedPendingCount, 0);
+  assert.equal(result.calls.length, 1);
+  console.log('PASSOU: duplicatas da mesma identidade preservam leitura: ' + statuses.join(' -> '));
+}
+const conflict = await scenario({ records: [
+  { key, status: 'READ' }, { key: { ...key, remoteJidAlt: 'different@lid' }, status: 'READ' },
+] });
+assert.equal(conflict.response.status, 409); assert.equal(conflict.calls.length, 0);
+console.log('PASSOU: recibo READ nao permite aceitar identidades conflitantes.');
+for (const [primaryStatus, alternateStatus] of [['DELIVERY_ACK', 'READ'], ['READ', 'DELIVERY_ACK']]) {
+  const result = await scenario({
+    messageKeys: [{ id: 'read-1', remoteJid: 'alternate@lid' }],
+    records: [{ key, status: primaryStatus }, {
+      key: { ...key, remoteJid: 'alternate@lid', remoteJidAlt: '100@s.whatsapp.net' }, status: alternateStatus,
+    }],
+  });
+  assert.equal(result.response.status, 200); assert.equal(result.response.body.verifiedPendingCount, 0);
+  assert.equal(result.calls.length, 1);
+  console.log('PASSOU: par JID/LID espelhado preserva recibo confirmado: ' + primaryStatus + ' / ' + alternateStatus);
+}
+console.log('TF3-A: onze cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
