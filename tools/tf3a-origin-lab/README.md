@@ -1,6 +1,27 @@
 # Proposta revisavel — laboratorio de origem TF3-A
 
-Estado: PREPARADO, NAO PUBLICADO. Nenhum recurso ou ambiente criado.
+Estado: PROPOSTA PRESERVADA, NAO APROVADA COMO DEPENDENCIA DA TF3-A. Nenhum recurso ou ambiente criado.
+
+## Revisao de escopo apos instrucao do proprietario
+
+HEAD confirmado antes desta revisao: 1e481bf7e1ebbeb68d2d825dffd8f80e9aadb555. O codigo deste commit foi preservado. Expansao do laboratorio suspensa.
+
+A necessidade de outra Evolution, Redis ou numero WhatsApp NAO foi demonstrada. M1MTesteIA ja entrega eventos reais no ambiente existente e deve ser a primeira via de coleta. Nao condicionar os testes de persistencia a um numero novo.
+
+- Persistencia: um PostgreSQL de teste isolado pode validar idempotencia, leitura parcial, concorrencia e transacoes sem WhatsApp, Redis ou Evolution novos. A criacao do banco e execucao de migration continuam sujeitas a autorizacao.
+- Coleta real: usar primeiro os logs existentes da M1MTesteIA. A coleta no M1M com filtro por instancia limita o escopo, mas nao recupera campos que a Evolution nao envia.
+- Instrumentacao de origem restrita por instancia: tecnicamente pode observar type/requestId no servico existente, sem outra sessao. Ainda exige projeto de isolamento, revisao e autorizacao para eventual publicacao/reinicio do servico compartilhado; o preparador offline atual nao e uma patch pronta para o container compartilhado.
+- Compartilhamento: o screenshot mostra um recurso Evolution no ambiente production; isso nao comprova quais empresas usam esse recurso. O cliente M1M usa uma configuracao EVOLUTION_API_URL e seleciona instancias por nome. Confirmar inventario ativo antes de afirmar que clientes reais compartilham o processo.
+- Consulta suportada na fonte 2.3.7: GET /instance/fetchInstances, com chave global, lista instancias do clientName configurado; GET /webhook/find/M1MTesteIA consulta somente o webhook de testes. Retornar apenas contagens/estado e nomes de eventos, nunca o objeto bruto com tokens.
+- Operacoes com possivel impacto global: substituir imagem, reiniciar/parar container Evolution, alterar variaveis globais, banco/cache compartilhados ou emitir logs muito volumosos. Filtro de payload por instancia nao elimina impacto de reinicio/build ou erro global.
+- Operacoes restritas: configuracao local de webhook e roteada por instanceName no controlador; mesmo assim nao mudar URL ou eventos sem preservar configuracao e avaliar entrega ao M1M. Nenhuma alteracao foi autorizada nesta revisao.
+
+Nenhuma evidencia indispensavel identificada exige um SEGUNDO numero. Ele so seria necessario para o desenho opcional de duas conexoes independentes simultaneas, que nao e requisito comprovado do contador. Se nao houver outro numero, manter M1MTesteIA na conexao atual, usar coleta existente e testes de persistencia desacoplados; nao transferir nem duplicar sessao. Se metadados internos adicionais forem indispensaveis, apresentar a instrumentacao minima da origem por instancia e seu impacto para autorizacao, em vez de impor infraestrutura nova.
+
+A falha potencial de replay desconhecido permanece aberta; nao foi comprovada por um replay real controlado. Testes simulados e fonte estatica nao substituem essa evidencia. Nao descartar append ou mensagens atrasadas.
+
+Os paragrafos abaixo preservam a proposta original para rastreabilidade; nao representam o proximo caminho aprovado.
+
 
 Escopo desta entrega: proposta e preparador da instrumentacao de origem. Ainda nao e pacote de deploy pronto; receptor, Compose e imagem final dependem das condicoes listadas abaixo.
 
