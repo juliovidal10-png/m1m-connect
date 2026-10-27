@@ -16,6 +16,7 @@ import {
 } from "next/navigation";
 import { createPortal } from "react-dom";
 
+import { selectLedgerUnreadSnapshot } from "@/lib/conversation-unread-snapshot";
 import useAutoRefresh from "@/hooks/useAutoRefresh";
 import MessageRenderer, {
   type ChatMessage,
@@ -35,6 +36,9 @@ type Chat = {
   profilePicUrl: string | null;
   updatedAt: string;
   unreadCount: number | null;
+  unreadSource?: "LEDGER" | "PENDING";
+  unreadRevision?: number | null;
+  unreadCanonicalJid?: string | null;
 
   attendanceId?: string | null;
   attendanceState?: "IA" | "HUMANO" | "FINALIZADO" | null;
@@ -459,6 +463,7 @@ function mergeDuplicateChats(items: Chat[]) {
         ? chat.updatedAt
         : current.updatedAt,
       unreadCount: chatIsNewer ? chat.unreadCount : current.unreadCount,
+      ...selectLedgerUnreadSnapshot(current, chat),
       lastMessage: chatIsNewer
         ? chat.lastMessage
         : current.lastMessage,
@@ -1032,7 +1037,8 @@ export default function ChatInbox() {
             chat.updatedAt,
           ),
           unreadCount:
-            chat.unreadCount || 0,
+            chat.unreadCount,
+          unreadSource: chat.unreadSource,
           isSelected:
             (selectedChat?.canonicalJid ||
               selectedChat?.remoteJid) ===

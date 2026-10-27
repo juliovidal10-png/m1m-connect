@@ -5,13 +5,15 @@ import {
   useRef,
   useState,
 } from "react";
+import ConversationUnreadBadge from "./ConversationUnreadBadge";
 export type ChatConversationSidebarItem = {
   key: string;
   name: string;
   profilePicUrl: string | null;
   preview: string;
   updatedAt: string;
-  unreadCount: number;
+  unreadCount: number | null;
+  unreadSource?: "LEDGER" | "PENDING";
   isSelected: boolean;
   queueCategory: "WAITING" | "IN_SERVICE" | "OTHER";
   onSelect: () => void;
@@ -86,11 +88,7 @@ export default function ChatConversationSidebar({
             {item.preview}
           </p>
 
-          {item.unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white shadow-sm">
-              {item.unreadCount}
-            </span>
-          )}
+          <ConversationUnreadBadge count={item.unreadCount} source={item.unreadSource} />
         </div>
       </div>
     </button>

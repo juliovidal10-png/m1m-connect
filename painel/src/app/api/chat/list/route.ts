@@ -6,6 +6,8 @@ import { createHmac } from "node:crypto";
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { companyRepository } from "@/repositories/company.repository";
+import { selectLedgerUnreadSnapshot } from "@/lib/conversation-unread-snapshot";
+import { projectLedgerUnreadStates } from "@/services/conversation-unread-projection.service";
 import { countUnreadConversations } from "@/services/conversation-unread-state.service";
 
 const API_URL = process.env.EVOLUTION_API_URL;
@@ -13,6 +15,10 @@ const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
 
 type EvolutionChat = {
+  unreadCount?: number | null;
+  unreadSource?: "LEDGER" | "PENDING";
+  unreadRevision?: number | null;
+  unreadCanonicalJid?: string | null;
   remoteJid?: string | null;
   canonicalJid?: string | null;
   pushName?: string | null;
@@ -234,6 +240,7 @@ function mergeEnrichedChat(
     unreadCount: getChatUpdatedTime(newer) > getChatUpdatedTime(older)
       ? getChatUnreadCount(newer)
       : Math.max(getChatUnreadCount(current), getChatUnreadCount(incoming)),
+    ...selectLedgerUnreadSnapshot(current, incoming),
   };
 }
 
@@ -757,12 +764,19 @@ export async function GET(request: Request) {
       });
     }
 
+    async function visibleWithUnread(items: EnrichedChat[]): Promise<EnrichedChat[]> {
+      const permitted = visible(items);
+      return process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true"
+        ? projectLedgerUnreadStates(companyId, instanceName!, permitted)
+        : permitted;
+    }
+
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
     if (wantsTotalCount) {
       const rawChats = await getTf3CompleteInventory(companyId, instanceName);
-      const visibleChats = visible(await enrich(rawChats));
+      const visibleChats = await visibleWithUnread(await enrich(rawChats));
       const visualKeys = new Set(visibleChats.map(getTf3VisualChatKey));
       return NextResponse.json({ totalCount: visualKeys.size });
     }
@@ -775,7 +789,7 @@ export async function GET(request: Request) {
           .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       );
       const rawChats = await getCachedEvolutionChats(companyId, instanceName, waitingSignature);
-      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats)));
+      const waitingChats = dedupeEnrichedChats(await visibleWithUnread(await enrich(rawChats)));
       const waitingCount = waitingChats.filter(
         (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
       ).length;
@@ -846,7 +860,7 @@ export async function GET(request: Request) {
         );
 
         const directRaw = directResults.flat();
-        const directVisible = visible(await enrich(directRaw));
+        const directVisible = await visibleWithUnread(await enrich(directRaw));
 
         const directMatches = dedupeEnrichedChats(
           directVisible,
@@ -987,7 +1001,7 @@ export async function GET(request: Request) {
             groupDirectResults.flat();
 
           const groupDirectVisible =
-            visible(
+            await visibleWithUnread(
               await enrich(
                 groupDirectRaw,
               ),
@@ -1027,7 +1041,7 @@ export async function GET(request: Request) {
       }
 
       const allRaw = await fetchAllEvolutionChats(instanceName);
-      const allVisible = visible(await enrich(allRaw));
+      const allVisible = await visibleWithUnread(await enrich(allRaw));
       const matches = dedupeEnrichedChats(allVisible).filter((chat) => {
         const haystack = normalizeSearch([
           chat.pushName,
@@ -1061,9 +1075,11 @@ export async function GET(request: Request) {
       enrichedCount: 0,
       enrichedPositive: 0,
       enrichedZero: 0,
+      enrichedPending: 0,
       consolidatedCount: 0,
       consolidatedPositive: 0,
       consolidatedZero: 0,
+      consolidatedPending: 0,
     };
     // Somente contagens agregadas; nao registrar JID, LID, telefone, nome ou mensagens.
     const unreadOriginDiagnostic = {
@@ -1154,13 +1170,14 @@ export async function GET(request: Request) {
       }
 
       const enrichStartedAt = Date.now();
-      const enrichedVisible = visible(await enrich(uniqueRaw));
+      const enrichedVisible = await visibleWithUnread(await enrich(uniqueRaw));
       if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
 
       if (tf3UnreadDiag) {
         for (const chat of enrichedVisible) {
           unreadDiagnostic.enrichedCount += 1;
-          if (getChatUnreadCount(chat) > 0) unreadDiagnostic.enrichedPositive += 1;
+          if (chat.unreadSource === "PENDING") unreadDiagnostic.enrichedPending += 1;
+          else if (getChatUnreadCount(chat) > 0) unreadDiagnostic.enrichedPositive += 1;
           else unreadDiagnostic.enrichedZero += 1;
         }
       }
@@ -1204,7 +1221,8 @@ export async function GET(request: Request) {
     if (tf3UnreadDiag) {
       unreadDiagnostic.consolidatedCount = collected.length;
       unreadDiagnostic.consolidatedPositive = collected.filter((chat) => getChatUnreadCount(chat) > 0).length;
-      unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive;
+      unreadDiagnostic.consolidatedPending = collected.filter((chat) => chat.unreadSource === "PENDING").length;
+      unreadDiagnostic.consolidatedZero = collected.length - unreadDiagnostic.consolidatedPositive - unreadDiagnostic.consolidatedPending;
       console.info("[TF3-A-UNREAD-AGGREGATE]", JSON.stringify(unreadDiagnostic));
       console.info("[TF3-A-UNREAD-ORIGIN]", JSON.stringify(unreadOriginDiagnostic));
       for (const chat of collected) {

@@ -12,6 +12,8 @@ async function scenario({ enabled = true, allowed = true, company = { whatsappIn
     console: { log() {}, error() {}, warn() {} },
     fetch() { throw Error('Inventario Evolution nao deve ser consultado'); },
     require(name) {
+      if (name === '@/lib/conversation-unread-snapshot') return {};
+      if (name === '@/services/conversation-unread-projection.service') return { projectLedgerUnreadStates() { throw Error('Projecao nao deve ser chamada no agregado'); } };
       if (name === 'node:crypto') return require(name);
       if (name === 'next/server') return { NextResponse: { json(body, options) { return { body, status: options?.status ?? 200, headers: options?.headers }; } } };
       if (name === '@/services/auth/authorization.service') return { authorizationService: {
@@ -50,6 +52,6 @@ const failed = await scenario({ fail: true }); assert.equal(failed.response.stat
 console.log('PASSOU: falha no banco nao retorna zero.');
 for (const options of [{ enabled: false }, { query: 'waitingCount=1' }]) {
   const r = await scenario(options); assert.equal(r.response.status, 500); assert.equal(r.calls.length, 0);
-  console.log('PASSOU: flag desligada/fila Aguardando preservam caminho legado sem ledger.');
+  console.log('PASSOU: flag desligada/fila Aguardando nao usam o novo agregado de nao lidas.');
 }
 console.log('TF3-A: 14 cenarios do indicador lateral com dependencias simuladas; sem banco/Evolution reais.');

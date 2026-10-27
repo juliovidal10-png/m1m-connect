@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ConversationUnreadBadge from "./ConversationUnreadBadge";
 
 type Chat = {
   id: string | null;
@@ -9,6 +10,7 @@ type Chat = {
   profilePicUrl: string | null;
   updatedAt: string;
   unreadCount: number | null;
+  unreadSource?: "LEDGER" | "PENDING";
   lastMessage?: {
     messageType?: string;
     message?: {
@@ -146,11 +148,7 @@ export default function ConversationList() {
                   {getLastMessage(chat)}
                 </p>
 
-                {(chat.unreadCount || 0) > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white">
-                    {chat.unreadCount}
-                  </span>
-                )}
+                <ConversationUnreadBadge count={chat.unreadCount} source={chat.unreadSource} />
               </div>
             </div>
           </button>
