@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const ts = require("typescript");
 const states = [];
 const messages = [];
+const storedMessages = [];
 let sequence = 0;
 let conflicts = 0;
 let transactions = 0;
@@ -15,6 +16,7 @@ const matches = (row, where = {}) => Object.entries(where).every(([key, value]) 
   if (value && typeof value === "object" && !(value instanceof Date)) {
     if ("in" in value) return value.in.includes(row[key]);
     if ("gt" in value) return row[key] > value.gt;
+    return row[key] && matches(row[key], value);
   }
   return row[key] === value;
 });
@@ -25,6 +27,9 @@ const apply = (row, data) => {
   }
 };
 const tx = {
+  m1MMessage: {
+    async findMany({ where }) { return storedMessages.filter((row) => matches(row, where)); },
+  },
   m1MConversationState: {
     async upsert({ where, create }) {
       let row = states.find((item) => matches(item, where));
@@ -157,5 +162,36 @@ await check("somente confirmacao explicita conclui leitura da mensagem recebida 
   assert.equal(result.confirmed, 1); assert.equal(result.remaining, 0);
   assert.equal(states[0].unreadCount, 0); assert.ok(states[0].hiddenAt);
   assert.ok(messages.find((row) => row.conversationStateId === states[0].id && row.evolutionMessageId === "m5").readAt);
+});
+await check("recibo anterior ao primeiro ledger impede nao lida na entrega posterior", async () => {
+  const scope = { ...identity, companyId: "synthetic-order" };
+  const sentAt = new Date("2025-01-01T00:00:00Z");
+  storedMessages.push({ ...scope, evolutionMessageId: "early-read", sentAt, fromMe: false,
+    direction: "IN", customer: { companyId: scope.companyId, remoteJid: scope.canonicalJid } });
+  const result = await read(["early-read"], scope);
+  assert.equal(result.stateFound, true); assert.equal(result.confirmed, 1);
+  assert.equal(result.remaining, 0);
+  const entry = messages.find((row) => row.companyId === scope.companyId && row.evolutionMessageId === "early-read");
+  assert.ok(entry.readAt); assert.equal(entry.receivedAt.getTime(), sentAt.getTime());
+  assert.equal((await incoming("early-read", scope)).inserted, false);
+  assert.equal(await count(scope), 0);
+  assert.equal((await read(["early-read"], scope)).confirmed, 0);
+  // Data antiga nao e usada como janela de descarte de outra mensagem legitima.
+  await incoming("late-legitimate", scope); assert.equal(await count(scope), 1);
+});
+await check("recibo antecipado nao usa historico de outra empresa instancia conversa ou mensagem enviada", async () => {
+  for (const [index, delta] of [
+    { companyId: "other-company" }, { instanceName: "other-instance" },
+    { customer: { companyId: "synthetic-denied-2", remoteJid: "other@s.whatsapp.net" } },
+    { fromMe: true, direction: "OUT" },
+  ].entries()) {
+    const scope = { ...identity, companyId: `synthetic-denied-${index}` };
+    const id = `not-allowed-${index}`;
+    storedMessages.push({ ...scope, evolutionMessageId: id, sentAt: new Date(), fromMe: false,
+      direction: "IN", customer: { companyId: scope.companyId, remoteJid: scope.canonicalJid }, ...delta });
+    const result = await read([id], scope);
+    assert.equal(result.stateFound, false); assert.equal(result.confirmed, 0);
+    assert.ok(!states.some((row) => row.companyId === scope.companyId));
+  }
 });
 console.log(`TF3-A: ${checks.length} cenarios comportamentais aprovados com persistencia simulada. Concorrencia real, JID/LID e Evolution nao validados.`);

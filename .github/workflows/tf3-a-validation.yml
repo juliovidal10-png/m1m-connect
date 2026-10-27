@@ -45,6 +45,7 @@ jobs:
         run: |
           node tests/regression/tf3a-unread-ledger-structure.mjs
           node tests/regression/tf3a-unread-ledger-behavior.mjs
+          node tests/regression/tf3a-read-before-ledger-route.mjs
           node tests/regression/tf3a-webhook-evidence.mjs
       - name: Compare ESLint against main (no new findings)
         run: |

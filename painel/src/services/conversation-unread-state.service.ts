@@ -96,10 +96,35 @@ export async function recordConfirmedRead(input: {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       return await prisma.$transaction(async (tx) => {
-        const state = await tx.m1MConversationState.findUnique({
+        // O historico e persistido antes do ledger. Uma leitura pode chegar
+        // nesse intervalo; guardar o recibo com a data original ja persistida.
+        const stored = await tx.m1MMessage.findMany({
+          where: {
+            companyId, instanceName, evolutionMessageId: { in: ids },
+            fromMe: false, direction: "IN",
+            customer: { companyId, remoteJid: canonicalJid },
+          },
+          select: { evolutionMessageId: true, sentAt: true },
+        });
+        let state = await tx.m1MConversationState.findUnique({
           where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
         });
-        if (!state) return { confirmed: 0, remaining: 0, stateFound: false };
+        if (!state && stored.length === 0) return { confirmed: 0, remaining: 0, stateFound: false };
+        if (!state) {
+          state = await tx.m1MConversationState.upsert({
+            where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
+            create: { companyId, instanceName, canonicalJid }, update: {},
+          });
+        }
+        const readAt = new Date();
+        const stateId = state.id;
+        const seeded = stored.length === 0 ? { count: 0 } : await tx.m1MConversationUnreadMessage.createMany({
+          data: stored.map((message) => ({
+            companyId, instanceName, evolutionMessageId: message.evolutionMessageId,
+            conversationStateId: stateId, receivedAt: message.sentAt, readAt,
+          })),
+          skipDuplicates: true,
+        });
 
         const unread = await tx.m1MConversationUnreadMessage.findMany({
           where: {
@@ -121,7 +146,7 @@ export async function recordConfirmedRead(input: {
             ...(remaining === 0 ? { lastReadAt: new Date(), lastReadMessageId: ids[ids.length - 1] } : {}),
           },
         });
-        return { confirmed: confirmed.count, remaining, stateFound: true };
+        return { confirmed: confirmed.count + seeded.count, remaining, stateFound: true };
       }, { isolationLevel: "Serializable" });
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";

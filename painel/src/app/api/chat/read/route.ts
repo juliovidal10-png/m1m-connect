@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       if (!attendance) return NextResponse.json({ error: "Conversa nao autorizada" }, { status: 403 });
     }
     // TF3-A: persistir apenas recibos confirmados pela Evolution.
-    // A identidade do ledger deve estar previamente registrada e ser unica.
+    // A identidade persistida (historico ou ledger) deve ser comprovada e unica.
     const persistLedgerRead = async (confirmedIds: string[]) => {
       if (process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true" || confirmedIds.length === 0) return;
       const identityCandidates = new Set<string>(candidateJids);
@@ -145,11 +145,26 @@ export async function POST(request: NextRequest) {
         if (message.key?.remoteJid) identityCandidates.add(message.key.remoteJid);
         if (message.key?.remoteJidAlt) identityCandidates.add(message.key.remoteJidAlt);
       }
-      const states = await prisma.m1MConversationState.findMany({
+      // O historico pode existir antes do primeiro registro do ledger.
+      // Resolver pelo cliente persistido somente para IDs ja confirmados.
+      const stored = await prisma.m1MMessage.findMany({
+        where: {
+          companyId: user.companyId, instanceName: instance,
+          evolutionMessageId: { in: confirmedIds }, fromMe: false, direction: "IN",
+          remoteJid: { in: [...identityCandidates] },
+          customer: { companyId: user.companyId },
+        },
+        select: { customer: { select: { remoteJid: true } } },
+      });
+      for (const message of stored) identityCandidates.add(message.customer.remoteJid);
+      const ledgerStates = await prisma.m1MConversationState.findMany({
         where: { companyId: user.companyId, instanceName: instance, canonicalJid: { in: [...identityCandidates] } },
         select: { canonicalJid: true },
       });
-      if (states.length === 0) return; // Nenhum registro novo para reconciliar.
+      const canonicalJids = new Set(ledgerStates.map((state) => state.canonicalJid));
+      for (const message of stored) canonicalJids.add(message.customer.remoteJid);
+      const states = [...canonicalJids].map((canonicalJid) => ({ canonicalJid }));
+      if (states.length === 0) return; // Sem identidade persistida comprovada.
       if (states.length !== 1) throw new Error("TF3-A: identidade do ledger ambigua");
       await recordConfirmedRead({
         companyId: user.companyId, instanceName: instance,
