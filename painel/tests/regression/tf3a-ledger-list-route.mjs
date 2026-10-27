@@ -19,12 +19,21 @@ async function scenario({ query = 'limit=1', enabled = true, restricted = false 
     m1MSectorUser: { async findMany() { return [{ sectorId: 'allowed-sector' }]; } },
     m1MConversationState: { async findMany(q) { assert.equal(q.where.companyId, 'company-test'); assert.equal(q.where.instanceName, 'instance-test'); queries.push(q.where.canonicalJid.in); return states.filter(s => q.where.canonicalJid.in.includes(s.canonicalJid)); } },
   };
+  prisma.$queryRawUnsafe = async (sql, companyId, instanceName, canViewAll, userId, sectorIds, ids) => {
+    assert.equal(companyId, 'company-test');assert.equal(instanceName,'instance-test');queries.push(ids);
+    return ids.filter(id=>canViewAll||['1000@s.whatsapp.net','2000@s.whatsapp.net'].includes(id)).map(id=>{
+      const state=states.find(s=>s.canonicalJid===id);
+      return {canonicalJid:id,unreadCount:state?.unreadCount??null,revision:state?.revision??null,hiddenAt:state?.hiddenAt??null};
+    });
+  };
   const projection = { exports: {} };
-  vm.runInNewContext(projectionCode, { module: projection, exports: projection.exports, require(name) {
-    if (name === '@/lib/prisma') return { prisma };
-    if (name === '@/lib/conversation-unread-snapshot') return unreadSnapshots;
+  vm.runInNewContext(compile('src/services/conversation-ledger-access.service.ts'), {module:projection,exports:projection.exports,require(name){
+    if(name==='node:crypto')return require(name);
+    if(name==='@/lib/prisma')return {prisma};
+    if(name==='@/lib/conversation-unread-snapshot')return unreadSnapshots;
+    if(name==='@/repositories/company.repository')return {companyRepository:{findById:async()=>({whatsappInstanceName:'instance-test'})}};
     throw Error(name);
-  } });
+  }});
   const module = { exports: {} };
   vm.runInNewContext(routeCode, { module, exports: module.exports, URL,
     process: { env: { EVOLUTION_API_URL: 'https://synthetic.invalid', EVOLUTION_API_KEY: 'synthetic', M1M_TF3A_UNREAD_LEDGER_ENABLED: enabled ? 'true' : 'false' } },
@@ -38,7 +47,7 @@ async function scenario({ query = 'limit=1', enabled = true, restricted = false 
     require(name) {
       if (name === 'node:crypto') return require(name);
       if (name === '@/lib/conversation-unread-snapshot') return unreadSnapshots;
-      if (name === '@/services/conversation-unread-projection.service') return projection.exports;
+      if (name === '@/services/conversation-ledger-access.service') return projection.exports;
       if (name === '@/services/conversation-unread-state.service') return { countUnreadConversations() { throw Error('Agregado inesperado'); } };
       if (name === '@/lib/prisma') return { prisma };
       if (name === '@/lib/tenant') return {};
@@ -61,8 +70,9 @@ console.log('PASSOU: pagina seguinte mantem item sem ledger como pendente, sem i
 const search = await scenario({ query: 'search=target' }); assert.equal(search.response.status, 200); assert.equal(search.response.body.items.length, 2); assert.ok(search.response.body.items.every(r => !r.remoteJid.startsWith('1')));
 console.log('PASSOU: busca direta tambem filtra ocultas e usa a mesma projecao.');
 const restricted = await scenario({ restricted: true }); assert.equal(restricted.response.status, 200); assert.equal(restricted.response.body.items.length, 1);
-assert.ok(restricted.queries.flat().every(jid => ['1000@s.whatsapp.net', '2000@s.whatsapp.net'].includes(jid)));
-console.log('PASSOU: visibilidade por setor e aplicada antes da consulta ao ledger.');
+assert.ok(restricted.response.body.items.every(chat=>chat.remoteJid==='2000@s.whatsapp.net'));
+console.log('PASSOU: visibilidade por setor do servico compartilhado e aplicada antes de responder.');
 const legacy = await scenario({ enabled: false }); assert.equal(legacy.response.status, 200); assert.equal(legacy.queries.length, 0); assert.equal(legacy.response.body.items[0].unreadCount, 99);
 console.log('PASSOU: flag desligada nao consulta ledger nem altera badge legado.');
 console.log('TF3-A: cinco cenarios da rota com projecao real e persistencia/Evolution simuladas.');
+

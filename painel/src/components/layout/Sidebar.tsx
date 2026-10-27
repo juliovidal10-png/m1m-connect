@@ -412,10 +412,12 @@ export default function Sidebar() {
     let cancelled = false;
     let inFlight = false;
     let timer: number | undefined;
+    let contextGeneration = 0;
     let countKind: "inventory" | "unreadConversations" = "inventory";
     const refreshTotalCount = async () => {
       if (cancelled || inFlight) return;
       inFlight = true;
+      const generation = contextGeneration;
       try {
         const response = await fetch("/api/chat/list?totalCount=1", { cache: "no-store" });
         if (!response.ok) throw new Error("Falha na consulta do indicador de conversas");
@@ -425,22 +427,29 @@ export default function Sidebar() {
         if (!Number.isSafeInteger(count) || count < 0) throw new Error("Indicador de conversas invalido");
         if (data.countKind !== undefined && data.countKind !== "unreadConversations") throw new Error("Origem do indicador invalida");
         countKind = data.countKind === "unreadConversations" ? "unreadConversations" : "inventory";
-        if (!cancelled) {
+        if (!cancelled && generation === contextGeneration) {
           setConversationsTotalCount(count);
           setConversationCountKind(countKind);
           setTotalCountStatus("current");
         }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && generation === contextGeneration) {
           setTotalCountStatus((previous) => previous === "current" || previous === "stale" ? "stale" : "unavailable");
         }
       } finally {
         inFlight = false;
-        if (!cancelled) timer = window.setTimeout(() => { void refreshTotalCount(); }, countKind === "unreadConversations" ? 5000 : 60000);
+        if (!cancelled) timer = window.setTimeout(() => { void refreshTotalCount(); }, generation !== contextGeneration ? 0 : countKind === "unreadConversations" ? 5000 : 60000);
       }
     };
+    const onScopeChanged = () => {
+      contextGeneration++;
+      setConversationsTotalCount(null); setTotalCountStatus("loading");
+      window.clearTimeout(timer);
+      if (!inFlight) void refreshTotalCount();
+    };
+    window.addEventListener("m1m:conversation-scope-changed", onScopeChanged);
     void refreshTotalCount();
-    return () => { cancelled = true; window.clearTimeout(timer); };
+    return () => { cancelled = true; window.clearTimeout(timer); window.removeEventListener("m1m:conversation-scope-changed", onScopeChanged); };
   }, []);
 
   useEffect(() => {
@@ -728,5 +737,6 @@ export default function Sidebar() {
     </>
   );
 }
+
 
 

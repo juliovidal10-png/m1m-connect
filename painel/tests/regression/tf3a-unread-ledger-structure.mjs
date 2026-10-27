@@ -36,7 +36,7 @@ assert.match(readRoute, /states.length !== 1/);
 assert.match(readRoute, /const alreadyReadIds = verified\.filter/);
 assert.match(readRoute, /persistLedgerRead\(alreadyReadIds\)/);
 assert.match(readRoute, /persistLedgerRead\(\[\.\.\.confirmedAcrossAttempts\]\)/);
-assert.match(countRoute, /countUnreadConversations\(user\.companyId, instanceName\)/);
+assert.match(countRoute, /countVisibleLedgerConversations\(scope\)/);
 assert.match(countRoute, /VIEW_ALL_CONVERSATIONS/);
 assert.match(countRoute, /M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true"/);
 assert.match(countRoute, /Cache-Control/);
@@ -46,3 +46,4 @@ assert.match(hideRoute, /VIEW_ALL_CONVERSATIONS/);
 assert.match(sync, /options.countNewWebhookEvent === true/);
 assert.match(pipeline, /countNewWebhookEvent: true/);
 console.log("TF3-A: verificacoes estruturais aprovadas. Nao substituem testes de integracao.");
+

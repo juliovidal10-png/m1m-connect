@@ -22,7 +22,10 @@ async function scenario({ enabled = true, allowed = true, company = { whatsappIn
       } };
       if (name === '@/generated/prisma/enums') return { M1MUserPermission: { VIEW_ALL_CONVERSATIONS: 'VIEW_ALL' } };
       if (name === '@/repositories/company.repository') return { companyRepository: { async findById(id) { assert.equal(id, 'authenticated-company'); return company; } } };
-      if (name === '@/services/conversation-unread-state.service') return { async countUnreadConversations(companyId, instance) { calls.push({ companyId, instance }); if (fail) throw Error('DB unavailable'); return count; } };
+      if (name === '@/services/conversation-ledger-access.service') return {
+        async getLedgerScope(user, canViewAll) { if (!company?.whatsappInstanceName?.trim()) throw Error('Scope unavailable'); return {companyId:user.companyId,instanceName:company.whatsappInstanceName.trim(),canViewAll,key:'scope'}; },
+        async countVisibleLedgerConversations(scope) { calls.push({companyId:scope.companyId,instance:scope.instanceName});if(fail||!Number.isSafeInteger(count)||count<0)throw Error('DB invalid');return scope.canViewAll?count:0; }
+      };
       if (name === '@/lib/prisma') return { prisma: new Proxy({}, { get() { throw Error('Consulta de inventario/permissoes inesperada'); } }) };
       if (name === '@/lib/tenant') return { getAuthenticatedCompanyId() { throw Error('Caminho inesperado'); } };
       throw Error('Import inesperado: ' + name);
@@ -38,9 +41,9 @@ for (const count of [0, 1, 4, 410]) {
   console.log('PASSOU: agregado autenticado independente de paginacao e parametros externos: ' + count);
 }
 const denied = await scenario({ allowed: false });
-assert.equal(denied.response.status, 403); assert.equal(denied.calls.length, 0);
-console.log('PASSOU: usuario restrito nao recebe agregado global nem zero inventado.');
-for (const [company, status] of [[null, 404], [{ whatsappInstanceName: ' ' }, 503]]) {
+assert.equal(denied.response.status, 200); assert.equal(denied.response.body.totalCount, 0);
+console.log('PASSOU: usuario restrito recebe agregado com escopo, nao agregado global.');
+for (const [company, status] of [[null, 500], [{ whatsappInstanceName: ' ' }, 500]]) {
   const r = await scenario({ company }); assert.equal(r.response.status, status); assert.equal(r.calls.length, 0);
   console.log('PASSOU: empresa/instancia indisponivel nao produz contagem.');
 }
@@ -55,3 +58,4 @@ for (const options of [{ enabled: false }, { query: 'waitingCount=1' }]) {
   console.log('PASSOU: flag desligada/fila Aguardando nao usam o novo agregado de nao lidas.');
 }
 console.log('TF3-A: 14 cenarios do indicador lateral com dependencias simuladas; sem banco/Evolution reais.');
+

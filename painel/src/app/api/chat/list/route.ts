@@ -7,8 +7,7 @@ import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { companyRepository } from "@/repositories/company.repository";
 import { selectLedgerUnreadSnapshot } from "@/lib/conversation-unread-snapshot";
-import { projectLedgerUnreadStates } from "@/services/conversation-unread-projection.service";
-import { countUnreadConversations } from "@/services/conversation-unread-state.service";
+import { getLedgerScope, countVisibleLedgerConversations, projectVisibleLedgerChats } from "@/services/conversation-ledger-access.service";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 
@@ -571,20 +570,11 @@ export async function GET(request: Request) {
 
     const wantsWaitingCount = url.searchParams.get("waitingCount") === "1";
     const wantsTotalCount = url.searchParams.get("totalCount") === "1";
-    // O indicador opt-in nao depende do inventario, busca ou pagina atual.
-    // Permissoes por setor ainda nao validadas: nao expor agregado da empresa.
     if (wantsTotalCount && process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true") {
       const user = await authorizationService.getCurrentUser();
-      if (!authorizationService.hasPermission(user, M1MUserPermission.VIEW_ALL_CONVERSATIONS)) {
-        return NextResponse.json({ error: "Indicador TF3-A por setor ainda indisponivel" }, { status: 403 });
-      }
-      const company = await companyRepository.findById(user.companyId);
-      if (!company) return NextResponse.json({ error: "Empresa nao encontrada" }, { status: 404 });
-      const instanceName = company.whatsappInstanceName?.trim();
-      if (!instanceName) return NextResponse.json({ error: "Instancia indisponivel" }, { status: 503 });
-      const totalCount = await countUnreadConversations(user.companyId, instanceName);
-      if (!Number.isSafeInteger(totalCount) || totalCount < 0) throw new Error("Contagem TF3-A invalida");
-      return NextResponse.json({ totalCount, countKind: "unreadConversations" }, { headers: { "Cache-Control": "no-store" } });
+      const scope = await getLedgerScope(user, authorizationService.hasPermission(user, M1MUserPermission.VIEW_ALL_CONVERSATIONS));
+      const totalCount = await countVisibleLedgerConversations(scope);
+      return NextResponse.json({totalCount, countKind: "unreadConversations", ledgerScopeKey: scope.key}, {headers: {"Cache-Control": "no-store"}});
     }
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
@@ -607,12 +597,12 @@ export async function GET(request: Request) {
     const assignedSectorIds = canViewAllConversations
       ? []
       : (await prisma.m1MSectorUser.findMany({
-          where: { userId: authenticatedUser.userId },
+          where: { userId: authenticatedUser.userId, sector: { companyId } },
           select: { sectorId: true },
         })).map((assignment) => assignment.sectorId);
     const assignedSectorIdSet = new Set(assignedSectorIds);
 
-    if (!canViewAllConversations && assignedSectorIds.length === 0) {
+    if (!canViewAllConversations && assignedSectorIds.length === 0 && process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true") {
       return wantsTotalCount
         ? NextResponse.json({ totalCount: 0 })
         : NextResponse.json({ items: [], hasMore: false });
@@ -626,11 +616,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "InstÃ¢ncia do WhatsApp nÃ£o configurada para esta empresa." }, { status: 400 });
     }
 
+    const ledgerScope = process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true"
+      ? await getLedgerScope(authenticatedUser, canViewAllConversations) : null;
+    if (ledgerScope && ledgerScope.instanceName !== instanceName) throw new Error("Escopo de instancia alterado durante consulta");
+    function listResponse(body: Record<string, unknown>) {
+      return NextResponse.json({...body, ...(ledgerScope ? {ledgerScopeKey: ledgerScope.key} : {})}, {headers: {"Cache-Control": "no-store"}});
+    }
+    if (ledgerScope && !ledgerScope.canViewAll && ledgerScope.sectorIds.length === 0) return listResponse({items: [], hasMore: false});
+
     const [customers, activeAttendances] = await Promise.all([
       prisma.m1MCustomer.findMany({ where: { companyId } }),
       prisma.m1MAttendance.findMany({
         where: { companyId, state: { in: ["IA", "HUMANO"] } },
-        orderBy: { startedAt: "desc" },
+        orderBy: [{ startedAt: "desc" }, { id: "desc" }],
         include: {
           sector: {
             select: { name: true },
@@ -765,10 +763,7 @@ export async function GET(request: Request) {
     }
 
     async function visibleWithUnread(items: EnrichedChat[]): Promise<EnrichedChat[]> {
-      const permitted = visible(items);
-      return process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true"
-        ? projectLedgerUnreadStates(companyId, instanceName!, permitted)
-        : permitted;
+      return ledgerScope ? projectVisibleLedgerChats(ledgerScope, items) : visible(items);
     }
 
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
@@ -778,7 +773,7 @@ export async function GET(request: Request) {
       const rawChats = await getTf3CompleteInventory(companyId, instanceName);
       const visibleChats = await visibleWithUnread(await enrich(rawChats));
       const visualKeys = new Set(visibleChats.map(getTf3VisualChatKey));
-      return NextResponse.json({ totalCount: visualKeys.size });
+      return listResponse({ totalCount: visualKeys.size });
     }
 
     if (wantsWaitingCount) {
@@ -793,7 +788,7 @@ export async function GET(request: Request) {
       const waitingCount = waitingChats.filter(
         (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
       ).length;
-      return NextResponse.json({ waitingCount });
+      return listResponse({ waitingCount });
     }
     if (search) {
       /*
@@ -877,7 +872,7 @@ export async function GET(request: Request) {
         });
 
         if (directMatches.length > 0) {
-          return NextResponse.json({
+          return listResponse({
             items: directMatches.slice(0, 100),
             hasMore: directMatches.length > 100,
           });
@@ -1026,7 +1021,7 @@ export async function GET(request: Request) {
           if (
             groupMatches.length > 0
           ) {
-            return NextResponse.json({
+            return listResponse({
               items:
                 groupMatches.slice(
                   0,
@@ -1055,7 +1050,7 @@ export async function GET(request: Request) {
         return haystack.includes(search);
       });
 
-      return NextResponse.json({
+      return listResponse({
         items: matches.slice(0, 100),
         hasMore: matches.length > 100,
       });
@@ -1253,7 +1248,7 @@ export async function GET(request: Request) {
       hasMore: collected.length > offset + limit,
     });
 
-    return NextResponse.json({
+    return listResponse({
       items: pageItems,
       hasMore: collected.length > offset + limit,
     });
@@ -1262,4 +1257,5 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Erro interno ao buscar as conversas." }, { status: 500 });
   }
 }
+
 

@@ -14,16 +14,16 @@ visit(ast); assert.equal(effects.length, 1);
 const compiled = ts.transpileModule('module.exports = ' + effects[0], { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
 const flush = () => new Promise(resolve => setImmediate(resolve));
 function scenario(responses) {
-  let index = 0, status = 'loading'; const counts = [], kinds = [], timers = new Map(); let timerId = 0;
+  let index = 0, status = 'loading'; const counts = [], kinds = [], timers = new Map(), listeners = new Map(); let timerId = 0;
   const mod = { exports: {} };
   vm.runInNewContext(compiled, { module: mod, exports: mod.exports,
-    window: { setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); } },
+    window: { addEventListener(name, fn) { listeners.set(name, fn); }, removeEventListener(name) { listeners.delete(name); }, setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, delay }); return id; }, clearTimeout(id) { timers.delete(id); } },
     async fetch(url, options) { assert.equal(url, '/api/chat/list?totalCount=1'); assert.equal(options.cache, 'no-store'); return await responses[Math.min(index++, responses.length - 1)]; },
     setConversationsTotalCount(n) { counts.push(n); }, setConversationCountKind(kind) { kinds.push(kind); },
     setTotalCountStatus(value) { status = typeof value === 'function' ? value(status) : value; },
   });
   const cleanup = mod.exports();
-  return { counts, kinds, timers, cleanup, status: () => status,
+  return { counts, kinds, timers, cleanup, scopeChange() { listeners.get("m1m:conversation-scope-changed")(); }, status: () => status,
     async tick() { const [id, timer] = timers.entries().next().value; timers.delete(id); timer.fn(); await flush(); } };
 }
 const response = (totalCount, countKind) => ({ ok: true, async json() { return { totalCount, ...(countKind === undefined ? {} : { countKind }) }; } });
@@ -44,3 +44,10 @@ let resolve; const delayed = scenario([new Promise(done => { resolve = done; })]
 assert.equal(delayed.counts.length, 0); assert.equal(delayed.timers.size, 0);
 console.log('PASSOU: desmontagem cancela atualizacao tardia e novo polling.');
 console.log('TF3-A: sete cenarios do efeito real da Sidebar com React/rede/timers simulados; sem teste visual.');
+
+
+let finishOld; const scopeChange = scenario([new Promise(resolve => {finishOld=resolve;}), response(1,'unreadConversations')]);
+scopeChange.scopeChange(); finishOld(response(99,'unreadConversations')); await flush();
+assert.equal(scopeChange.counts.join(','),''); assert.equal([...scopeChange.timers.values()][0].delay,0);
+await scopeChange.tick(); assert.equal(scopeChange.counts.join(','),',1'); scopeChange.cleanup();
+console.log('PASSOU: troca de escopo limpa valor e impede resposta antiga99 de voltar; nova consulta1 aplicada.');

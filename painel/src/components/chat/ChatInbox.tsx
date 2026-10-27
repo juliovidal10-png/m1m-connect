@@ -17,6 +17,8 @@ import {
 import { createPortal } from "react-dom";
 
 import { selectLedgerUnreadSnapshot } from "@/lib/conversation-unread-snapshot";
+import { createRefreshFence, collectLoadedUnreadStates, applyLoadedUnreadStates, LedgerScopeChangedError } from "@/lib/loaded-conversation-refresh";
+import type { LoadedUnreadState } from "@/services/conversation-ledger-access.service";
 import useAutoRefresh from "@/hooks/useAutoRefresh";
 import MessageRenderer, {
   type ChatMessage,
@@ -953,6 +955,13 @@ export default function ChatInbox() {
 
   const messagesRequestIdRef =
     useRef(0);
+  const refreshFenceRef = useRef(createRefreshFence());
+  const searchResultsRef = useRef(searchResults);
+  const selectedChatRef = useRef(selectedChat);
+  const [searchRefreshVersion, setSearchRefreshVersion] = useState(0);
+  useEffect(() => { searchResultsRef.current = searchResults; }, [searchResults]);
+  useEffect(() => { selectedChatRef.current = selectedChat; }, [selectedChat]);
+
 
   // TF3: evita chamadas concorrentes e reenvio a cada ciclo de polling.
   // O registro e por conversa + conjunto de IDs, nunca por contador agregado.
@@ -1202,6 +1211,7 @@ export default function ChatInbox() {
     );
 const loadContacts =
     useCallback(async () => {
+      const contextVersion = refreshFenceRef.current.contextVersion();
       try {
         const response = await fetch(
           "/api/chat/contacts",
@@ -1225,6 +1235,7 @@ const loadContacts =
             ? data
             : [];
 
+        if (contextVersion !== refreshFenceRef.current.contextVersion()) return;
         setContacts(
           receivedContacts,
         );
@@ -1341,6 +1352,24 @@ const loadContacts =
     chatsRef.current = chats;
   }, [chats]);
 
+  const clearConversationContext = useCallback((resetFence = true) => {
+    if (resetFence) refreshFenceRef.current.reset();
+    chatsRef.current = []; searchResultsRef.current = []; selectedChatRef.current = null;
+    setChats([]); setSearchResults([]); setSelectedChat(null); setMessages([]); setContacts([]);
+    activeChatJidRef.current = null; messagesRequestIdRef.current++;
+    readAttemptsRef.current.clear(); readInFlightRef.current.clear();
+    setSearchRefreshVersion(version => version + 1);
+    window.dispatchEvent(new Event("m1m:conversation-scope-changed"));
+    void loadContacts();
+  }, [loadContacts]);
+  const fetchUnreadBatch = useCallback(async (canonicalJids: string[], scopeKey: string) => {
+    const response = await fetch("/api/chat/unread-state", {method: "POST", cache: "no-store",
+      headers: {"Content-Type": "application/json"}, body: JSON.stringify({canonicalJids, scopeKey}), signal: AbortSignal.timeout(12000)});
+    if ([401, 403, 409].includes(response.status)) throw new LedgerScopeChangedError();
+    if (!response.ok) throw new Error("Falha ao atualizar estados das conversas");
+    return response.json() as Promise<{scopeKey: string; states: LoadedUnreadState[]}>;
+  }, []);
+
   const loadChats = useCallback(
     async (
       showLoading = false,
@@ -1351,6 +1380,7 @@ const loadContacts =
       }
 
       loadChatsInFlightRef.current = true;
+      let ticket = refreshFenceRef.current.begin("list");
 
       if (showLoading) setIsLoadingChats(true);
       if (mode === "append") setIsLoadingMoreChats(true);
@@ -1367,10 +1397,15 @@ const loadContacts =
         );
         const data = await response.json();
 
+        if (!refreshFenceRef.current.current(ticket)) return;
         if (!response.ok) {
           throw new Error(data.error || "Erro ao carregar conversas.");
         }
 
+        if (refreshFenceRef.current.accept(data?.ledgerScopeKey)) {
+          clearConversationContext(false);
+          ticket = refreshFenceRef.current.begin("list");
+        }
         const receivedItems: Chat[] = Array.isArray(data?.items)
           ? data.items
           : Array.isArray(data)
@@ -1394,13 +1429,13 @@ const loadContacts =
             });
           }
         }
-        setHasMoreChats(Boolean(data?.hasMore));
+
 
         let nextItems = items;
         if (mode === "append") {
           nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
         } else if (mode === "refresh") {
-          const preservedTail =
+          const preservedTail = data?.ledgerScopeKey ? chatsRef.current :
             chatsRef.current.length > requestLimit
               ? chatsRef.current.slice(requestLimit)
               : [];
@@ -1416,6 +1451,21 @@ const loadContacts =
           nextItems = mergeDuplicateChats([...items, ...untouchedTail]);
         }
 
+        if (typeof data?.ledgerScopeKey === "string") {
+          const selected = selectedChatRef.current;
+          const allLoaded = [...nextItems, ...searchResultsRef.current, ...(selected ? [selected] : [])];
+          const states = await collectLoadedUnreadStates(allLoaded.map(chat => chat.canonicalJid || getCanonicalJid(chat)), data.ledgerScopeKey, fetchUnreadBatch, () => refreshFenceRef.current.current(ticket));
+          if (!states || !refreshFenceRef.current.current(ticket)) return;
+          nextItems = applyLoadedUnreadStates(nextItems, states, chatsRef.current);
+          setSearchResults(current => applyLoadedUnreadStates(current, states, [...chatsRef.current, ...current]));
+          setSelectedChat(current => current ? (applyLoadedUnreadStates([current], states, chatsRef.current)[0] ?? null) : null);
+          if (states.some(state => state.removed)) {
+            refreshFenceRef.current.invalidate("search");
+            setSearchRefreshVersion(version => version + 1);
+          }
+        }
+        if (!refreshFenceRef.current.current(ticket)) return;
+        setHasMoreChats(Boolean(data?.hasMore));
         chatsRef.current = nextItems;
         setChats(nextItems);
 
@@ -1429,7 +1479,9 @@ const loadContacts =
           ) ?? currentChat;
         });
       } catch (error) {
-        if (showLoading) {
+        if (!refreshFenceRef.current.current(ticket)) return;
+        if (refreshFenceRef.current.scopeKey()) clearConversationContext();
+        if (showLoading || error instanceof LedgerScopeChangedError) {
           setErrorMessage(
             error instanceof Error ? error.message : "Erro ao carregar conversas.",
           );
@@ -1444,7 +1496,7 @@ const loadContacts =
         }
       }
     },
-    [],
+    [clearConversationContext, fetchUnreadBatch],
   );
 
   const loadMoreChats = useCallback(async () => {
@@ -1453,6 +1505,8 @@ const loadContacts =
   }, [hasMoreChats, loadChats, searchQuery]);
 
   useEffect(() => {
+    const fence = refreshFenceRef.current;
+    const ticket = fence.begin("search");
     const query = searchQuery.trim();
     if (!query) {
       setSearchResults([]);
@@ -1467,9 +1521,16 @@ const loadContacts =
           { cache: "no-store", signal: controller.signal },
         );
         const data = await response.json();
+        if (controller.signal.aborted || !fence.current(ticket)) return;
         if (!response.ok) return;
+        if (fence.accept(data?.ledgerScopeKey)) {
+          clearConversationContext(false);
+          return;
+        }
         const items: Chat[] = Array.isArray(data?.items) ? data.items : [];
-        setSearchResults(mergeDuplicateChats(items));
+        const snapshots = new Map([...chatsRef.current, ...searchResultsRef.current].map(chat => [chat.canonicalJid || getCanonicalJid(chat), chat]));
+        setSearchResults(mergeDuplicateChats(items.map(chat => ({...chat,
+          ...selectLedgerUnreadSnapshot(chat, snapshots.get(chat.canonicalJid || getCanonicalJid(chat)) ?? chat)}))));
       } catch (error) {
         if (!(error instanceof DOMException && error.name === "AbortError")) {
           console.error("Erro ao buscar conversas:", error);
@@ -1480,8 +1541,9 @@ const loadContacts =
     return () => {
       window.clearTimeout(timer);
       controller.abort();
+      fence.invalidate("search");
     };
-  }, [searchQuery]);
+  }, [searchQuery, searchRefreshVersion, clearConversationContext]);
 
   const loadMessages = useCallback(
     async (
@@ -1823,6 +1885,7 @@ const loadContacts =
         return localMatch;
       }
 
+      const contextVersion = refreshFenceRef.current.contextVersion();
       const response = await fetch(
         `/api/chat/list?search=${encodeURIComponent(
           requestedRemoteJid,
@@ -1832,6 +1895,7 @@ const loadContacts =
 
       const data = await response.json();
 
+      if (contextVersion !== refreshFenceRef.current.contextVersion()) return null;
       if (!response.ok) {
         throw new Error(
           data?.error ||
@@ -1839,6 +1903,7 @@ const loadContacts =
         );
       }
 
+      if (refreshFenceRef.current.accept(data?.ledgerScopeKey)) { clearConversationContext(false); return null; }
       const receivedItems: Chat[] =
         Array.isArray(data?.items)
           ? data.items
@@ -1877,7 +1942,7 @@ const loadContacts =
         ) ?? remoteMatch
       );
     },
-    [],
+    [clearConversationContext],
   );
 
   useEffect(() => {
@@ -5471,5 +5536,6 @@ const loadContacts =
     </div>
   );
 }
+
 
 

@@ -8,6 +8,9 @@ on:
       - "painel/src/components/chat/ConversationList.tsx"
       - "painel/src/components/chat/ConversationUnreadBadge.tsx"
       - "painel/src/lib/conversation-unread-snapshot.ts"
+      - "painel/src/lib/loaded-conversation-refresh.ts"
+      - "painel/src/services/conversation-ledger-access.service.ts"
+      - "painel/src/app/api/chat/unread-state/route.ts"
       - "painel/src/services/conversation-unread-projection.service.ts"
       - "painel/src/components/layout/Sidebar.tsx"
       - "painel/src/app/api/chat/read/route.ts"
@@ -57,6 +60,8 @@ jobs:
           node tests/regression/tf3a-sidebar-count-effect.mjs
           node tests/regression/tf3a-unread-projection.mjs
           node tests/regression/tf3a-ledger-list-route.mjs
+          node tests/regression/tf3a-loaded-refresh.mjs
+          node tests/regression/tf3a-ledger-access.mjs
           node tests/regression/tf3a-webhook-evidence.mjs
       - name: TF3-A origin observer (offline, no WhatsApp)
         run: |
@@ -77,3 +82,4 @@ jobs:
         run: |
           npm run test:regression:t17
           npm run test:regression:tf6
+
