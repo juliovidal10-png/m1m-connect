@@ -303,6 +303,7 @@ export default function Sidebar() {
   ] = useState<number | null>(null);
   const [waitingCountStatus, setWaitingCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
   // TF3: total de conversas do menu, independente do alerta TF2.
+  const [conversationCountKind, setConversationCountKind] = useState<"inventory" | "unreadConversations">("inventory");
   const [conversationsTotalCount, setConversationsTotalCount] = useState<number | null>(null);
   const [totalCountStatus, setTotalCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
   const floatingAlertRef = useRef<HTMLDivElement | null>(null);
@@ -410,17 +411,23 @@ export default function Sidebar() {
   useEffect(() => {
     let cancelled = false;
     let inFlight = false;
+    let timer: number | undefined;
+    let countKind: "inventory" | "unreadConversations" = "inventory";
     const refreshTotalCount = async () => {
       if (cancelled || inFlight) return;
       inFlight = true;
       try {
         const response = await fetch("/api/chat/list?totalCount=1", { cache: "no-store" });
-        if (!response.ok) throw new Error("Falha na consulta do total de conversas");
+        if (!response.ok) throw new Error("Falha na consulta do indicador de conversas");
         const data = await response.json();
+        if (data.countKind === "unreadConversations" && typeof data.totalCount !== "number") throw new Error("Contagem de nao lidas invalida");
         const count = Number(data.totalCount);
-        if (!Number.isSafeInteger(count) || count < 0) throw new Error("Total de conversas invalido");
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error("Indicador de conversas invalido");
+        if (data.countKind !== undefined && data.countKind !== "unreadConversations") throw new Error("Origem do indicador invalida");
+        countKind = data.countKind === "unreadConversations" ? "unreadConversations" : "inventory";
         if (!cancelled) {
           setConversationsTotalCount(count);
+          setConversationCountKind(countKind);
           setTotalCountStatus("current");
         }
       } catch {
@@ -429,11 +436,11 @@ export default function Sidebar() {
         }
       } finally {
         inFlight = false;
+        if (!cancelled) timer = window.setTimeout(() => { void refreshTotalCount(); }, countKind === "unreadConversations" ? 5000 : 60000);
       }
     };
     void refreshTotalCount();
-    const timer = window.setInterval(() => { void refreshTotalCount(); }, 60000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, []);
 
   useEffect(() => {
@@ -561,7 +568,7 @@ export default function Sidebar() {
 
                       {item.href === "/" && conversationsTotalCount !== null && (
                         <span
-                          title={`${totalCountStatus === "stale" ? "Ultimo total conhecido: " : ""}${conversationsTotalCount} conversa${conversationsTotalCount === 1 ? "" : "s"} na aba Todas`}
+                          title={`${totalCountStatus === "stale" ? "Ultimo total conhecido: " : ""}${conversationsTotalCount} conversa${conversationsTotalCount === 1 ? "" : "s"}${conversationCountKind === "unreadConversations" ? " com mensagens nao lidas" : " na aba Todas"}`}
                           className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white"
                         >
                           {conversationsTotalCount}

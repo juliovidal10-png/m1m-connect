@@ -6,6 +6,7 @@ import { createHmac } from "node:crypto";
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { companyRepository } from "@/repositories/company.repository";
+import { countUnreadConversations } from "@/services/conversation-unread-state.service";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 
@@ -563,6 +564,21 @@ export async function GET(request: Request) {
 
     const wantsWaitingCount = url.searchParams.get("waitingCount") === "1";
     const wantsTotalCount = url.searchParams.get("totalCount") === "1";
+    // O indicador opt-in nao depende do inventario, busca ou pagina atual.
+    // Permissoes por setor ainda nao validadas: nao expor agregado da empresa.
+    if (wantsTotalCount && process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true") {
+      const user = await authorizationService.getCurrentUser();
+      if (!authorizationService.hasPermission(user, M1MUserPermission.VIEW_ALL_CONVERSATIONS)) {
+        return NextResponse.json({ error: "Indicador TF3-A por setor ainda indisponivel" }, { status: 403 });
+      }
+      const company = await companyRepository.findById(user.companyId);
+      if (!company) return NextResponse.json({ error: "Empresa nao encontrada" }, { status: 404 });
+      const instanceName = company.whatsappInstanceName?.trim();
+      if (!instanceName) return NextResponse.json({ error: "Instancia indisponivel" }, { status: 503 });
+      const totalCount = await countUnreadConversations(user.companyId, instanceName);
+      if (!Number.isSafeInteger(totalCount) || totalCount < 0) throw new Error("Contagem TF3-A invalida");
+      return NextResponse.json({ totalCount, countKind: "unreadConversations" }, { headers: { "Cache-Control": "no-store" } });
+    }
     if (!API_URL || !API_KEY) {
       return NextResponse.json({ error: "ConfiguraÃ§Ã£o da Evolution API nÃ£o encontrada." }, { status: 500 });
     }

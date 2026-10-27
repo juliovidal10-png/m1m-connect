@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "painel/src/components/chat/ChatInbox.tsx"
+      - "painel/src/components/layout/Sidebar.tsx"
       - "painel/src/app/api/chat/read/route.ts"
       - "painel/src/app/api/chat/list/route.ts"
       - "painel/tests/**"
@@ -47,6 +48,8 @@ jobs:
           node tests/regression/tf3a-unread-ledger-structure.mjs
           node tests/regression/tf3a-unread-ledger-behavior.mjs
           node tests/regression/tf3a-read-before-ledger-route.mjs
+          node tests/regression/tf3a-sidebar-count-route.mjs
+          node tests/regression/tf3a-sidebar-count-effect.mjs
           node tests/regression/tf3a-webhook-evidence.mjs
       - name: TF3-A origin observer (offline, no WhatsApp)
         run: |
