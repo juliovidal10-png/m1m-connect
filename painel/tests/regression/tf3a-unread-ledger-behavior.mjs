@@ -126,8 +126,10 @@ await check("exclusao preserva ledger e bloqueia reabertura ainda nao implementa
   await ledger.hideConversationState(identity);
   assert.equal(messages.length, before); assert.equal(states[0].unreadCount, 0);
   assert.ok(states[0].hiddenAt);
+  assert.equal(messages.find((row) => row.companyId === identity.companyId && row.instanceName === identity.instanceName && row.evolutionMessageId === "m4").readAt, null);
   await incoming("m5"); assert.equal(states[0].unreadCount, 0);
   assert.equal(messages.length, before + 1);
+  assert.equal(messages.find((row) => row.companyId === identity.companyId && row.instanceName === identity.instanceName && row.evolutionMessageId === "m5").readAt, null);
 });
 await check("conflitos P2034 repetem e respeitam limite de tres tentativas", async () => {
   conflicts = 2; const before = transactions;
@@ -140,5 +142,20 @@ await check("entrada invalida e leitura acima de 100 IDs sao rejeitadas", async 
   await assert.rejects(incoming(" "));
   await assert.rejects(read([]));
   await assert.rejects(read(Array.from({ length: 101 }, (_, index) => `x${index}`)));
+});
+await check("leitura parcial em conversa oculta preserva recibo pendente sem reexibir badge", async () => {
+  const result = await read(["m4"]);
+  assert.equal(result.confirmed, 1); assert.equal(result.remaining, 1);
+  assert.equal(states[0].unreadCount, 0); assert.ok(states[0].hiddenAt);
+  const pending = messages.find((row) => row.conversationStateId === states[0].id && row.evolutionMessageId === "m5");
+  assert.equal(pending.readAt, null);
+  await ledger.hideConversationState(identity);
+  assert.equal(pending.readAt, null);
+});
+await check("somente confirmacao explicita conclui leitura da mensagem recebida oculta", async () => {
+  const result = await read(["m5"]);
+  assert.equal(result.confirmed, 1); assert.equal(result.remaining, 0);
+  assert.equal(states[0].unreadCount, 0); assert.ok(states[0].hiddenAt);
+  assert.ok(messages.find((row) => row.conversationStateId === states[0].id && row.evolutionMessageId === "m5").readAt);
 });
 console.log(`TF3-A: ${checks.length} cenarios comportamentais aprovados com persistencia simulada. Concorrencia real, JID/LID e Evolution nao validados.`);

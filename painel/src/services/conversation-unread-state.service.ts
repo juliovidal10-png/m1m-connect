@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
 /**
- * TF3-A — infraestrutura do ledger. Ainda NÃO integrada ao webhook nem aos badges.
+ * TF3-A — infraestrutura opt-in do ledger; badges ainda nao integrados.
  * O caller deve resolver JID/LID na origem antes de chamar esta função.
  */
 export type IncomingUnreadEvent = {
@@ -43,19 +43,11 @@ export async function recordIncomingUnreadEvent(event: IncomingUnreadEvent) {
     });
     if (inserted.count === 0) return { inserted: false, stateId: state.id };
 
-    // Mensagem antiga apos exclusao: registrar no ledger, mas nao reabrir.
-    // Mesmo timestamp e tratado conservadoramente como nao comprovadamente novo.
-    // Uma data enviada pela origem nao comprova a ordem de entrega.
-    // Reativacao fica bloqueada ate existir sequenciamento confiavel de eventos.
-    // Horario da origem nao comprova ordem de entrega nem impede replay historico.
-    // Reativacao permanece desativada ate existir sequenciamento confiavel.
+    // Ocultacao nao confirma leitura. Preservar readAt ate recibo READ/PLAYED.
+    // Reativacao permanece bloqueada ate origem/sequenciamento validado.
     const canReactivate = false;
     const remainsHidden = state.hiddenAt !== null && !canReactivate;
     if (remainsHidden) {
-      await tx.m1MConversationUnreadMessage.updateMany({
-        where: { companyId, instanceName, evolutionMessageId, conversationStateId: state.id },
-        data: { readAt: new Date() },
-      });
       return { inserted: true, stateId: state.id, hidden: true };
     }
 
@@ -125,7 +117,7 @@ export async function recordConfirmedRead(input: {
         });
         await tx.m1MConversationState.update({
           where: { id: state.id },
-          data: { unreadCount: remaining, revision: { increment: 1 },
+          data: { unreadCount: state.hiddenAt === null ? remaining : 0, revision: { increment: 1 },
             ...(remaining === 0 ? { lastReadAt: new Date(), lastReadMessageId: ids[ids.length - 1] } : {}),
           },
         });
@@ -160,10 +152,7 @@ export async function hideConversationState(input: {
       update: {},
     });
     const now = new Date();
-    await tx.m1MConversationUnreadMessage.updateMany({
-      where: { conversationStateId: state.id, readAt: null },
-      data: { readAt: now },
-    });
+    // Retirar da caixa de entrada nao equivale a ler mensagens na origem.
     await tx.m1MConversationState.update({
       where: { id: state.id },
       data: {
