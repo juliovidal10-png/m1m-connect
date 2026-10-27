@@ -3,7 +3,7 @@ $report = Join-Path ([Environment]::GetFolderPath('Desktop')) ('M1M_TF3A_BUILD_'
 $taskRoot = Join-Path ([IO.Path]::GetTempPath()) ('m1m-tf3a-build-' + [Guid]::NewGuid().ToString('N'))
 function Run-Checked {
   param([string]$Program, [string[]]$Arguments)
-  & $Program @Arguments
+  & $Program @Arguments | Out-Host
   if ($LASTEXITCODE -ne 0) { throw ('Falha em ' + $Program + '; codigo ' + $LASTEXITCODE) }
 }
 Start-Transcript -Path $report | Out-Null
