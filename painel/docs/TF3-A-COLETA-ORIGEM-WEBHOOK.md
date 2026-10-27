@@ -44,3 +44,36 @@ Esta instrumentacao esta preparada na branch, sem deploy. Sua coleta real depend
 - Mesmo ID em outra empresa/instancia: isolamento integral.
 
 Os oito cenarios comportamentais existentes continuam executaveis com persistencia simulada. Os testes novos da instrumentacao comprovam coleta restrita e ausencia de classificacao inventada; nao sao apresentados como aprovacao da matriz funcional acima. Nenhum teste com PostgreSQL real ou Evolution real foi executado.
+
+
+## Evidencias reais e revisao da origem — 26/10/2026
+
+- Tela Coolify: imagem configurada evoapicloud/evolution-api:v2.3.7; existiam alteracoes pendentes, portanto essa tela sozinha nao comprovava a imagem em execucao.
+- Logs do processo confirmam Evolution v2.3.7 em execucao. Digest da imagem e correspondencia exata entre binario e fonte publica ainda nao comprovados.
+- Recebido envelope de texto individual enviado sob controle do proprietario na M1MTesteIA: messages.upsert, fromMe=false, messageType=conversation, status=DELIVERY_ACK, source=android. Nenhum type/requestId ou marcador explicito de origem historica foi mostrado. Nao registrar credenciais ou identificadores pessoais neste documento.
+- As varias linhas do mesmo texto nos logs nao comprovam reentregas HTTP distintas.
+
+### Fonte publica inspecionada
+
+Tag Evolution 2.3.7, commit cd800f2976e1e5b682fbf86a01ee4d85ae61f370:
+https://github.com/EvolutionAPI/evolution-api/blob/cd800f2976e1e5b682fbf86a01ee4d85ae61f370/src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts
+
+- Linha 1083: handler recebe messages, type e requestId.
+- Linha 1166: aceita tanto notify como append.
+- Linha 1204: prepara o objeto por prepareMessage(received).
+- Linha 1483: emite MESSAGES_UPSERT com messageRaw, sem preservar type/requestId nesse objeto.
+- Linha 4652: prepareMessage seleciona campos da mensagem e calcula source pelo dispositivo inferido do ID. source nao significa live/history.
+- Linha 1049: caminho messaging-history.set emite MESSAGES_SET com isLatest/progress.
+
+O package.json e o package-lock.json dessa tag fixam baileys 7.0.0-rc.9. Inspecionado o pacote npm correspondente (shasum fd1ad83e9bfef275b2d93627841bdb85d00993d8). Em lib/Socket/messages-recv.js:1073, mensagens com atributo offline usam append; as demais usam notify. Portanto append nao e prova suficiente de replay historico. O comportamento do pacote localmente inspecionado nao comprova a versao realmente embutida na imagem em execucao.
+
+### Consequencias para a correcao
+
+1. A perda de type/requestId no adaptador publico esta comprovada na fonte e e compativel com o envelope real; a identidade exata do binario implantado permanece por confirmar.
+2. Nao usar filtro notify-only, append=history, timestamp ou ID desconhecido para resolver o ledger.
+3. MESSAGES_SET deve continuar sem gerar novas nao lidas nem reabrir conversa. O filtro atual da rota ja ignora esse evento; isso nao resolve todos os possiveis replays em MESSAGES_UPSERT.
+4. Preservar origem no emissor (handler/type/requestId) permitiria analise adicional, mas nao e, sozinho, garantia contra replay de um evento originalmente novo. Seriam necessarios identidade duravel do evento e politica de reconciliacao antes da ativacao.
+5. Nao ha ate aqui envelope real de replay historico desconhecido nem de entrega offline controlada. A ocorrencia efetiva dessa falha em producao nao foi demonstrada; trata-se de uma lacuna de protecao identificada no codigo.
+6. Logs existentes ja mostram o envelope: nao publicar instrumentacao apenas para reproduzir os mesmos campos ausentes. Nao alterar a Evolution compartilhada para obter metadados sem plano isolado e autorizacao especifica.
+
+Nenhuma alteracao funcional, migration, merge, ativacao ou deploy foi executado nesta revisao. Validacao desta etapa: inspecao estatica de fontes versionadas e comparacao com o envelope real; nao foram executados novos testes de banco ou testes funcionais de replay. Os resultados anteriores de testes simulados nao sao promovidos a validacao da origem.
