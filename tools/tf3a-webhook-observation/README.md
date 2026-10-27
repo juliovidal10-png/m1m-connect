@@ -39,3 +39,14 @@ MESSAGES_SET identifica um caminho historico; nao distingue replay desconhecido 
 ## Validacao realizada nesta preparacao
 
 Quatro testes sinteticos aprovados: preservacao da origem/campos, restauracao condicionada, rejeicao de configuracoes nao revisadas e comparacao normalizada. Sintaxe de manage.mjs aprovada. Contrato conferido na fonte publica 2.3.7 (schema exige enabled/url; controlador seleciona webhook por instanceId). Nenhuma chamada POST real, teste PostgreSQL, migration, merge ou deploy executado.
+
+
+## Operacao especificamente autorizada pelo proprietario
+
+Autorizada inclusao de MESSAGES_SET somente em M1MTesteIA, mantendo MESSAGES_UPSERT e TODOS os demais eventos existentes; com backup anterior e verificacao posterior. Nenhuma autorizacao para webhook global, outras instancias, restart, desconexao, migration, merge ou deploy.
+
+Usar authorized-operation.cjs para esta execucao; plan.mjs/manage.mjs anteriores permanecem como historico de preparacao e nao devem ser usados para impor a lista exata antiga. A nova ferramenta acrescenta SET a lista existente sem remover eventos e compara todos os campos retornados, exceto updatedAt e ordem de chaves/eventos. O modo padrao e inspect. apply realiza a unica alteracao autorizada. restore exige configuracao funcional identica ao estado esperado apos inclusao e retorna lista original. Nenhum segredo e impresso. Se SET ja estiver presente, nenhuma escrita e enviada. Backup existente bloqueia sobrescrita e operacao. Timeout apos POST nao aciona repeticao nem rollback automatico.
+
+Sintaxe validada e seis testes com API/filesystem simulados aprovados: inclusao preservando eventos extras e restauracao; SET existente; backup existente; timeout; alteracao inesperada; inspect somente leitura. Nenhuma execucao real foi feita pelo assistente. O proprietario deve devolver o JSON final; somente esse retorno permitira confirmar o resultado real.
+
+Log de deploy fornecido pelo proprietario identifica c012b46b3075b8722da5f62594337bb1fa60a8fc e Rolling update completed. Rota nesse commit conferida no GitHub: MESSAGES_SET retorna EVENT_IGNORED antes do pipeline apos autenticacao/validacao. Isso nao altera a restricao de nao publicar a branch TF3-A.
