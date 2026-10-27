@@ -7,7 +7,7 @@ const ts = require('typescript');
 const compiled = ts.transpileModule(fs.readFileSync('src/app/api/chat/read/route.ts', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys, requestedJid = '100@s.whatsapp.net' } = {}) {
+async function scenario({ enabled = true, ledgerStates = [], stored = [{ customer: { remoteJid: '100@s.whatsapp.net' } }], records, messageKeys, requestedJid = '100@s.whatsapp.net', ledgerResult } = {}) {
   const calls = [];
   const prisma = {
     m1MMessage: { async findMany({ where }) {
@@ -43,7 +43,9 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
         return records ?? [{ key: { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false }, status: 'READ' }];
       } };
       if (name === '@/services/conversation-unread-state.service') return {
-        async recordConfirmedRead(input) { calls.push(input); },
+        async recordConfirmedRead(input) { calls.push(input); return ledgerResult ?? {
+          persistedReadCount: input.confirmedEvolutionMessageIds.length, unresolvedReadCount: 0,
+        }; },
       };
       throw Error('Import inesperado: ' + name);
     },
@@ -53,6 +55,9 @@ async function scenario({ enabled = true, ledgerStates = [], stored = [{ custome
 }
 const early = await scenario();
 assert.equal(early.response.status, 200); assert.equal(early.calls.length, 1);
+assert.equal(early.response.body.ledgerRead.state, 'PERSISTED');
+assert.equal(early.response.body.ledgerRead.confirmedCount, 1);
+assert.equal(early.response.body.ledgerRead.unresolvedCount, 0);
 assert.equal(early.calls[0].canonicalJid, '100@s.whatsapp.net');
 assert.equal(early.calls[0].companyId, 'synthetic-company');
 assert.equal(early.calls[0].instanceName, 'synthetic-instance');
@@ -63,9 +68,15 @@ assert.equal(ambiguous.response.status, 500); assert.equal(ambiguous.calls.lengt
 console.log('PASSOU: identidades persistidas divergentes continuam bloqueadas.');
 const disabled = await scenario({ enabled: false });
 assert.equal(disabled.response.status, 200); assert.equal(disabled.calls.length, 0);
+assert.equal(disabled.response.body.state, 'CONFIRMED');
+assert.equal(disabled.response.body.ledgerRead.state, 'DISABLED');
 console.log('PASSOU: flag desligada nao chama reconciliacao do ledger.');
 const absent = await scenario({ stored: [] });
 assert.equal(absent.response.status, 200); assert.equal(absent.calls.length, 0);
+assert.equal(absent.response.body.state, 'ACCEPTED_UNCONFIRMED');
+assert.equal(absent.response.body.confirmed, false);
+assert.equal(absent.response.body.verifiedConfirmed, true);
+assert.equal(absent.response.body.tf3Code, 'B_LEDGER_RECONCILIATION_PENDING');
 console.log('PASSOU: sem identidade persistida nao inventa estado de conversa.');
 const key = { id: 'read-1', remoteJid: '100@s.whatsapp.net', remoteJidAlt: 'alternate@lid', fromMe: false };
 for (const statuses of [['READ', 'DELIVERY_ACK'], ['DELIVERY_ACK', 'READ'], ['PLAYED', 'DELIVERY_ACK'], ['DELIVERY_ACK', 'PLAYED']]) {
@@ -101,11 +112,21 @@ for (const timestamp of [1704067200, '1704067200']) {
 for (const timestamp of [-1, 'not-a-date']) {
   const result = await scenario({ stored: [], records: [{ key, status: 'READ', messageTimestamp: timestamp }] });
   assert.equal(result.response.status, 200); assert.equal(result.calls.length, 0);
+  assert.equal(result.response.body.confirmed, false);
+  assert.equal(result.response.body.ledgerRead.unresolvedCount, 1);
   console.log('PASSOU: sem data valida nao cria entrada antecipada.');
 }
 const lidOnly = await scenario({ stored: [], requestedJid: 'alternate@lid', records: [{
   key: { id: 'read-1', remoteJid: 'alternate@lid', fromMe: false }, status: 'READ', messageTimestamp: 1704067200,
 }] });
 assert.equal(lidOnly.response.status, 200); assert.equal(lidOnly.calls.length, 0);
+assert.equal(lidOnly.response.body.confirmed, false);
+assert.equal(lidOnly.response.body.ledgerRead.state, 'PENDING_EVIDENCE');
 console.log('PASSOU: LID sem vinculo oficial ou identidade local nao e promovido a identidade canonica.');
-console.log('TF3-A: dezesseis cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');
+const unpersisted = await scenario({ ledgerResult: { persistedReadCount: 0, unresolvedReadCount: 1 } });
+assert.equal(unpersisted.response.body.state, 'ACCEPTED_UNCONFIRMED');
+assert.equal(unpersisted.response.body.confirmed, false);
+assert.equal(unpersisted.response.body.verifiedConfirmed, true);
+assert.equal(unpersisted.response.body.ledgerRead.state, 'PENDING_EVIDENCE');
+console.log('PASSOU: recibo Evolution sem entrada comprovada no ledger permanece pendente.');
+console.log('TF3-A: dezessete cenarios da rota aprovados com dependencias simuladas; sem rede ou banco real.');

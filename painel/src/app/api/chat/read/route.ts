@@ -146,6 +146,14 @@ export async function POST(request: NextRequest) {
     }
     // TF3-A: persistir apenas recibos confirmados pela Evolution.
     // A identidade persistida (historico ou ledger) deve ser comprovada e unica.
+    type LedgerReadResult = {
+      state: "DISABLED" | "NO_CONFIRMED_IDS" | "PENDING_EVIDENCE" | "PERSISTED";
+      confirmedCount: number; unresolvedCount: number;
+    };
+    let ledgerReadResult: LedgerReadResult = {
+      state: process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED === "true" ? "NO_CONFIRMED_IDS" : "DISABLED",
+      confirmedCount: 0, unresolvedCount: 0,
+    };
     const persistLedgerRead = async (confirmedIds: string[]) => {
       if (process.env.M1M_TF3A_UNREAD_LEDGER_ENABLED !== "true" || confirmedIds.length === 0) return;
       const identityCandidates = new Set<string>(candidateJids);
@@ -194,23 +202,37 @@ export async function POST(request: NextRequest) {
         }
       }
       const states = [...canonicalJids].map((canonicalJid) => ({ canonicalJid }));
-      if (states.length === 0) return; // Sem identidade persistida comprovada.
+      if (states.length === 0) {
+        ledgerReadResult = { state: "PENDING_EVIDENCE", confirmedCount: 0, unresolvedCount: confirmedIds.length };
+        return;
+      }
       if (states.length !== 1) throw new Error("TF3-A: identidade do ledger ambigua");
-      await recordConfirmedRead({
+      const persisted = await recordConfirmedRead({
         companyId: user.companyId, instanceName: instance,
         canonicalJid: states[0].canonicalJid,
         confirmedEvolutionMessageIds: confirmedIds,
         confirmedMessages,
       });
+      ledgerReadResult = {
+        state: persisted.unresolvedReadCount > 0 ? "PENDING_EVIDENCE" : "PERSISTED",
+        confirmedCount: persisted.persistedReadCount, unresolvedCount: persisted.unresolvedReadCount,
+      };
     };
     const isRead = isConfirmedReadStatus;
     const pending = verified.filter((message) => !isRead(message.status));
     const alreadyReadIds = verified.filter((message) => isRead(message.status)).map((message) => message.key!.id!);
     // TF3-A: contagens agregadas, sem IDs, JIDs ou conteudo.
     const tf3ReadCounts = { verifiedAlreadyReadCount: verified.length - pending.length, verifiedPendingCount: pending.length };
+    const ledgerPendingResponse = () => NextResponse.json({
+      ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
+      verifiedConfirmed: true, ledgerRead: ledgerReadResult,
+      tf3Code: "B_LEDGER_RECONCILIATION_PENDING", requested: requested.size,
+      ...verificationCounts, ...tf3ReadCounts,
+    });
     if (pending.length === 0) {
       await persistLedgerRead(verified.map((message) => message.key!.id!));
-      return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
+      if (ledgerReadResult.state === "PENDING_EVIDENCE") return ledgerPendingResponse();
+      return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", confirmed: !isPartial, verifiedConfirmed: true, ledgerRead: ledgerReadResult, ...verificationCounts, ...tf3ReadCounts, requested: requested.size });
     }
     // Reverificacao autorizada consulta a Evolution sem reenviar marcacao.
     // Mantem a identidade, a instancia e as permissoes ja verificadas acima.
@@ -218,7 +240,7 @@ export async function POST(request: NextRequest) {
       await persistLedgerRead(alreadyReadIds);
       return NextResponse.json({
         ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false,
-        tf3Code: "B_RECHECK_UNCONFIRMED", requested: requested.size,
+        tf3Code: "B_RECHECK_UNCONFIRMED", requested: requested.size, ledgerRead: ledgerReadResult,
         ...verificationCounts, ...tf3ReadCounts,
       });
     }
@@ -285,8 +307,9 @@ export async function POST(request: NextRequest) {
         // Recibos ja confirmados sao persistidos mesmo se outros permanecerem pendentes.
         await persistLedgerRead([...new Set([...alreadyReadIds, ...confirmed])]);
         if (confirmed.size === verified.length) {
+          if (ledgerReadResult.state === "PENDING_EVIDENCE") return ledgerPendingResponse();
           return NextResponse.json({ ok: true, state: isPartial ? "PARTIALLY_CONFIRMED" : "CONFIRMED", accepted: true, confirmed: !isPartial, verifiedConfirmed: true, ...verificationCounts, ...tf3ReadCounts, requested: requested.size,
-            tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
+            ledgerRead: ledgerReadResult, tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
         }
       }
     } catch {
@@ -294,7 +317,7 @@ export async function POST(request: NextRequest) {
         tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } }, { status: 502 });
     }
     return NextResponse.json({ ok: true, state: "ACCEPTED_UNCONFIRMED", accepted: true, confirmed: false, ...verificationCounts, ...tf3ReadCounts,
-      tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size,
+      tf3Code: "B_ACCEPTED_UNCONFIRMED", requested: requested.size, ledgerRead: ledgerReadResult,
       tf3Confirmation: { pendingCount: pending.length, attempts: tf3ConfirmationAttempts } });
   } catch (error) {
     console.error("[TF3] Falha ao marcar mensagens como lidas", error);

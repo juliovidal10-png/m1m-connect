@@ -51,3 +51,18 @@ O servico valida IDs, datas e duplicidade da evidencia. Usa primeiro datas locai
 Validacoes desta revisao: quatorze cenarios do servico e dezesseis da rota aprovados com persistencia/dependencias simuladas; preservados os oito originais. Incluidos data numerica/string, mensagem antiga legitima, repeticao, chegada posterior, evidencia invalida e conflito com historico. Reproduzida a falha com a fonte anterior. Teste estrutural, TypeScript, ESLint dos TS alterados e diff-check aprovados. Nao executados PostgreSQL, migrations, merge, restart ou deploy.
 
 O limite anterior de ausencia de historico foi reduzido, nao eliminado universalmente: sem data valida ou identidade canonica comprovada, o recibo da Evolution pode ser confirmado pela rota, mas a reconciliacao antecipada do ledger continua pendente. Ainda e necessario tratar esse estado antes de ativar o contador. Os testes nao comprovam integracao JID/LID real, concorrencia real ou comportamento funcional em producao. Ledger permanece desligado.
+
+
+## Contrato de reconciliacao pendente
+
+A rota anterior podia retornar CONFIRMED mesmo quando persistLedgerRead nao encontrava identidade e retornava sem persistir. Isso confirmava o recibo da Evolution, mas nao a reconciliacao do ledger.
+
+O servico agora conta os IDs efetivamente presentes como lidos na mesma empresa/instancia/estado e retorna persistedReadCount e unresolvedReadCount. Contagem e feita dentro da transacao; o numero de linhas inseridas/alteradas isoladamente nao comprova que todos os IDs ficaram cobertos.
+
+Com ledger habilitado, a rota expoe ledgerRead.state (NO_CONFIRMED_IDS, PENDING_EVIDENCE ou PERSISTED) e contagens agregadas, sem IDs ou conteudo. Se a origem confirma leitura mas faltam identidade/data/entradas de ledger, responde ACCEPTED_UNCONFIRMED, confirmed=false, verifiedConfirmed=true, tf3Code=B_LEDGER_RECONCILIATION_PENDING. Isso permite distinguir o recibo da origem da reconciliacao local. Usa o estado de pendencia ja reconhecido pelo ChatInbox; nenhuma tela foi alterada. O frontend existente faz uma reverificacao e permite nova tentativa ao reabrir, sem zerar badges localmente. Nao foi realizado teste visual/end-to-end.
+
+Com flag desligada, nao consulta o ledger nem altera o estado funcional legado; acrescenta ledgerRead.state=DISABLED. Recibos parcialmente confirmados continuam sendo persistidos. Falhas de identidade seguem bloqueadas.
+
+Validacoes: 14 cenarios comportamentais do servico, 17 da rota e teste estrutural aprovados com dependencias simuladas. TypeScript, ESLint dos dois arquivos TS e diff-check aprovados. Nenhum PostgreSQL, migration, merge, deploy, reinicio ou nova configuracao real nesta revisao.
+
+As observacoes anteriores de CONFIRMED sem identidade descrevem o comportamento anterior. A reconciliacao desses casos continua pendente, mas agora isso e informado explicitamente. Replay desconhecido, reaparecimento seguro e integracao completa do contador permanecem abertos. Flag do ledger continua desativada.

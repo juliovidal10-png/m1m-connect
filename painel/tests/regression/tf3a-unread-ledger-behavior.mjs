@@ -16,6 +16,7 @@ const matches = (row, where = {}) => Object.entries(where).every(([key, value]) 
   if (value && typeof value === "object" && !(value instanceof Date)) {
     if ("in" in value) return value.in.includes(row[key]);
     if ("gt" in value) return row[key] > value.gt;
+    if ("not" in value) return row[key] !== value.not;
     return row[key] && matches(row[key], value);
   }
   return row[key] === value;
@@ -113,6 +114,7 @@ await check("mesmo ID fica isolado por empresa e instancia", async () => {
 await check("IDs de outra conversa e inexistentes nao reduzem leitura", async () => {
   const result = await read(["m3", "unknown"]);
   assert.equal(result.confirmed, 0); assert.equal(result.remaining, 2);
+  assert.equal(result.persistedReadCount, 0); assert.equal(result.unresolvedReadCount, 2);
 });
 await check("leitura parcial, duplicada e completa", async () => {
   assert.equal((await read(["m1", "m1"])).remaining, 1);
@@ -171,6 +173,7 @@ await check("recibo anterior ao primeiro ledger impede nao lida na entrega poste
   const result = await read(["early-read"], scope);
   assert.equal(result.stateFound, true); assert.equal(result.confirmed, 1);
   assert.equal(result.remaining, 0);
+  assert.equal(result.persistedReadCount, 1); assert.equal(result.unresolvedReadCount, 0);
   const entry = messages.find((row) => row.companyId === scope.companyId && row.evolutionMessageId === "early-read");
   assert.ok(entry.readAt); assert.equal(entry.receivedAt.getTime(), sentAt.getTime());
   assert.equal((await incoming("early-read", scope)).inserted, false);

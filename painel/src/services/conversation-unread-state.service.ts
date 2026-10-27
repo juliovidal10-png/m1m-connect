@@ -130,7 +130,10 @@ export async function recordConfirmedRead(input: {
         let state = await tx.m1MConversationState.findUnique({
           where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
         });
-        if (!state && seedMessages.size === 0) return { confirmed: 0, remaining: 0, stateFound: false };
+        if (!state && seedMessages.size === 0) return {
+          confirmed: 0, remaining: 0, stateFound: false,
+          persistedReadCount: 0, unresolvedReadCount: ids.length,
+        };
         if (!state) {
           state = await tx.m1MConversationState.upsert({
             where: { companyId_instanceName_canonicalJid: { companyId, instanceName, canonicalJid } },
@@ -167,7 +170,12 @@ export async function recordConfirmedRead(input: {
             ...(remaining === 0 ? { lastReadAt: new Date(), lastReadMessageId: ids[ids.length - 1] } : {}),
           },
         });
-        return { confirmed: confirmed.count + seeded.count, remaining, stateFound: true };
+        const persistedReadCount = await tx.m1MConversationUnreadMessage.count({
+          where: { companyId, instanceName, conversationStateId: state.id,
+            evolutionMessageId: { in: ids }, readAt: { not: null } },
+        });
+        return { confirmed: confirmed.count + seeded.count, remaining, stateFound: true,
+          persistedReadCount, unresolvedReadCount: ids.length - persistedReadCount };
       }, { isolationLevel: "Serializable" });
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
