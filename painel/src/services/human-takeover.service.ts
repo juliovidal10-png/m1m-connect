@@ -14,6 +14,21 @@ type HumanTakeoverInput = {
 };
 
 export const humanTakeoverService = {
+  // Chamado somente pelas rotas de envio apos autorizacao e confirmacao da Evolution.
+  // A importacao de historico nao chama esta operacao.
+  async processAuthenticatedOutgoing(input: {
+    companyId: string;
+    remoteJid: string;
+    evolutionMessageId: string;
+    responsibleId: string;
+  }) {
+    const customer = await customerRepository.upsert({
+      companyId: input.companyId,
+      remoteJid: input.remoteJid,
+    });
+    return this.process({ ...input, customerId: customer.id });
+  },
+
   async process(
     input: HumanTakeoverInput,
   ) {

@@ -5,6 +5,7 @@ import { authorizationService } from "@/services/auth/authorization.service";
 import { prisma } from "@/lib/prisma";
 import { manualOutgoingAuthorRegistryService } from "@/services/manual-outgoing-author-registry.service";
 import { conversationSyncService } from "@/services/conversation-sync.service";
+import { humanTakeoverService } from "@/services/human-takeover.service";
 
 import {
   getAuthenticatedCompanyId,
@@ -332,6 +333,14 @@ export async function POST(
         messageAuthorName,
       );
 
+      // Transicao explicita do envio autenticado, nunca inferida pelo historico.
+      const takeover = await humanTakeoverService.processAuthenticatedOutgoing({
+        companyId,
+        remoteJid,
+        evolutionMessageId,
+        responsibleId: authenticatedUser.userId,
+      });
+
       /*
        * A rota de envio nao pode depender de a tela disparar um sync depois.
        * Sincronizamos a conversa imediatamente para persistir a mensagem OUT
@@ -356,6 +365,7 @@ export async function POST(
           fromMe: true,
         },
         data: {
+          attendanceId: takeover.attendanceId,
           authorType: M1MMessageAuthorType.HUMAN,
           authorId: authenticatedUser.userId,
           authorName: messageAuthorName,

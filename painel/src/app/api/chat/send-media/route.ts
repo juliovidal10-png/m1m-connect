@@ -1,3 +1,4 @@
+import { humanTakeoverService } from "@/services/human-takeover.service";
 import {
   NextRequest,
   NextResponse,
@@ -482,6 +483,12 @@ export async function POST(
         authenticatedUser.userId,
         messageAuthorName,
       );
+      await humanTakeoverService.processAuthenticatedOutgoing({
+        companyId,
+        remoteJid,
+        evolutionMessageId,
+        responsibleId: authenticatedUser.userId,
+      });
     }
     console.log(
       "[ENVIO DE MÍDIA] Arquivo enviado com sucesso:",

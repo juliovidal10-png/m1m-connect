@@ -13,12 +13,6 @@ import {
   REVOKED_MESSAGE_CONTENT,
 } from "@/services/message.service";
 import {
-  automaticOutgoingRegistryService,
-} from "@/services/automatic-outgoing-registry.service";
-import {
-  humanTakeoverService,
-} from "@/services/human-takeover.service";
-import {
   manualOutgoingAuthorRegistryService,
 } from "@/services/manual-outgoing-author-registry.service";
 
@@ -1083,37 +1077,10 @@ export const conversationSyncService = {
         ),
       });
 
-    let activeAttendance =
+    const activeAttendance =
       await attendanceService.getOpenAttendanceByCustomer(
         resolvedCompanyId,
         customer.id,
-      );
-
-    /*
-     * FIX 2 DE PERFORMANCE:
-     * carregamos uma unica vez as mensagens que ja existem no banco
-     * e criamos um indice em memoria por evolutionMessageId.
-     *
-     * Antes, cada item do historico fazia uma consulta individual
-     * getMessageByEvolutionId antes de registerMessage, e o proprio
-     * registerMessage consultava novamente o mesmo ID.
-     *
-     * Agora a verificacao previa e O(1) em memoria.
-     */
-    const existingMessagesBeforeSync =
-      await messageService.listMessageIdsByCustomer(
-        resolvedCompanyId,
-        customer.id,
-      );
-
-    const existingMessageByEvolutionId =
-      new Map(
-        existingMessagesBeforeSync.map(
-          (storedMessage) => [
-            storedMessage.evolutionMessageId,
-            storedMessage,
-          ],
-        ),
       );
 
     for (const message of normalizedMessages) {
@@ -1121,11 +1088,6 @@ export const conversationSyncService = {
         activeAttendance &&
         message.sentAt >=
           activeAttendance.startedAt;
-
-      const existingMessage =
-        existingMessageByEvolutionId.get(
-          message.evolutionMessageId,
-        ) ?? null;
 
       const currentAttendanceId =
         belongsToActiveAttendance
@@ -1175,86 +1137,28 @@ export const conversationSyncService = {
           sentAt: message.sentAt,
         });
 
-      /*
-       * Mensagem OUT nova que apareceu apenas pela sincronizacao
-       * pode nao ter passado pelo webhook/pipeline.
-       * Se for manual, assume o atendimento.
-       * Mensagens automaticas do M1M continuam ignoradas.
-       */
-      const registeredManualAuthor =
-        message.fromMe
-          ? manualOutgoingAuthorRegistryService.get(
-              instanceName,
-              message.evolutionMessageId,
-            )
-          : null;
-
-      /*
-       * A Evolution pode persistir a mensagem OUT pelo webhook antes
-       * de /api/chat/send registrar a autoria autenticada. No sync
-       * seguinte, a mensagem ja existe, mas o registry conhece o atendente.
-       */
-      if (
-        message.fromMe &&
-        (
-          !existingMessage ||
-          (
-            registeredManualAuthor &&
-            !storedMessage.authorId
-          )
-        )
-      ) {
-        const isAutomatic =
-          automaticOutgoingRegistryService.isAutomatic(
+      // Importar historico nao e evidencia de intervencao humana atual.
+      // A autoria autenticada pode chegar depois do webhook; reconcilie somente
+      // a mensagem, sem criar, assumir, reabrir ou transferir atendimento.
+      const registeredManualAuthor = message.fromMe
+        ? manualOutgoingAuthorRegistryService.get(instanceName, message.evolutionMessageId)
+        : null;
+      if (registeredManualAuthor && !storedMessage.authorId &&
+          (!storedMessage.authorType || storedMessage.authorType === M1MMessageAuthorType.HUMAN)) {
+        await prisma.m1MMessage.updateMany({
+          where: {
+            id: storedMessage.id,
+            companyId: resolvedCompanyId,
             instanceName,
-            message.remoteJid,
-            message.content ?? "",
-            message.evolutionMessageId,
-          );
-
-        if (!isAutomatic) {
-          const manualAuthor =
-            registeredManualAuthor;
-
-          if (!manualAuthor) {
-            await prisma.m1MMessage.update({
-              where: {
-                id: storedMessage.id,
-              },
-              data: {
-                authorType:
-                  M1MMessageAuthorType.HUMAN,
-                authorId: null,
-                authorName: "WhatsApp",
-              },
-            });
-          }
-
-          const takeover =
-            await humanTakeoverService.process({
-              companyId:
-                resolvedCompanyId,
-              customerId:
-                customer.id,
-              remoteJid:
-                message.remoteJid,
-              evolutionMessageId:
-                message.evolutionMessageId,
-              responsibleId:
-                manualAuthor?.userId ?? null,
-            });
-
-          await messageService.attachMessageToAttendance(
-            storedMessage.id,
-            takeover.attendanceId,
-          );
-
-          activeAttendance =
-            await attendanceService.getOpenAttendanceByCustomer(
-              resolvedCompanyId,
-              customer.id,
-            );
-        }
+            authorId: null,
+            OR: [{ authorType: null }, { authorType: M1MMessageAuthorType.HUMAN }],
+          },
+          data: {
+            authorType: M1MMessageAuthorType.HUMAN,
+            authorId: registeredManualAuthor.userId,
+            authorName: registeredManualAuthor.displayName,
+          },
+        });
       }
     }
 
