@@ -302,9 +302,6 @@ export default function Sidebar() {
     setConversationsWaitingCount,
   ] = useState<number | null>(null);
   const [waitingCountStatus, setWaitingCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
-  // TF3: total de conversas do menu, independente do alerta TF2.
-  const [conversationsTotalCount, setConversationsTotalCount] = useState<number | null>(null);
-  const [totalCountStatus, setTotalCountStatus] = useState<"loading" | "current" | "stale" | "unavailable">("loading");
   const floatingAlertRef = useRef<HTMLDivElement | null>(null);
   const floatingDragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
   const [floatingPosition, setFloatingPosition] = useState<{ x: number; y: number } | null>(null);
@@ -405,35 +402,6 @@ export default function Sidebar() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    let inFlight = false;
-    const refreshTotalCount = async () => {
-      if (cancelled || inFlight) return;
-      inFlight = true;
-      try {
-        const response = await fetch("/api/chat/list?totalCount=1", { cache: "no-store" });
-        if (!response.ok) throw new Error("Falha na consulta do total de conversas");
-        const data = await response.json();
-        const count = Number(data.totalCount);
-        if (!Number.isSafeInteger(count) || count < 0) throw new Error("Total de conversas invalido");
-        if (!cancelled) {
-          setConversationsTotalCount(count);
-          setTotalCountStatus("current");
-        }
-      } catch {
-        if (!cancelled) {
-          setTotalCountStatus((previous) => previous === "current" || previous === "stale" ? "stale" : "unavailable");
-        }
-      } finally {
-        inFlight = false;
-      }
-    };
-    void refreshTotalCount();
-    const timer = window.setInterval(() => { void refreshTotalCount(); }, 60000);
-    return () => { cancelled = true; window.clearInterval(timer); };
   }, []);
 
   useEffect(() => {
@@ -551,22 +519,6 @@ export default function Sidebar() {
                       <span className="min-w-0 flex-1">
                         {item.label}
                       </span>
-
-                      {item.href === "/" && totalCountStatus !== "current" && (
-                        <span
-                          title={totalCountStatus === "stale" ? "Ultimo total conhecido; atualizacao indisponivel" : "Total de conversas indisponivel"}
-                          className="text-[10px] font-semibold text-amber-700"
-                        >!</span>
-                      )}
-
-                      {item.href === "/" && conversationsTotalCount !== null && (
-                        <span
-                          title={`${totalCountStatus === "stale" ? "Ultimo total conhecido: " : ""}${conversationsTotalCount} conversa${conversationsTotalCount === 1 ? "" : "s"} na aba Todas`}
-                          className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white"
-                        >
-                          {conversationsTotalCount}
-                        </span>
-                      )}
 
                       {item.href ===
                         "/agenda" &&

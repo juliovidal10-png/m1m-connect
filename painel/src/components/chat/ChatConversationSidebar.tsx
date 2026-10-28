@@ -86,11 +86,6 @@ export default function ChatConversationSidebar({
             {item.preview}
           </p>
 
-          {item.unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white shadow-sm">
-              {item.unreadCount}
-            </span>
-          )}
         </div>
       </div>
     </button>
