@@ -1,5 +1,7 @@
 "use client";
 
+import type { AttendanceAssignment } from "./AttendanceActions";
+
 import { useState } from "react";
 
 type ChatCustomerQuickPanelProps = {
@@ -11,7 +13,7 @@ type ChatCustomerQuickPanelProps = {
   attendanceStatus: string | null;
   customerId: string | null;
   canAssumeAttendance: boolean;
-  onAssigned: () => Promise<void> | void;
+  onAssigned: (assignment?: AttendanceAssignment) => Promise<void> | void;
   onClose: () => void;
 };
 
@@ -85,7 +87,7 @@ export default function ChatCustomerQuickPanel({
         );
       }
 
-      await onAssigned();
+      await onAssigned(data.attendance);
     } catch (error) {
       setAssignError(
         error instanceof Error

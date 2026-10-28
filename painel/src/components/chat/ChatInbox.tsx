@@ -25,6 +25,7 @@ import ChatConversationSidebar, {
   type ChatConversationSidebarItem,
 } from "./ChatConversationSidebar";
 import ChatConversationHeader from "./ChatConversationHeader";
+import type { AttendanceAssignment } from "./AttendanceActions";
 import ChatCustomerQuickPanel from "./ChatCustomerQuickPanel";
 
 type Chat = {
@@ -1327,6 +1328,8 @@ const loadContacts =
     ] ?? null;
 
 
+  const attendanceRevisionRef = useRef(0);
+  const [attendanceRevision, setAttendanceRevision] = useState(0);
   const loadChatsInFlightRef = useRef(false);
   const confirmedReadRefreshPendingRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
@@ -1345,6 +1348,7 @@ const loadContacts =
       }
 
       loadChatsInFlightRef.current = true;
+      const requestedAttendanceRevision = attendanceRevisionRef.current;
 
       if (showLoading) setIsLoadingChats(true);
       if (mode === "append") setIsLoadingMoreChats(true);
@@ -1363,6 +1367,12 @@ const loadContacts =
 
         if (!response.ok) {
           throw new Error(data.error || "Erro ao carregar conversas.");
+        }
+
+        // Uma consulta iniciada antes de Assumir nao pode restaurar a fila antiga.
+        if (requestedAttendanceRevision !== attendanceRevisionRef.current) {
+          confirmedReadRefreshPendingRef.current = true;
+          return;
         }
 
         const receivedItems: Chat[] = Array.isArray(data?.items)
@@ -1441,6 +1451,37 @@ const loadContacts =
     [],
   );
 
+  const handleAttendanceAssigned = async (assignment?: AttendanceAssignment) => {
+    if (assignment) {
+      // Use a confirmacao do servidor, inclusive para itens apos a pagina 100.
+      const selectedIdentity = selectedChat ? getCanonicalJid(selectedChat) : null;
+      const update = (chat: Chat): Chat => {
+        if (chat.crmCustomerId !== assignment.customerId &&
+            getCanonicalJid(chat) !== selectedIdentity) return chat;
+        return {
+          ...chat,
+          crmCustomerId: assignment.customerId,
+          attendanceId: assignment.id,
+          attendanceState: assignment.state,
+          attendanceResponsibleId: assignment.responsibleId,
+          attendanceSectorId: assignment.sectorId,
+          crmResponsibleId: assignment.responsibleId,
+        };
+      };
+      attendanceRevisionRef.current += 1;
+      chatsRef.current = chatsRef.current.map(update);
+      setChats(chatsRef.current);
+      setSearchResults((current) => current.map(update));
+      setSelectedChat((current) => current ? update(current) : current);
+      setAttendanceRevision(attendanceRevisionRef.current);
+    }
+    if (loadChatsInFlightRef.current) {
+      confirmedReadRefreshPendingRef.current = true;
+    } else {
+      await loadChats(false, "refresh");
+    }
+  };
+
   const loadMoreChats = useCallback(async () => {
     if (!hasMoreChats || searchQuery.trim()) return;
     await loadChats(false, "append");
@@ -1454,6 +1495,8 @@ const loadContacts =
     }
 
     const controller = new AbortController();
+    const requestedAttendanceRevision = attendanceRevisionRef.current;
+    let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
         const response = await fetch(
@@ -1461,7 +1504,7 @@ const loadContacts =
           { cache: "no-store", signal: controller.signal },
         );
         const data = await response.json();
-        if (!response.ok) return;
+        if (!response.ok || cancelled || requestedAttendanceRevision !== attendanceRevisionRef.current) return;
         const items: Chat[] = Array.isArray(data?.items) ? data.items : [];
         setSearchResults(mergeDuplicateChats(items));
       } catch (error) {
@@ -1472,10 +1515,11 @@ const loadContacts =
     }, 450);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [searchQuery, attendanceRevision]);
 
   const loadMessages = useCallback(
     async (
@@ -4073,9 +4117,7 @@ const loadContacts =
                 selectedChat.attendanceResponsibleId ||
                 null
               }
-              onAttendanceChanged={async () => {
-                await loadChats(false, "refresh");
-              }}
+              onAttendanceChanged={handleAttendanceAssigned}
               lastInteraction={
                 selectedChat.updatedAt ||
                 null
@@ -5451,9 +5493,7 @@ const loadContacts =
             selectedChat.attendanceState === "HUMANO" &&
             !selectedChat.crmResponsibleId
           }
-          onAssigned={async () => {
-            await loadChats(false, "refresh");
-          }}
+          onAssigned={handleAttendanceAssigned}
           onClose={() =>
             setIsCustomerQuickPanelOpen(
               false,
