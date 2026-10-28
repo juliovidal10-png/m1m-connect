@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import type { ConversationQueue } from "@/lib/conversation-queue";
 export type ChatConversationSidebarItem = {
   key: string;
   name: string;
@@ -13,11 +9,14 @@ export type ChatConversationSidebarItem = {
   updatedAt: string;
   unreadCount: number;
   isSelected: boolean;
-  queueCategory: "WAITING" | "IN_SERVICE" | "OTHER";
+  queueCategory: ConversationQueue | null;
   onSelect: () => void;
 };
 
 type ChatConversationSidebarProps = {
+  activeQueue: ConversationQueue;
+  onQueueChange: (queue: ConversationQueue) => void;
+  queueCounts: { waiting: number; inService: number } | null;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   isLoading: boolean;
@@ -28,6 +27,9 @@ type ChatConversationSidebarProps = {
 };
 
 export default function ChatConversationSidebar({
+  activeQueue,
+  onQueueChange,
+  queueCounts,
   searchQuery,
   onSearchChange,
   isLoading,
@@ -36,17 +38,6 @@ export default function ChatConversationSidebar({
   onLoadMore,
   items,
 }: ChatConversationSidebarProps) {
-  const waitingCount = items.filter(
-    (item) => item.queueCategory === "WAITING",
-  ).length;
-  const inServiceCount = items.filter(
-    (item) => item.queueCategory === "IN_SERVICE",
-  ).length;
-
-  const [activeQueue, setActiveQueue] = useState<"ALL" | "WAITING" | "IN_SERVICE">("ALL");
-
-  const visibleItems = activeQueue === "ALL" ? items : items.filter((item) => item.queueCategory === activeQueue);
-
   const renderItem = (item: ChatConversationSidebarItem) => (
     <button
       key={item.key}
@@ -95,7 +86,7 @@ export default function ChatConversationSidebar({
     <aside
       className="h-full w-full shrink-0 overflow-y-auto border-r border-black/5 bg-white"
       onScroll={(event) => {
-        if (searchQuery.trim() || isLoading || isLoadingMore || !hasMore) return;
+        if (isLoading || isLoadingMore || !hasMore) return;
         const element = event.currentTarget;
         const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
         if (distanceToBottom < 180) onLoadMore();
@@ -109,38 +100,38 @@ export default function ChatConversationSidebar({
           <div className="mt-4 grid grid-cols-[0.72fr_1.15fr_1.55fr] gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
-              onClick={() => setActiveQueue("ALL")}
+              onClick={() => onQueueChange("OPEN")}
               className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
-                activeQueue === "ALL"
+                activeQueue === "OPEN"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
               }`}
             >
-              Todas
+              Abertas
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveQueue("WAITING")}
+              onClick={() => onQueueChange("WAITING")}
               className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
                 activeQueue === "WAITING"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
               }`}
             >
-              Aguardando ({waitingCount})
+              Aguardando{queueCounts ? ` (${queueCounts.waiting})` : ""}
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveQueue("IN_SERVICE")}
+              onClick={() => onQueueChange("IN_SERVICE")}
               className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
                 activeQueue === "IN_SERVICE"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
               }`}
             >
-              Em atendimento ({inServiceCount})
+              Em atendimento{queueCounts ? ` (${queueCounts.inService})` : ""}
             </button>
           </div>
 
@@ -164,15 +155,15 @@ export default function ChatConversationSidebar({
         </p>
       )}
 
-      {!isLoading && searchQuery.trim() && visibleItems.length === 0 && (
+      {!isLoading && searchQuery.trim() && items.length === 0 && (
         <p className="p-4 text-sm text-black/45">
           Nenhuma conversa encontrada.
         </p>
       )}
 
-      {visibleItems.map(renderItem)}
+      {items.map(renderItem)}
 
-      {isLoadingMore && !searchQuery.trim() && (
+      {isLoadingMore && (
         <p className="p-4 text-center text-sm text-black/45">
           Carregando mais conversas...
         </p>

@@ -17,6 +17,7 @@ import {
 import { createPortal } from "react-dom";
 
 import useAutoRefresh from "@/hooks/useAutoRefresh";
+import { getConversationQueue, type ConversationQueue } from "@/lib/conversation-queue";
 import MessageRenderer, {
   type ChatMessage,
 } from "./MessageRenderer";
@@ -774,8 +775,9 @@ export default function ChatInbox() {
     setIsMobileConversationOpen,
   ] = useState(false);
 
-  const [searchResults, setSearchResults] =
-    useState<Chat[]>([]);
+  const [activeQueue, setActiveQueue] = useState<ConversationQueue>("OPEN");
+  const [queueCounts, setQueueCounts] = useState<{ waiting: number; inService: number } | null>(null);
+  const listScopeRef = useRef({ queue: "OPEN" as ConversationQueue, search: "", revision: 0 });
 
   const [hasMoreChats, setHasMoreChats] =
     useState(true);
@@ -960,56 +962,21 @@ export default function ChatInbox() {
     [contacts],
   );
 
-  const filteredChats = useMemo(() => {
-    const normalizedQuery =
-      normalizeSearchText(
-        searchQuery,
-      );
+  const changeListScope = (queue: ConversationQueue, search: string) => {
+    if (listScopeRef.current.queue === queue && listScopeRef.current.search === search) return;
+    listScopeRef.current = { queue, search, revision: listScopeRef.current.revision + 1 };
+    chatsRef.current = [];
+    setChats([]);
+    setHasMoreChats(true);
+    setErrorMessage("");
+    setActiveQueue(queue);
+    setSearchQuery(search);
+  };
 
-    if (!normalizedQuery) {
-      return chats;
-    }
-
-    /*
-     * Busca hibrida:
-     * - resultado LOCAL aparece imediatamente entre os chats ja carregados;
-     * - resultado GLOBAL continua chegando pela API e e mesclado depois.
-     *
-     * Assim, nomes que ja estao visiveis nao precisam esperar a Evolution,
-     * sem perder a busca independente da base carregada.
-     */
-    const localMatches =
-      chats.filter((chat) => {
-        const haystack =
-          normalizeSearchText(
-            [
-              getChatName(
-                chat,
-                contactsMap,
-              ),
-              chat.pushName,
-              chat.crmName,
-              chat.crmPhone,
-              chat.remoteJid,
-              chat.canonicalJid,
-            ].join(" "),
-          );
-
-        return haystack.includes(
-          normalizedQuery,
-        );
-      });
-
-    return mergeDuplicateChats([
-      ...localMatches,
-      ...searchResults,
-    ]);
-  }, [
-    chats,
-    contactsMap,
-    searchQuery,
-    searchResults,
-  ]);
+  const filteredChats = useMemo(
+    () => chats.filter((chat) => getConversationQueue(chat) === activeQueue),
+    [chats, activeQueue],
+  );
 
   const conversationSidebarItems =
     useMemo<ChatConversationSidebarItem[]>(
@@ -1039,12 +1006,7 @@ export default function ChatInbox() {
               selectedChat?.remoteJid) ===
             (chat.canonicalJid ||
               chat.remoteJid),
-          queueCategory:
-              chat.attendanceState === "HUMANO"
-                ? chat.attendanceResponsibleId
-                  ? "IN_SERVICE"
-                  : "WAITING"
-                : "OTHER",
+          queueCategory: getConversationQueue(chat),
             onSelect: () => {
             const currentIdentity =
               selectedChat?.canonicalJid ||
@@ -1329,7 +1291,6 @@ const loadContacts =
 
 
   const attendanceRevisionRef = useRef(0);
-  const [attendanceRevision, setAttendanceRevision] = useState(0);
   const loadChatsInFlightRef = useRef(false);
   const confirmedReadRefreshPendingRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
@@ -1338,106 +1299,73 @@ const loadContacts =
     chatsRef.current = chats;
   }, [chats]);
 
+  const queueCountsRequestRef = useRef({ inFlight: false, pending: false });
+  const loadQueueCounts = useCallback(async () => {
+    const request = queueCountsRequestRef.current;
+    if (request.inFlight) { request.pending = true; return; }
+    request.inFlight = true;
+    const revision = attendanceRevisionRef.current;
+    try {
+      const response = await fetch("/api/chat/list?queueCounts=1", { cache: "no-store" });
+      const data = await response.json();
+      if (revision !== attendanceRevisionRef.current) { request.pending = true; return; }
+      if (response.ok && Number.isSafeInteger(data.waiting) && data.waiting >= 0 &&
+          Number.isSafeInteger(data.inService) && data.inService >= 0) {
+        setQueueCounts({ waiting: data.waiting, inService: data.inService });
+      }
+    } catch { /* Preserva o ultimo total confirmado. */ }
+    finally {
+      request.inFlight = false;
+      if (request.pending) {
+        request.pending = false;
+        queueMicrotask(() => { void loadQueueCounts(); });
+      }
+    }
+  }, []);
+
   const loadChats = useCallback(
-    async (
-      showLoading = false,
-      mode: "replace" | "append" | "refresh" = "replace",
-    ) => {
+    async (showLoading = false, mode: "replace" | "append" | "refresh" = "replace") => {
       if (loadChatsInFlightRef.current) {
+        confirmedReadRefreshPendingRef.current = true;
         return;
       }
-
       loadChatsInFlightRef.current = true;
-      const requestedAttendanceRevision = attendanceRevisionRef.current;
-
+      const scope = { ...listScopeRef.current };
+      const attendanceRevision = attendanceRevisionRef.current;
+      const isCurrent = () => scope.revision === listScopeRef.current.revision &&
+        attendanceRevision === attendanceRevisionRef.current;
       if (showLoading) setIsLoadingChats(true);
       if (mode === "append") setIsLoadingMoreChats(true);
-
       try {
-        const requestLimit =
-          mode === "refresh"
-            ? Math.min(Math.max(chatsRef.current.length, 30), 100)
-            : 30;
-        const offset = mode === "append" ? chatsRef.current.length : 0;
-        const response = await fetch(
-          `/api/chat/list?limit=${requestLimit}&offset=${offset}${typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1" ? "&tf3diag=1" : ""}`,
-          { cache: "no-store" },
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Erro ao carregar conversas.");
-        }
-
-        // Uma consulta iniciada antes de Assumir nao pode restaurar a fila antiga.
-        if (requestedAttendanceRevision !== attendanceRevisionRef.current) {
-          confirmedReadRefreshPendingRef.current = true;
-          return;
-        }
-
-        const receivedItems: Chat[] = Array.isArray(data?.items)
-          ? data.items
-          : Array.isArray(data)
-            ? data
-            : Array.isArray(data?.value)
-              ? data.value
-              : [];
-        const items = mergeDuplicateChats(receivedItems);
-        // TF3: diagnostico opt-in (?tf3diag=1), sem JIDs, nomes ou mensagens.
-        if (mode === "refresh" && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tf3diag") === "1") {
-          const active = chatsRef.current.find((chat) => chat.remoteJid === activeChatJidRef.current);
-          if (active) {
-            const identity = active.canonicalJid || getCanonicalJid(active);
-            const matching = receivedItems.filter((chat) => (chat.canonicalJid || getCanonicalJid(chat)) === identity);
-            const merged = items.find((chat) => (chat.canonicalJid || getCanonicalJid(chat)) === identity);
-            console.info("[TF3-DIAG] refresh", {
-              rawMatches: matching.length,
-              rawUnreadCounts: matching.map((chat) => chat.unreadCount ?? 0),
-              mergedUnreadCount: merged?.unreadCount ?? null,
-              previousUnreadCount: active.unreadCount ?? 0,
-            });
-          }
-        }
-        setHasMoreChats(Boolean(data?.hasMore));
-
-        let nextItems = items;
-        if (mode === "append") {
-          nextItems = mergeDuplicateChats([...chatsRef.current, ...items]);
-        } else if (mode === "refresh") {
-          const preservedTail =
-            chatsRef.current.length > requestLimit
-              ? chatsRef.current.slice(requestLimit)
-              : [];
-          // Dados recem-consultados prevalecem sobre o estado antigo da lista.
-          const refreshedIdentities = new Set(items.map((chat) =>
-            isGroupChat(chat) ? `jid:${chat.remoteJid}` : `jid:${getCanonicalJid(chat)}`,
-          ));
-          const untouchedTail = preservedTail.filter((chat) =>
-            !refreshedIdentities.has(isGroupChat(chat)
-              ? `jid:${chat.remoteJid}`
-              : `jid:${getCanonicalJid(chat)}`),
-          );
-          nextItems = mergeDuplicateChats([...items, ...untouchedTail]);
-        }
-
+        // Atualiza somente a quantidade ja carregada, em paginas de no maximo 100.
+        const wanted = mode === "refresh" ? Math.max(chatsRef.current.length, 30) : 30;
+        let offset = mode === "append" ? chatsRef.current.length : 0;
+        let items: Chat[] = [];
+        let hasMore = false;
+        do {
+          const limit = Math.min(wanted - items.length, 100);
+          const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
+          const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store" });
+          const data = await response.json();
+          if (!isCurrent()) { confirmedReadRefreshPendingRef.current = true; return; }
+          if (!response.ok) throw new Error(data.error || "Erro ao carregar conversas.");
+          const page: Chat[] = Array.isArray(data?.items) ? data.items : [];
+          items = [...items, ...page];
+          offset += page.length;
+          hasMore = Boolean(data.hasMore);
+          if (!page.length) break;
+        } while (mode === "refresh" && hasMore && items.length < wanted);
+        const nextItems = mergeDuplicateChats(mode === "append" ? [...chatsRef.current, ...items] : items)
+          .filter((chat) => getConversationQueue(chat) === scope.queue);
         chatsRef.current = nextItems;
         setChats(nextItems);
-
-        setSelectedChat((currentChat) => {
-          // TF3-A: carregar ou atualizar a lista nao equivale a abrir uma conversa.
-          // Apenas selecao explicita (clique/navegacao) autoriza leitura.
-          if (!currentChat) return null;
-          const currentIdentity = currentChat.canonicalJid || getCanonicalJid(currentChat);
-          return nextItems.find((chat) =>
-            (chat.canonicalJid || getCanonicalJid(chat)) === currentIdentity,
-          ) ?? currentChat;
+        setHasMoreChats(hasMore);
+        setSelectedChat((current) => {
+          if (!current) return null;
+          return nextItems.find((chat) => getCanonicalJid(chat) === getCanonicalJid(current)) ?? current;
         });
       } catch (error) {
-        if (showLoading) {
-          setErrorMessage(
-            error instanceof Error ? error.message : "Erro ao carregar conversas.",
-          );
-        }
+        if (isCurrent()) setErrorMessage(error instanceof Error ? error.message : "Erro ao carregar conversas.");
       } finally {
         loadChatsInFlightRef.current = false;
         if (showLoading) setIsLoadingChats(false);
@@ -1447,11 +1375,10 @@ const loadContacts =
           queueMicrotask(() => { void loadChats(false, "refresh"); });
         }
       }
-    },
-    [],
+    }, [],
   );
 
-  const handleAttendanceAssigned = async (assignment?: AttendanceAssignment) => {
+  const handleAttendanceChanged = async (assignment?: AttendanceAssignment) => {
     if (assignment) {
       // Use a confirmacao do servidor, inclusive para itens apos a pagina 100.
       const selectedIdentity = selectedChat ? getCanonicalJid(selectedChat) : null;
@@ -1469,57 +1396,23 @@ const loadContacts =
         };
       };
       attendanceRevisionRef.current += 1;
-      chatsRef.current = chatsRef.current.map(update);
+      chatsRef.current = chatsRef.current.map(update)
+        .filter((chat) => getConversationQueue(chat) === listScopeRef.current.queue);
       setChats(chatsRef.current);
-      setSearchResults((current) => current.map(update));
       setSelectedChat((current) => current ? update(current) : current);
-      setAttendanceRevision(attendanceRevisionRef.current);
     }
-    if (loadChatsInFlightRef.current) {
-      confirmedReadRefreshPendingRef.current = true;
-    } else {
-      await loadChats(false, "refresh");
-    }
+    await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
   };
 
   const loadMoreChats = useCallback(async () => {
-    if (!hasMoreChats || searchQuery.trim()) return;
+    if (!hasMoreChats) return;
     await loadChats(false, "append");
-  }, [hasMoreChats, loadChats, searchQuery]);
+  }, [hasMoreChats, loadChats]);
 
   useEffect(() => {
-    const query = searchQuery.trim();
-    if (!query) {
-      setSearchResults([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    const requestedAttendanceRevision = attendanceRevisionRef.current;
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `/api/chat/list?search=${encodeURIComponent(query)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        const data = await response.json();
-        if (!response.ok || cancelled || requestedAttendanceRevision !== attendanceRevisionRef.current) return;
-        const items: Chat[] = Array.isArray(data?.items) ? data.items : [];
-        setSearchResults(mergeDuplicateChats(items));
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          console.error("Erro ao buscar conversas:", error);
-        }
-      }
-    }, 450);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [searchQuery, attendanceRevision]);
+    const timer = window.setTimeout(() => { void loadChats(true, "replace"); }, searchQuery.trim() ? 300 : 0);
+    return () => window.clearTimeout(timer);
+  }, [activeQueue, searchQuery, loadChats]);
 
   const loadMessages = useCallback(
     async (
@@ -1807,10 +1700,10 @@ const loadContacts =
 
   useEffect(() => {
     loadContacts();
-    loadChats(true);
+    void loadQueueCounts();
   }, [
     loadContacts,
-    loadChats,
+    loadQueueCounts,
   ]);
 
   useEffect(() => {
@@ -1899,21 +1792,8 @@ const loadContacts =
         return null;
       }
 
-      const nextItems =
-        mergeDuplicateChats([
-          ...chatsRef.current,
-          ...resolvedItems,
-        ]);
-
-      chatsRef.current = nextItems;
-      setChats(nextItems);
-
-      return (
-        findChatByRequestedJid(
-          nextItems,
-          requestedRemoteJid,
-        ) ?? remoteMatch
-      );
+      // Acesso direto/historico nao injeta uma conversa em uma fila diferente.
+      return remoteMatch;
     },
     [],
   );
@@ -2402,8 +2282,8 @@ const loadContacts =
        * O historico da conversa deixa de ser
        * resincronizado inteiro a cada 2 segundos.
        */
-      await loadChats(false, "refresh");
-    }, [loadChats]);
+      await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
+    }, [loadChats, loadQueueCounts]);
 
   useAutoRefresh({
     callback: refreshChat,
@@ -4045,8 +3925,11 @@ const loadContacts =
         } w-full shrink-0 md:block md:w-[300px] lg:w-[320px] min-[1366px]:w-[380px]`}
       >
         <ChatConversationSidebar
+        activeQueue={activeQueue}
+        onQueueChange={(queue) => changeListScope(queue, searchQuery)}
+        queueCounts={queueCounts}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={(query) => changeListScope(activeQueue, query)}
         isLoading={isLoadingChats}
         isLoadingMore={isLoadingMoreChats}
         hasMore={hasMoreChats}
@@ -4117,7 +4000,7 @@ const loadContacts =
                 selectedChat.attendanceResponsibleId ||
                 null
               }
-              onAttendanceChanged={handleAttendanceAssigned}
+              onAttendanceChanged={handleAttendanceChanged}
               lastInteraction={
                 selectedChat.updatedAt ||
                 null
@@ -5493,7 +5376,7 @@ const loadContacts =
             selectedChat.attendanceState === "HUMANO" &&
             !selectedChat.crmResponsibleId
           }
-          onAssigned={handleAttendanceAssigned}
+          onAssigned={handleAttendanceChanged}
           onClose={() =>
             setIsCustomerQuickPanelOpen(
               false,
