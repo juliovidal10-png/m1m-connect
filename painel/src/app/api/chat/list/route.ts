@@ -1,3 +1,4 @@
+import { getConversationQueue, isConversationQueue } from "@/lib/conversation-queue";
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
@@ -561,6 +562,11 @@ export async function GET(request: Request) {
     };
     const url = new URL(request.url);
 
+    const wantsQueueCounts = url.searchParams.get("queueCounts") === "1";
+    const queue = url.searchParams.get("queue");
+    if (queue !== null && !isConversationQueue(queue)) {
+      return NextResponse.json({ error: "Fila invalida." }, { status: 400 });
+    }
     const wantsWaitingCount = url.searchParams.get("waitingCount") === "1";
     const wantsTotalCount = url.searchParams.get("totalCount") === "1";
     if (!API_URL || !API_KEY) {
@@ -590,6 +596,7 @@ export async function GET(request: Request) {
     const assignedSectorIdSet = new Set(assignedSectorIds);
 
     if (!canViewAllConversations && assignedSectorIds.length === 0) {
+      if (wantsQueueCounts) return NextResponse.json({ waiting: 0, inService: 0 });
       return wantsTotalCount
         ? NextResponse.json({ totalCount: 0 })
         : NextResponse.json({ items: [], hasMore: false });
@@ -604,7 +611,17 @@ export async function GET(request: Request) {
     }
 
     const [customers, activeAttendances] = await Promise.all([
-      prisma.m1MCustomer.findMany({ where: { companyId } }),
+      prisma.m1MCustomer.findMany({
+        where: { companyId },
+        include: {
+          attendances: {
+            where: { companyId },
+            orderBy: [{ startedAt: "desc" }, { id: "desc" }],
+            take: 1,
+            include: { sector: { select: { name: true } } },
+          },
+        },
+      }),
       prisma.m1MAttendance.findMany({
         where: { companyId, state: { in: ["IA", "HUMANO"] } },
         orderBy: { startedAt: "desc" },
@@ -637,7 +654,7 @@ export async function GET(request: Request) {
       if (customerPhone) customerMap.set(customerPhone, customer);
     }
 
-    async function enrich(rawChats: EvolutionChat[]): Promise<EnrichedChat[]> {
+    async function enrich(rawChats: EvolutionChat[], resolveSubjects = true): Promise<EnrichedChat[]> {
       const groupJids: string[] = Array.from(
         new Set(
           rawChats
@@ -646,7 +663,7 @@ export async function GET(request: Request) {
         ),
       );
       const groupSubjectEntries = await Promise.all(
-        groupJids.map(async (groupJid) => [groupJid, await getGroupSubject(groupJid, instanceName!)] as const),
+        (resolveSubjects ? groupJids : []).map(async (groupJid) => [groupJid, await getGroupSubject(groupJid, instanceName!)] as const),
       );
       const groupSubjectMap = new Map<string, string>();
       for (const [groupJid, subject] of groupSubjectEntries) if (subject) groupSubjectMap.set(groupJid, subject);
@@ -688,7 +705,7 @@ export async function GET(request: Request) {
         }
         const officialName = normalizeText(customer.name);
         const displayName = groupSubject || officialName || normalizeText(chat.pushName);
-        const attendance = attendanceByCustomerId.get(customer.id);
+        const attendance = attendanceByCustomerId.get(customer.id) ?? customer.attendances[0];
         return {
           ...chat,
           canonicalJid: getStableCanonicalJid(chat) || chat.canonicalJid || null,
@@ -715,10 +732,10 @@ export async function GET(request: Request) {
       });
     }
 
-    function visible(items: EnrichedChat[]): EnrichedChat[] {
-      if (canViewAllConversations) return items;
-
+    function visible(items: EnrichedChat[], applyQueue = true): EnrichedChat[] {
       return items.filter((chat) => {
+        if (applyQueue && queue && getConversationQueue(chat) !== queue) return false;
+        if (canViewAllConversations) return true;
         const isHuman =
           chat.attendanceState === "HUMANO";
 
@@ -744,9 +761,18 @@ export async function GET(request: Request) {
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
+    if (wantsQueueCounts) {
+      const rawChats = await getTf3CompleteInventory(companyId, instanceName);
+      const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
+      return NextResponse.json({
+        waiting: items.filter((chat) => getConversationQueue(chat) === "WAITING").length,
+        inService: items.filter((chat) => getConversationQueue(chat) === "IN_SERVICE").length,
+      });
+    }
+
     if (wantsTotalCount) {
       const rawChats = await getTf3CompleteInventory(companyId, instanceName);
-      const visibleChats = visible(await enrich(rawChats));
+      const visibleChats = visible(await enrich(rawChats), false);
       const visualKeys = new Set(visibleChats.map(getTf3VisualChatKey));
       return NextResponse.json({ totalCount: visualKeys.size });
     }
@@ -759,13 +785,13 @@ export async function GET(request: Request) {
           .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
       );
       const rawChats = await getCachedEvolutionChats(companyId, instanceName, waitingSignature);
-      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats)));
+      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats), false));
       const waitingCount = waitingChats.filter(
         (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
       ).length;
       return NextResponse.json({ waitingCount });
     }
-    if (search) {
+    if (search && !queue) {
       /*
        * Busca rapida:
        * 1) procura primeiro nos clientes do proprio M1M;
@@ -1089,6 +1115,7 @@ export async function GET(request: Request) {
     const scanSize = Math.max(60, limit * 2);
     const maxPages = 50;
 
+    let reachedEnd = false;
     for (let page = 0; page < maxPages && collectedMap.size < wanted; page += 1) {
       const evolutionStartedAt = Date.now();
       if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
@@ -1138,7 +1165,12 @@ export async function GET(request: Request) {
       }
 
       const enrichStartedAt = Date.now();
-      const enrichedVisible = visible(await enrich(uniqueRaw));
+      const enrichedVisible = visible(await enrich(uniqueRaw)).filter((chat) => !search ||
+        normalizeSearch([
+          chat.pushName, chat.groupSubject, chat.crmName, chat.crmPhone,
+          getPrimaryRemoteJid(chat), JSON.stringify(chat.lastMessage ?? ""),
+        ].join(" ")).includes(search),
+      );
       if (request.signal.aborted) throw new Error("TF3_DIAG_ABORTED");
 
       if (tf3UnreadDiag) {
@@ -1177,7 +1209,10 @@ export async function GET(request: Request) {
         canonical: collectedMap.size,
       });
 
-      if (result.reachedEnd) break;
+      if (result.reachedEnd) { reachedEnd = true; break; }
+    }
+    if (queue && !reachedEnd && collectedMap.size < wanted) {
+      return NextResponse.json({ error: "Limite de consulta da fila atingido; tente uma busca mais especifica." }, { status: 503 });
     }
 
     const collected = Array.from(collectedMap.values()).sort(

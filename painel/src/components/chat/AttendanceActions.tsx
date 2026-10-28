@@ -235,7 +235,8 @@ export default function AttendanceActions({
       }
 
       setOpen(false);
-      window.location.reload();
+      if (onChanged) await onChanged(data.attendance);
+      else window.location.reload();
     } catch (actionError) {
       setError(
         actionError instanceof Error
@@ -283,7 +284,8 @@ export default function AttendanceActions({
         );
       }
 
-      window.location.reload();
+      if (onChanged) await onChanged(data.attendance);
+      else window.location.reload();
     } catch (actionError) {
       setError(
         actionError instanceof Error
