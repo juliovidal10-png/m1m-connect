@@ -7,6 +7,10 @@ on:
       - "painel/src/components/chat/ChatConversationSidebar.tsx"
       - "painel/src/components/chat/AttendanceActions.tsx"
       - "painel/src/lib/conversation-queue.ts"
+      - "painel/src/services/conversation-sync.service.ts"
+      - "painel/src/services/human-takeover.service.ts"
+      - "painel/src/app/api/chat/send/route.ts"
+      - "painel/src/app/api/chat/send-media/route.ts"
       - "painel/src/app/api/chat/read/route.ts"
       - "painel/src/app/api/chat/list/route.ts"
       - "painel/tests/**"
@@ -49,6 +53,8 @@ jobs:
           node tests/regression/conversation-queues-api-regression.mjs
           node tests/regression/attendance-queue-refresh-regression.mjs
           node tests/regression/conversation-tab-latency-regression.mjs
+      - name: History synchronization without operational takeover
+        run: node tests/regression/history-sync-no-takeover-regression.mjs
       - name: Existing regression tests
         run: |
           npm run test:regression:t17
