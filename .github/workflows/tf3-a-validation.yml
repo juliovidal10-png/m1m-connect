@@ -48,6 +48,7 @@ jobs:
         run: |
           node tests/regression/conversation-queues-api-regression.mjs
           node tests/regression/attendance-queue-refresh-regression.mjs
+          node tests/regression/conversation-tab-latency-regression.mjs
       - name: Existing regression tests
         run: |
           npm run test:regression:t17

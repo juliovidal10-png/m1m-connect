@@ -965,8 +965,16 @@ export default function ChatInbox() {
   const changeListScope = (queue: ConversationQueue, search: string) => {
     if (listScopeRef.current.queue === queue && listScopeRef.current.search === search) return;
     listScopeRef.current = { queue, search, revision: listScopeRef.current.revision + 1 };
+    listRequestRef.current.controller?.abort();
+    listRequestRef.current.id += 1;
+    loadChatsInFlightRef.current = false;
+    confirmedReadRefreshPendingRef.current = false;
     chatsRef.current = [];
     setChats([]);
+    setIsLoadingChats(true);
+    setIsLoadingMoreChats(false);
+    setHasLoadedChatList(false);
+    setChatListError(null);
     setHasMoreChats(true);
     setErrorMessage("");
     setActiveQueue(queue);
@@ -1292,6 +1300,9 @@ const loadContacts =
 
   const attendanceRevisionRef = useRef(0);
   const loadChatsInFlightRef = useRef(false);
+  const listRequestRef = useRef<{ id: number; controller: AbortController | null; scope: number; attendance: number }>({ id: 0, controller: null, scope: -1, attendance: -1 });
+  const [chatListError, setChatListError] = useState<string | null>(null);
+  const [hasLoadedChatList, setHasLoadedChatList] = useState(false);
   const confirmedReadRefreshPendingRef = useRef(false);
   const chatsRef = useRef<Chat[]>([]);
 
@@ -1302,7 +1313,7 @@ const loadContacts =
   const queueCountsRequestRef = useRef({ inFlight: false, pending: false });
   const loadQueueCounts = useCallback(async () => {
     const request = queueCountsRequestRef.current;
-    if (request.inFlight) { request.pending = true; return; }
+    if (request.inFlight) return;
     request.inFlight = true;
     const revision = attendanceRevisionRef.current;
     try {
@@ -1325,14 +1336,18 @@ const loadContacts =
 
   const loadChats = useCallback(
     async (showLoading = false, mode: "replace" | "append" | "refresh" = "replace") => {
-      if (loadChatsInFlightRef.current) {
-        confirmedReadRefreshPendingRef.current = true;
-        return;
-      }
-      loadChatsInFlightRef.current = true;
       const scope = { ...listScopeRef.current };
       const attendanceRevision = attendanceRevisionRef.current;
-      const isCurrent = () => scope.revision === listScopeRef.current.revision &&
+      const previous = listRequestRef.current;
+      // Polling no mesmo escopo nao cria uma fila infinita de refreshes.
+      if (loadChatsInFlightRef.current && previous.scope === scope.revision && previous.attendance === attendanceRevision) return;
+      previous.controller?.abort();
+      const controller = new AbortController();
+      const requestId = previous.id + 1;
+      listRequestRef.current = { id: requestId, controller, scope: scope.revision, attendance: attendanceRevision };
+      loadChatsInFlightRef.current = true;
+      const isCurrent = () => listRequestRef.current.id === requestId &&
+        scope.revision === listScopeRef.current.revision &&
         attendanceRevision === attendanceRevisionRef.current;
       if (showLoading) setIsLoadingChats(true);
       if (mode === "append") setIsLoadingMoreChats(true);
@@ -1345,9 +1360,9 @@ const loadContacts =
         do {
           const limit = Math.min(wanted - items.length, 100);
           const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
-          const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store" });
+          const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store", signal: controller.signal });
           const data = await response.json();
-          if (!isCurrent()) { confirmedReadRefreshPendingRef.current = true; return; }
+          if (!isCurrent()) return;
           if (!response.ok) throw new Error(data.error || "Erro ao carregar conversas.");
           const page: Chat[] = Array.isArray(data?.items) ? data.items : [];
           items = [...items, ...page];
@@ -1360,23 +1375,36 @@ const loadContacts =
         chatsRef.current = nextItems;
         setChats(nextItems);
         setHasMoreChats(hasMore);
+        setHasLoadedChatList(true);
+        setChatListError(null);
         setSelectedChat((current) => {
           if (!current) return null;
           return nextItems.find((chat) => getCanonicalJid(chat) === getCanonicalJid(current)) ?? current;
         });
       } catch (error) {
-        if (isCurrent()) setErrorMessage(error instanceof Error ? error.message : "Erro ao carregar conversas.");
+        if (isCurrent() && !controller.signal.aborted) {
+          setChatListError(error instanceof Error ? error.message : "Erro ao carregar conversas.");
+        }
       } finally {
-        loadChatsInFlightRef.current = false;
-        if (showLoading) setIsLoadingChats(false);
-        if (mode === "append") setIsLoadingMoreChats(false);
-        if (confirmedReadRefreshPendingRef.current) {
-          confirmedReadRefreshPendingRef.current = false;
-          queueMicrotask(() => { void loadChats(false, "refresh"); });
+        // A resposta cancelada nao pode encerrar o carregamento da nova aba.
+        if (listRequestRef.current.id === requestId) {
+          loadChatsInFlightRef.current = false;
+          setIsLoadingChats(false);
+          setIsLoadingMoreChats(false);
+          if (confirmedReadRefreshPendingRef.current) {
+            confirmedReadRefreshPendingRef.current = false;
+            queueMicrotask(() => { void loadChats(false, "refresh"); });
+          }
         }
       }
     }, [],
   );
+
+  useEffect(() => () => {
+    listRequestRef.current.controller?.abort();
+    listRequestRef.current.id += 1;
+    loadChatsInFlightRef.current = false;
+  }, []);
 
   const handleAttendanceChanged = async (assignment?: AttendanceAssignment) => {
     if (assignment) {
@@ -3931,6 +3959,8 @@ const loadContacts =
         searchQuery={searchQuery}
         onSearchChange={(query) => changeListScope(activeQueue, query)}
         isLoading={isLoadingChats}
+        hasLoaded={hasLoadedChatList}
+        error={chatListError}
         isLoadingMore={isLoadingMoreChats}
         hasMore={hasMoreChats}
         onLoadMore={loadMoreChats}

@@ -5,13 +5,15 @@ import vm from 'node:vm';
 import { createRequire } from 'node:module';
 import ts from 'typescript';
 const require = createRequire(import.meta.url);
+let clockOffset = 0;
+class TestDate extends Date { static now() { return Date.now() + clockOffset; } }
 const root = new URL('../../src/', import.meta.url);
 function loadTS(path, modules, globals = {}) {
   const code = ts.transpileModule(fs.readFileSync(new URL(path, root), 'utf8'), {
     compilerOptions: {target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX},
   }).outputText;
   const module = {exports: {}};
-  vm.runInNewContext(code, {module, exports: module.exports, require: name => modules[name] ?? require(name), console: {log() {}, warn() {}, error() {}}, URL, Request, Response, AbortController, process: {env: {EVOLUTION_API_URL: 'http://synthetic-evolution', EVOLUTION_API_KEY: 'synthetic-key'}}, ...globals});
+  vm.runInNewContext(code, {module, exports: module.exports, require: name => modules[name] ?? require(name), console: {log() {}, warn() {}, error() {}}, URL, Request, Response, AbortController, AbortSignal, Date: TestDate, process: {env: {EVOLUTION_API_URL: 'http://synthetic-evolution', EVOLUTION_API_KEY: 'synthetic-key'}}, ...globals});
   return module.exports;
 }
 const queues = loadTS('lib/conversation-queue.ts', {});
@@ -70,7 +72,7 @@ async function get(params) {
 let result = await get('queue=OPEN&limit=30');
 assert.equal(result.status, 200); assert.equal(result.items.length, 30); assert.equal(result.hasMore, true);
 assert.ok(result.items.every(c => queues.getConversationQueue(c) === 'OPEN'));
-assert.ok(state.calls.filter(c => c.url.includes('/chat/')).length >= 3, 'fila deve ser filtrada antes da pagina');
+assert.equal(state.calls.filter(c => c.url.includes('/chat/')).length, 1, 'inventario frio deve ser compartilhado, sem varredura por fila');
 result = await get('queue=OPEN&limit=30&offset=30');
 assert.equal(result.items.length, 6); assert.equal(result.hasMore, false);
 assert.ok(result.items.some(c => c.remoteJid === group.remoteJid));
@@ -116,8 +118,14 @@ state.company = 'A';
 // Sem consulta individual por conversa nos novos caminhos de fila/busca.
 state.calls = []; await get('queue=OPEN&search=cliente&limit=30');
 assert.ok(state.calls.filter(c => c.url.includes('/chat/')).every(c => !c.body.where?.remoteJid));
+// Cabeca recente inclui conversa nova sem esperar os 60s do inventario completo.
+const beforeNew = await get('queueCounts=1');
+const newCustomer = add('HUMANO'); clockOffset += 2100;
+const afterNew = await get('queueCounts=1');
+assert.equal(afterNew.waiting, beforeNew.waiting + 1);
+assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length, 1);
 // Varredura limitada: informa indisponibilidade em vez de aparentar fila vazia.
-state.infinite = true; state.calls = [];
+state.infinite = true; state.calls = []; clockOffset += 61000;
 result = await get('queue=WAITING&search=inexistente'); assert.equal(result.status, 503);
 assert.equal(state.calls.length, 50);
 console.log('PASS API: filas exclusivas; filtro/busca antes da paginacao; grupos; finalizados e acesso historico; transicoes/reconsulta; contadores por permissao/setor; isolamento empresa/instancia; limite de varredura. Banco/auth/Evolution simulados.');

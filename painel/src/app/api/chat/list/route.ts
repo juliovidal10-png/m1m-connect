@@ -428,7 +428,7 @@ async function fetchAllEvolutionChats(instanceName: string) {
   return allChats;
 }
 
-// TF3: inventario independente para o total de conversas da aba TODAS.
+// Inventario bruto compartilhado para totais e filas de conversas.
 // Cache por empresa/instancia, sem estados ou permissoes de usuario.
 const tf3InventoryCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
 const tf3InventoryRefresh = new Map<string, Promise<EvolutionChat[]>>();
@@ -447,6 +447,7 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
     const chats: EvolutionChat[] = [];
     const seen = new Set<string>();
     let complete = false;
+    const inventorySignal = AbortSignal.timeout(15000);
     for (let page = 0; page < maxPages; page += 1) {
       // TF3: consulta estrita. A rotina compartilhada de paginacao pode ignorar
       // registros defeituosos; isso e aceitavel para a lista, nao para um total exato.
@@ -457,6 +458,7 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
           headers: { "Content-Type": "application/json", apikey: API_KEY || "" },
           body: JSON.stringify({ where: {}, take, skip: page * take }),
           cache: "no-store",
+          signal: inventorySignal,
         },
       );
       if (!response.ok) {
@@ -499,6 +501,47 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
   } finally {
     tf3InventoryRefresh.delete(key);
   }
+}
+
+// Reutiliza somente dados brutos por empresa/instancia. Estados e permissoes nao entram no cache.
+// A cabeca recente evita esperar o TTL do inventario para exibir novas conversas/mensagens.
+const queueHeadCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
+const queueHeadRefresh = new Map<string, Promise<EvolutionChat[]>>();
+async function getOperationalInventory(companyId: string, instanceName: string): Promise<EvolutionChat[]> {
+  const key = JSON.stringify([companyId, instanceName]);
+  const alreadyWarm = (tf3InventoryCache.get(key)?.expiresAt ?? 0) > Date.now();
+  const inventory = await getTf3CompleteInventory(companyId, instanceName);
+  if (!alreadyWarm) return inventory;
+  let head = queueHeadCache.get(key);
+  if (!head || head.expiresAt <= Date.now()) {
+    let pending = queueHeadRefresh.get(key);
+    if (!pending) {
+      pending = (async () => {
+        const response = await fetch(`${API_URL}/chat/findChats/${encodeURIComponent(instanceName)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: API_KEY || "" },
+          body: JSON.stringify({ where: {}, take: 200, skip: 0 }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(15000),
+        });
+        if (!response.ok) throw new Error(`Chat inventory head HTTP ${response.status}`);
+        const data = await response.json();
+        const chats: EvolutionChat[] = Array.isArray(data) ? data : data?.value;
+        if (!Array.isArray(chats) || chats.length > 200) throw new Error("Invalid chat inventory head");
+        queueHeadCache.set(key, { chats, expiresAt: Date.now() + 2000 });
+        return chats;
+      })();
+      queueHeadRefresh.set(key, pending);
+    }
+    try { head = { chats: await pending, expiresAt: Date.now() + 2000 }; }
+    finally { if (queueHeadRefresh.get(key) === pending) queueHeadRefresh.delete(key); }
+  }
+  const combined = new Map<string, EvolutionChat>();
+  for (const chat of [...head.chats, ...inventory]) {
+    const jid = getPrimaryRemoteJid(chat);
+    if (jid && !combined.has(jid)) combined.set(jid, chat);
+  }
+  return [...combined.values()];
 }
 
 // Mesma identidade visual de mergeDuplicateChats (ChatInbox.tsx).
@@ -762,7 +805,7 @@ export async function GET(request: Request) {
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
     if (wantsQueueCounts) {
-      const rawChats = await getTf3CompleteInventory(companyId, instanceName);
+      const rawChats = await getOperationalInventory(companyId, instanceName);
       const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
       return NextResponse.json({
         waiting: items.filter((chat) => getConversationQueue(chat) === "WAITING").length,
@@ -791,6 +834,37 @@ export async function GET(request: Request) {
       ).length;
       return NextResponse.json({ waitingCount });
     }
+    if (queue) {
+      const inventoryStartedAt = Date.now();
+      let rawChats: EvolutionChat[];
+      try { rawChats = await getOperationalInventory(companyId, instanceName); }
+      catch {
+        if (request.signal.aborted) return new NextResponse(null, { status: 499 });
+        return NextResponse.json({ error: "Nao foi possivel atualizar esta aba. Tente novamente." }, { status: 503 });
+      }
+      if (request.signal.aborted) return new NextResponse(null, { status: 499 });
+      const inventoryMs = Date.now() - inventoryStartedAt;
+      // Classificar antes de resolver os nomes de grupos evita chamadas para outras filas.
+      let matches = dedupeEnrichedChats(visible(await enrich(rawChats, false)));
+      if (search) {
+        matches = (await enrich(matches)).filter((chat) => normalizeSearch([
+          chat.pushName, chat.groupSubject, chat.crmName, chat.crmPhone,
+          getPrimaryRemoteJid(chat), JSON.stringify(chat.lastMessage ?? ""),
+        ].join(" ")).includes(search));
+      }
+      const page = matches.slice(offset, offset + limit);
+      const items = search ? page : await enrich(page);
+      if (request.signal.aborted) return new NextResponse(null, { status: 499 });
+      const totalMs = Date.now() - perfStartedAt;
+      perfLog("queue-page", { queue, inventoryMs, matched: matches.length, returned: items.length, offset, limit });
+      return NextResponse.json({ items, hasMore: matches.length > offset + limit }, {
+        headers: {
+          "Server-Timing": `inventory;dur=${inventoryMs}, total;dur=${totalMs}`,
+          "X-M1M-List-State": items.length ? "ready" : "empty",
+        },
+      });
+    }
+
     if (search && !queue) {
       /*
        * Busca rapida:
