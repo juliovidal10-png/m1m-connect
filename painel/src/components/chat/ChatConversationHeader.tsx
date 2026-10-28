@@ -1,6 +1,6 @@
 "use client";
 
-import AttendanceActions from "./AttendanceActions";
+import AttendanceActions, { type AttendanceAssignment } from "./AttendanceActions";
 
 import type {
   KeyboardEvent,
@@ -20,7 +20,7 @@ type ChatConversationHeaderProps = {
   customerId?: string | null;
   remoteJid?: string | null;
   responsibleId?: string | null;
-  onAttendanceChanged?: () => Promise<void> | void;
+  onAttendanceChanged?: (assignment?: AttendanceAssignment) => Promise<void> | void;
   lastInteraction?: string | null;
   isSearchOpen: boolean;
   searchQuery: string;

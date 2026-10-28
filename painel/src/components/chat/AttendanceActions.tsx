@@ -16,6 +16,14 @@ type AuthUser = {
   effectivePermissions?: string[];
 };
 
+export type AttendanceAssignment = {
+  id: string;
+  customerId: string;
+  state: "IA" | "HUMANO" | "FINALIZADO";
+  responsibleId: string | null;
+  sectorId: string | null;
+};
+
 type Props = {
   attendanceId?: string | null;
   attendanceState?: string | null;
@@ -23,7 +31,7 @@ type Props = {
   customerId?: string | null;
   remoteJid?: string | null;
   responsibleId?: string | null;
-  onChanged?: () => Promise<void> | void;
+  onChanged?: (assignment?: AttendanceAssignment) => Promise<void> | void;
 };
 
 function hasPermission(
@@ -178,7 +186,7 @@ export default function AttendanceActions({
       }
 
       if (onChanged) {
-        await onChanged();
+        await onChanged(data.attendance);
       } else {
         window.location.reload();
       }
