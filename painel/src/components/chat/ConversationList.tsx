@@ -146,11 +146,6 @@ export default function ConversationList() {
                   {getLastMessage(chat)}
                 </p>
 
-                {(chat.unreadCount || 0) > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#0A9090] px-1.5 text-[10px] font-bold text-white">
-                    {chat.unreadCount}
-                  </span>
-                )}
               </div>
             </div>
           </button>
