@@ -20,6 +20,8 @@ type ChatConversationSidebarProps = {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   isLoading: boolean;
+  hasLoaded: boolean;
+  error: string | null;
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
@@ -33,6 +35,8 @@ export default function ChatConversationSidebar({
   searchQuery,
   onSearchChange,
   isLoading,
+  hasLoaded,
+  error,
   isLoadingMore,
   hasMore,
   onLoadMore,
@@ -155,9 +159,12 @@ export default function ChatConversationSidebar({
         </p>
       )}
 
-      {!isLoading && searchQuery.trim() && items.length === 0 && (
+      {!isLoading && error && (
+        <p role="alert" className="p-4 text-sm text-red-700">{error}</p>
+      )}
+      {!isLoading && !error && hasLoaded && items.length === 0 && (
         <p className="p-4 text-sm text-black/45">
-          Nenhuma conversa encontrada.
+          {searchQuery.trim() ? "Nenhuma conversa encontrada nesta aba." : "Nenhuma conversa nesta aba."}
         </p>
       )}
 

@@ -32,17 +32,19 @@ function setup(length = 130, queue = 'WAITING') {
   const context = {
     selectedChat: state.selected,
     getCanonicalJid: chat => chat.canonicalJid || chat.remoteJid,
-    getConversationQueue, URLSearchParams,
+    getConversationQueue, URLSearchParams, AbortController,
     attendanceRevisionRef: {current: 0},
     listScopeRef: {current: {queue, search: '', revision: 0}},
     chatsRef: {current: state.chats},
     loadChatsInFlightRef: {current: false},
+    listRequestRef: {current: {id: 0, controller: null, scope: -1, attendance: -1}},
     confirmedReadRefreshPendingRef: {current: false},
     queueCountsRequestRef: {current: {inFlight: false, pending: false}},
     setChats: value => {state.chats = value;},
     setSelectedChat: value => {state.selected = value(state.selected);},
     setQueueCounts: value => {state.counts = value;},
-    setIsLoadingChats() {}, setIsLoadingMoreChats() {}, setHasMoreChats(value) {state.hasMore = value;},
+    setIsLoadingChats(value) {state.loading = value;}, setIsLoadingMoreChats() {},
+    setHasLoadedChatList(value) {state.loaded = value;}, setChatListError(value) {state.listError = value;}, setHasMoreChats(value) {state.hasMore = value;},
     setErrorMessage(value) {state.error = value;},
     setActiveQueue(value) {state.activeQueue = value;}, setSearchQuery(value) {state.search = value;},
     mergeDuplicateChats: items => items,
@@ -93,7 +95,7 @@ for (const change of ['assignment', 'queue', 'search']) {
   release({ok: true, json: async () => ({items: [item(120)]})});
   await pending;
   assert.equal(t.state.chats.length, change === 'assignment' ? 129 : 0);
-  assert.equal(t.state.queued.length, 1);
+  assert.equal(t.state.queued.length, 0, 'resposta obsoleta nao agenda nova varredura');
 }
 // Busca e paginada pela mesma API/fila; nao ha mescla de resultados globais antigos.
 {
@@ -136,6 +138,45 @@ for (const change of ['assignment', 'queue', 'search']) {
   assert.ok(quick.includes('await onAssigned(data.attendance)'));
   for (const name of ['onAssigned', 'onAttendanceChanged']) assert.equal(find(source, n => ts.isJsxAttribute(n) && n.name.getText(source) === name).initializer.expression.getText(source), 'handleAttendanceChanged');
 }
+// Alternancia rapida nao espera a requisicao anterior; polling nao enfileira refreshes.
+{
+  const t = setup(0, 'OPEN'); const requests = [];
+  t.context.fetch = (url, options) => new Promise((resolve, reject) => {
+    requests.push({url, signal: options.signal, resolve});
+    options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+  });
+  const load = run(variable('loadChats', true), t.context);
+  const change = run(variable('changeListScope'), t.context);
+  const pending = [load(true)];
+  await load(false, 'refresh'); await load(false, 'refresh');
+  assert.equal(requests.length, 1);
+  for(const q of ['WAITING','IN_SERVICE','OPEN']) {change(q, ''); pending.push(load(true));}
+  assert.equal(requests.length, 4, 'cada aba comeca antes da resposta da anterior');
+  assert.ok(requests.slice(0,3).every(r => r.signal.aborted));
+  await Promise.all(pending.slice(0,3));
+  assert.equal(t.state.loading, true, 'finally antigo nao encerra a aba atual');
+  requests[3].resolve({ok: true, json: async () => ({items: [{...item(1), attendanceState:'IA'}], hasMore:false})});
+  await pending[3];
+  assert.equal(t.state.loading, false); assert.equal(t.state.loaded, true);
+  assert.equal(t.state.chats.length, 1); assert.equal(t.state.queued.length, 0);
+}
+// Refresh que assume o escopo durante loading tambem encerra o spinner ao concluir.
+{
+  const t = setup(0, 'OPEN');
+  run(variable('changeListScope'), t.context)('WAITING', '');
+  assert.equal(t.state.loading, true);
+  t.context.fetch = async () => ({ok:true, json:async () => ({items:[item(1)], hasMore:false})});
+  await run(variable('loadChats', true), t.context)(false, 'refresh');
+  assert.equal(t.state.loading, false); assert.equal(t.state.loaded, true);
+}
+// Falha HTTP nao equivale a uma fila vazia confirmada.
+{
+  const t = setup(0);
+  t.context.fetch = async () => ({ok:false, json:async () => ({error:'Servico indisponivel'})});
+  await run(variable('loadChats', true), t.context)(true);
+  assert.equal(t.state.listError, 'Servico indisponivel');
+  assert.notEqual(t.state.loaded, true); assert.equal(t.state.loading, false);
+}
 // Sidebar real com React SSR: aba Abertas, contadores remotos e trocas controladas pelo pai.
 {
   const code = ts.transpileModule(fs.readFileSync(new URL('ChatConversationSidebar.tsx', root), 'utf8'), {compilerOptions: {module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX}}).outputText;
@@ -143,10 +184,17 @@ for (const change of ['assignment', 'queue', 'search']) {
   vm.runInNewContext(code, {module, exports: module.exports, require});
   const Sidebar = module.exports.default;
   let selectedQueue;
-  const props = {activeQueue: 'OPEN', onQueueChange: q => {selectedQueue=q;}, queueCounts: {waiting: 17, inService: 4}, searchQuery: '', onSearchChange() {}, isLoading: false, isLoadingMore: false, hasMore: true, onLoadMore() {}, items: []};
+  const props = {activeQueue: 'OPEN', onQueueChange: q => {selectedQueue=q;}, queueCounts: {waiting: 17, inService: 4}, searchQuery: '', onSearchChange() {}, isLoading: false, hasLoaded: true, error: null, isLoadingMore: false, hasMore: true, onLoadMore() {}, items: []};
   const element = Sidebar(props);
   const html = require('react-dom/server').renderToStaticMarkup(element);
   assert.ok(html.includes('Abertas')); assert.ok(!html.includes('Todas')); assert.ok(html.includes('Aguardando (17)')); assert.ok(html.includes('Em atendimento (4)'));
+  const render = overrides => require('react-dom/server').renderToStaticMarkup(Sidebar({...props, ...overrides}));
+  assert.ok(render({isLoading:true, hasLoaded:false}).includes('Carregando conversas'));
+  assert.ok(!render({isLoading:true, hasLoaded:false}).includes('Nenhuma conversa'));
+  assert.ok(render({error:'Falha da consulta', hasLoaded:false}).includes('role="alert"'));
+  assert.ok(!render({error:'Falha da consulta', hasLoaded:false}).includes('Nenhuma conversa'));
+  assert.ok(render({error:null, hasLoaded:true}).includes('Nenhuma conversa nesta aba'));
+
   const buttons = [];
   function walk(node) {if (!node || typeof node !== 'object') return; if (Array.isArray(node)) {node.forEach(walk); return;} if(node.type==='button') buttons.push(node); walk(node.props?.children);}
   walk(element);
