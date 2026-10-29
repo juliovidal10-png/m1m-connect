@@ -551,40 +551,6 @@ function getTf3VisualChatKey(chat: EnrichedChat): string {
   return `jid:${isGroupJid(remoteJid) ? remoteJid : canonicalJid}`;
 }
 
-// TF2: evita varredura completa da Evolution a cada polling de 5 segundos.
-// Inventario isolado por empresa e instancia; uma atualizacao por chave e processo.
-const tf2ChatCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
-const tf2ChatRefresh = new Map<string, Promise<EvolutionChat[]>>();
-const TF2_CHAT_CACHE_MS = 60000;
-
-// A assinatura muda quando a composicao dos atendimentos aguardando muda.
-// Nao armazena estado, responsavel ou permissao no inventario de chats.
-async function getCachedEvolutionChats(companyId: string, instanceName: string, waitingSignature: string): Promise<EvolutionChat[]> {
-  const key = JSON.stringify([companyId, instanceName, waitingSignature]);
-  const current = tf2ChatCache.get(key);
-  if (current && Date.now() < current.expiresAt) return current.chats;
-  const pending = tf2ChatRefresh.get(key);
-  if (pending) return pending;
-  const refresh = fetchAllEvolutionChats(instanceName).then((chats) => {
-    // Evita reter indefinidamente inventarios de assinaturas antigas.
-    for (const oldKey of tf2ChatCache.keys()) {
-      if (oldKey !== key && oldKey.startsWith(JSON.stringify([companyId, instanceName]).slice(0, -1) + ',')) {
-        tf2ChatCache.delete(oldKey);
-      }
-    }
-    tf2ChatCache.set(key, { chats, expiresAt: Date.now() + TF2_CHAT_CACHE_MS });
-    return chats;
-  });
-  tf2ChatRefresh.set(key, refresh);
-  try {
-    return await refresh;
-  } catch (error) {
-    // Nao devolver inventario antigo como se representasse a nova fila.
-    throw error;
-  } finally {
-    tf2ChatRefresh.delete(key);
-  }
-}
 function normalizeSearch(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
@@ -821,14 +787,10 @@ export async function GET(request: Request) {
     }
 
     if (wantsWaitingCount) {
-      const waitingSignature = JSON.stringify(
-        activeAttendances
-          .filter((attendance) => attendance.state === "HUMANO" && !attendance.responsibleId)
-          .map((attendance) => [attendance.customerId, attendance.id])
-          .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-      );
-      const rawChats = await getCachedEvolutionChats(companyId, instanceName, waitingSignature);
-      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats), false));
+      // Compartilha inventario e consultas em andamento com lista e contagens das abas.
+      // Estado e permissoes continuam sendo recalculados nesta requisicao.
+      const rawChats = await getOperationalInventory(companyId, instanceName);
+      const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
       const waitingCount = waitingChats.filter(
         (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
       ).length;

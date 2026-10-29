@@ -69,7 +69,12 @@ async function get(params) {
   const response = await route.GET(new Request(`http://test/api/chat/list?${params}`));
   return {status: response.status, ...await response.json()};
 }
-let result = await get('queue=OPEN&limit=30');
+// Lista, abas e alerta simultaneos compartilham a varredura fria.
+const cold = await Promise.all([get('queue=OPEN&limit=30'), get('queueCounts=1'), get('waitingCount=1')]);
+assert.equal(cold[2].waitingCount, cold[1].waiting);
+assert.equal(state.calls.filter(c => c.url.includes('/chat/')).length, 1);
+assert.equal(state.calls.filter(c => c.url.includes('/group/')).length, 0);
+let result = cold[0];
 assert.equal(result.status, 200); assert.equal(result.items.length, 30); assert.equal(result.hasMore, true);
 assert.ok(result.items.every(c => queues.getConversationQueue(c) === 'OPEN'));
 assert.equal(state.calls.filter(c => c.url.includes('/chat/')).length, 1, 'inventario frio deve ser compartilhado, sem varredura por fila');
@@ -95,6 +100,7 @@ assert.ok(!result.items.some(c => c.crmCustomerId === otherSector.id));
 assert.equal((await get('queue=OPEN')).items.length, 0);
 assert.equal((await get('queue=IN_SERVICE')).items.length, 1);
 result = await get('queueCounts=1'); assert.equal(result.waiting, 125); assert.equal(result.inService, 1);
+assert.equal((await get('waitingCount=1')).waitingCount, 125);
 assert.equal((await get('queue=WAITING&search=' + otherSector.remoteJid)).items.length, 0);
 state.sectors = []; result = await get('queueCounts=1'); assert.equal(result.waiting, 0); assert.equal(result.inService, 0);
 state.sectors = ['A']; state.admin = true;
@@ -104,7 +110,9 @@ const assigned = {id: 'new-assignment', companyId: 'A', customerId: open.id, sta
 state.attendances.push(assigned);
 assert.equal((await get('queue=OPEN&search=' + open.remoteJid)).items.length, 0);
 assert.equal((await get('queue=IN_SERVICE&search=' + open.remoteJid)).items.length, 1);
+assert.equal((await get('waitingCount=1')).waitingCount, 126);
 assigned.responsibleId = null; assigned.sectorId = 'B';
+assert.equal((await get('waitingCount=1')).waitingCount, 127);
 assert.equal((await get('queue=WAITING&search=' + open.remoteJid)).items.length, 1);
 assigned.state = 'FINALIZADO';
 for (const queue of ['OPEN','WAITING','IN_SERVICE']) assert.equal((await get(`queue=${queue}&search=${open.remoteJid}`)).items.length, 0);
@@ -114,6 +122,7 @@ assert.equal((await get('queue=OPEN&search=' + open.remoteJid)).items.length, 1)
 // Cache bruto nao compartilha estado nem permissao entre empresas/instancias.
 state.company = 'B'; result = await get('queueCounts=1'); assert.equal(result.waiting, 1); assert.equal(result.inService, 0);
 result = await get('queue=WAITING'); assert.equal(result.items[0].crmCustomerId, otherCompany.id);
+assert.equal((await get('waitingCount=1')).waitingCount, 1);
 state.company = 'A';
 // Sem consulta individual por conversa nos novos caminhos de fila/busca.
 state.calls = []; await get('queue=OPEN&search=cliente&limit=30');
@@ -123,9 +132,17 @@ const beforeNew = await get('queueCounts=1');
 const newCustomer = add('HUMANO'); clockOffset += 2100;
 const afterNew = await get('queueCounts=1');
 assert.equal(afterNew.waiting, beforeNew.waiting + 1);
+assert.equal((await get('waitingCount=1')).waitingCount, afterNew.waiting);
+// Grupo em Aguardando: contagem dispensa consulta de nome de grupo.
+state.attendances.find(a => a.customerId === group.id).state = 'HUMANO';
+state.calls = [];
+assert.equal((await get('waitingCount=1')).waitingCount, afterNew.waiting + 1);
+assert.equal(state.calls.filter(c => c.url.includes('/group/')).length, 0);
 assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length, 1);
 // Varredura limitada: informa indisponibilidade em vez de aparentar fila vazia.
 state.infinite = true; state.calls = []; clockOffset += 61000;
 result = await get('queue=WAITING&search=inexistente'); assert.equal(result.status, 503);
 assert.equal(state.calls.length, 50);
+result = await get('waitingCount=1'); assert.equal(result.status, 500);
+assert.equal(result.waitingCount, undefined, 'falha nao pode ser apresentada como zero');
 console.log('PASS API: filas exclusivas; filtro/busca antes da paginacao; grupos; finalizados e acesso historico; transicoes/reconsulta; contadores por permissao/setor; isolamento empresa/instancia; limite de varredura. Banco/auth/Evolution simulados.');
