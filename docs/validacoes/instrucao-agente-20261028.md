@@ -44,3 +44,18 @@ Esta validação ainda está pendente. Workflow preparado executa apenas verific
 Commit/push autorizados pelo proprietário na sequência da entrega do candidato. Merge, execução da migration e deploy não autorizados nem realizados. Publicação manual pelo proprietário somente após validação e autorização aplicável. Conferir plano de migrations antes de deploy: o script start existente executa prisma migrate deploy, portanto publicar esse candidato pode aplicar a migration automaticamente. Para rollback de código após publicação, preservar a coluna e os textos; não executar DROP COLUMN como reversão automática.
 
 A alteração de fotos está em outro worktree e não compõe este candidato.
+
+## Atualização — PostgreSQL e navegador reais aprovados
+
+Evidência funcional no commit remoto 707cc30db50b446916449f19fc564010f758e187:
+https://github.com/juliovidal10-png/m1m-connect/actions/runs/40804138342/job/123218915640
+
+A pendência de banco/navegador descrita acima foi concluída nesse ambiente isolado. PostgreSQL 16, Next em desenvolvimento e Chromium reais; sem desativar autenticação ou o aceite normal dos usuários sintéticos. Aplicação sem credenciais OpenAI/Evolution e ledger desligado.
+
+Aprovados: migration aditiva em banco novo; login na tela; salvamento por interface e conferência SQL; releitura após recarregar; atualização posterior pela API; sessões A/B independentes; rejeição de empresa no body; atendente recusado na API e campo desabilitado; escrita sem sessão recusada; limpeza do campo preservando conhecimento e IA desligada.
+
+O primeiro ensaio parou no aceite obrigatório dos usuários sintéticos. O harness foi ajustado para percorrer essa tela; nenhuma verificação do produto foi desativada. O ensaio seguinte passou integralmente. Logs confirmam remoção das linhas sintéticas, parada da aplicação e descarte do container PostgreSQL e da rede do job.
+
+A inclusão nos prompts continua coberta pelo teste de módulos reais com persistência simulada. Respostas efetivamente geradas pela OpenAI continuam pendentes; não houve chamada ao modelo nesta validação. Também não equivale a build de produção ou a fluxo completo de WhatsApp.
+
+Relatório estruturado: instrucao-agente-banco-navegador-real.txt. Alterações posteriores somente documentais podem reaproveitar essa evidência sem repetir a bateria.
