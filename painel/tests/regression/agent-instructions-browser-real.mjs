@@ -34,6 +34,13 @@ async function login(who){
  await page.waitForURL(u=>u.pathname==='/'||u.pathname==='/onboarding');
  const me=await context.request.get(base+'/api/auth/me');assert.equal(me.status(),200);
  const user=(await me.json()).user;assert.ok(user,'Usuario autenticado real');
+ const legal=await context.request.get(base+'/api/legal-acceptance');assert.equal(legal.status(),200);
+ if((await legal.json()).required){
+  await page.goto(base+'/aceite');await page.getByRole('checkbox').check();
+  const accepted=page.waitForResponse(r=>r.url()===base+'/api/legal-acceptance'&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Li e aceito',exact:true}).click();assert.equal((await accepted).status(),200);
+  await page.waitForURL(u=>u.pathname==='/');
+ }
  await page.goto(base+'/configuracoes');await page.getByRole('button',{name:/Agente de IA/}).click();
  return{context,page};
 }
