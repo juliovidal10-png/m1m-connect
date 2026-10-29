@@ -93,6 +93,26 @@ try{
  await save(a.page,'');assert.equal((await scalar('SELECT "agentInstructions" FROM m1m_companies WHERE id=$1',[ids.A])).agentInstructions,null);
  assert.equal((await scalar('SELECT "productsServices" FROM m1m_company_profiles WHERE "companyId"=$1',[ids.A])).productsServices,'CONHECIMENTO_SINTETICO_PRESERVADO');
  assert.equal((await scalar('SELECT "aiEnabled" FROM m1m_companies WHERE id=$1',[ids.A])).aiEnabled,false);pass('Limpeza da instrucao preserva conhecimento e controle da IA');
+ if(process.env.M1M_AI_CONTROL_TEST==='1'){
+  const state=async id=>(await db.query('SELECT "aiEnabled" FROM m1m_companies WHERE id=$1',[id])).rows[0].aiEnabled;
+  const beforeB=await state(ids.B);
+  const toggle=async label=>{
+   const response=a.page.waitForResponse(r=>r.url()===base+'/api/company'&&r.request().method()==='PUT');
+   await a.page.getByRole('button',{name:label,exact:true}).click();assert.equal((await response).status(),200);
+  };
+  await toggle('Ligar IA');assert.equal(await state(ids.A),true);assert.equal(await state(ids.B),beforeB);
+  await a.page.reload();await a.page.getByRole('button',{name:/Agente de IA/}).click();await a.page.getByRole('button',{name:'Pausar IA',exact:true}).waitFor();
+  await toggle('Pausar IA');assert.equal(await state(ids.A),false);assert.equal(await state(ids.B),beforeB);
+  pass('Administrador da empresa liga/pausa no Agente de IA; estado persiste apos F5 e outra empresa inalterada');
+  assert.equal((await denied.context.request.put(base+'/api/company',{data:{aiEnabled:true}})).status(),403);
+  await db.query('UPDATE m1m_users SET "useCustomPermissions"=true,permissions=ARRAY[\'ACCESS_SETTINGS\']::"M1MUserPermission"[] WHERE id=$1',[prefix+'-ATTENDANT']);
+  assert.equal((await denied.context.request.put(base+'/api/company',{data:{aiEnabled:true}})).status(),403);
+  assert.equal(await denied.page.getByRole('button',{name:/^(Ligar IA|Pausar IA)$/}).count(),0);
+  assert.equal(await state(ids.A),false);pass('Atendente recusado pelo servidor mesmo com ACCESS_SETTINGS; controle nao aparece para atendente');
+  const before=[await state(ids.A),await state(ids.B)];
+  for(const client of [a,b]){await client.page.goto(base+'/dashboard');await client.page.getByRole('heading',{name:/Dashboard/}).first().waitFor();assert.equal(await client.page.getByRole('button',{name:/^(Ligar IA|Pausar IA)$/}).count(),0)}
+  assert.deepEqual([await state(ids.A),await state(ids.B)],before);pass('Dashboard sem controle nas duas empresas e estados atuais preservados');
+ }
  if(process.env.M1M_CONFIG_ADMIN_TEST==='1'){
   const {runConfigAdminBrowserChecks}=await import('./config-admin-browser-checks.mjs');
   await runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,adminKey:process.env.M1M_ADMIN_KEY});

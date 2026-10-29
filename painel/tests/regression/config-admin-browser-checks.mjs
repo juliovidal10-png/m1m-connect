@@ -56,10 +56,13 @@ export async function runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,
  pass('Dez destinos administrativos abrem endpoint da empresa selecionada e retornam ao mesmo gerenciamento; WhatsApp sem conectar');
  // Mesmo browser com sessao de cliente B: M1M Admin continua editando A pelo companyId da rota.
  await ctx.addCookies((await b.context.cookies()).filter(c=>c.name==='m1m_session'));
- await page.getByRole('button',{name:/^Atendimento Humano/}).click();
+ await page.getByRole('button',{name:/^Agente de IA/}).click();
  const ai=page.getByRole('button',{name:'Ligar IA',exact:true});await ai.waitFor();
  await clickSave(page,base,api(ids.A,'profile'),'Ligar IA');assert.equal((await sql(ids.A)).aiEnabled,true);assert.deepEqual(await sql(ids.B),beforeB);
  await clickSave(page,base,api(ids.A,'profile'),'Pausar IA');assert.equal((await sql(ids.A)).aiEnabled,false);
+ await page.getByRole('button',{name:/^← Voltar/}).click();
+ pass('Administrador global liga/pausa no cartao Agente de IA da empresa selecionada; empresa B preservada');
+ await page.getByRole('button',{name:/^Atendimento Humano/}).click();
  await page.locator('input[value="MANUAL"]').check();await page.locator('textarea').fill('Encerramento sintetico administrativo.');
  await clickSave(page,base,api(ids.A,'profile'),'Salvar configurações');
  await page.reload();await page.getByRole('button',{name:/^Atendimento Humano/}).click();await page.locator('input[value="MANUAL"]:checked').waitFor();assert.equal(await page.locator('textarea').inputValue(),'Encerramento sintetico administrativo.');
