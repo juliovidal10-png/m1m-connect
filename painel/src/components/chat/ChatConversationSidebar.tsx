@@ -101,11 +101,11 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
 
-          <div className="mt-4 grid grid-cols-[0.72fr_1.15fr_1.55fr] gap-1 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 flex flex-wrap gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
               onClick={() => onQueueChange("OPEN")}
-              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
+              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
                 activeQueue === "OPEN"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -117,7 +117,7 @@ export default function ChatConversationSidebar({
             <button
               type="button"
               onClick={() => onQueueChange("WAITING")}
-              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
+              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
                 activeQueue === "WAITING"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -129,7 +129,7 @@ export default function ChatConversationSidebar({
             <button
               type="button"
               onClick={() => onQueueChange("IN_SERVICE")}
-              className={`whitespace-nowrap rounded-lg px-1 py-2 text-[10px] font-bold uppercase tracking-normal transition ${
+              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
                 activeQueue === "IN_SERVICE"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
