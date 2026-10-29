@@ -35,10 +35,15 @@ export async function runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,
  assert.equal((await ctx.request.get(base+'/m1m-admin')).status(),200);
  await page.close();page=await ctx.newPage();page.setDefaultTimeout(60000);
  await page.goto(base+'/m1m-admin',{waitUntil:'domcontentloaded'});await page.getByLabel('Chave administrativa',{exact:true}).fill(adminKey);
+ const companiesLoaded=page.waitForResponse(r=>r.url()===base+'/api/admin/companies'&&r.request().method()==='GET');
  const login=page.waitForResponse(r=>r.url()===base+'/api/admin/session'&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Entrar no M1M Admin',exact:true}).click();assert.equal((await login).status(),200);
+ assert.equal((await companiesLoaded).status(),200);
+ await page.getByRole('button',{name:'Entrar no M1M Admin',exact:true}).waitFor({state:'hidden'});
  assert.equal((await ctx.cookies()).some(c=>c.name==='m1m_session'),false,'Nao exigir login do cliente');
- await page.goto(manage(ids.A));await page.getByText('Marketing1Minuto',{exact:true}).waitFor();
+ assert.equal((await ctx.request.get(manage(ids.A))).status(),200);
+ await page.close();page=await ctx.newPage();page.setDefaultTimeout(60000);
+ await page.goto(manage(ids.A),{waitUntil:'domcontentloaded'});await page.getByText('Marketing1Minuto',{exact:true}).waitFor();
  await gridCheck(page,true,1440);await gridCheck(page,true,390);await page.setViewportSize({width:1440,height:900});pass('M1M Admin: login real sem conta do cliente; dez cartoes ordenados em duas colunas/uma mobile e Tab');
  const destinations=['profile','company-profile','payment-settings','sectors','users','schedules','profile','agent-instructions','out-of-hours','whatsapp/status'];
  for(let i=0;i<titles.length;i++){
