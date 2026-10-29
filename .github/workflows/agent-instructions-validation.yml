@@ -60,7 +60,7 @@ jobs:
       M1M_SESSION_SECRET: synthetic-only-agent-browser-ci-20261028
       M1M_AGENT_ISOLATED_TEST: "1"
       M1M_TF3A_UNREAD_LEDGER_ENABLED: "false"
-      M1M_AGENT_REPORT_DIR: ${{ runner.temp }}/agent-instructions-report
+      M1M_AGENT_REPORT_DIR: /tmp/m1m-agent-instructions-report
       NEXT_TELEMETRY_DISABLED: "1"
     defaults:
       run:
@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: agent-instructions-real-postgres-browser
-          path: ${{ runner.temp }}/agent-instructions-report/M1M_INSTRUCAO_AGENTE_RESULTADO.txt
+          path: /tmp/m1m-agent-instructions-report/M1M_INSTRUCAO_AGENTE_RESULTADO.txt
           if-no-files-found: warn
       - name: Diagnostic log on failure (synthetic data only)
         if: failure()
