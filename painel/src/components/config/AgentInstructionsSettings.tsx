@@ -39,7 +39,7 @@ export default function AgentInstructionsSettings({ onBack }: { onBack: () => vo
   }
 
   return <section className="space-y-5">
-    <button type="button" onClick={onBack} className="text-sm font-semibold text-teal-700">← Voltar</button>
+    <button type="button" onClick={onBack} className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700">← Voltar para configurações</button>
     <h2 className="text-xl font-bold">Agente de IA</h2>
     <CompanyAiControl />
     <div className="space-y-3 rounded-2xl border border-black/10 bg-white p-6">
