@@ -127,6 +127,7 @@ model M1MCompany {
   subscriptionStartedAt  DateTime?
   onboardingCompleted    Boolean               @default(false)
   aiEnabled              Boolean               @default(false)
+  agentInstructions      String?
   whatsappInstanceName   String?               @unique
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt

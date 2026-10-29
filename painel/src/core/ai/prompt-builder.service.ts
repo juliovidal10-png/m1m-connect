@@ -1,3 +1,4 @@
+import { buildAgentInstructions } from "@/lib/agent-instructions";
 import type {
   SectorContext,
 } from "@/core/context/context-builder.service";
@@ -290,7 +291,9 @@ export const promptBuilderService = {
       buildResponsibles(input.context),
     ].join("\n");
 
+    const agentGuidance = buildAgentInstructions(input.context.company.agentInstructions);
     const outputStyleGuidance = [
+      agentGuidance,
       "- Escreva como alguém da equipe conversando pelo WhatsApp, nunca como texto institucional ou resposta mecânica.",
       "- Use linguagem natural, simples e fluida. Evite frases engessadas, burocráticas ou excessivamente formais.",
       "- Não comece toda resposta com saudações, confirmações ou frases como 'Claro!', 'Perfeito!', 'Entendi!' ou 'Posso ajudar'. Use essas expressões apenas quando fizerem sentido.",

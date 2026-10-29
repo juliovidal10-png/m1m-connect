@@ -1,0 +1,97 @@
+name: Agent instructions validation
+on:
+  pull_request:
+    paths:
+      - "painel/src/lib/agent-instructions.ts"
+      - "painel/src/app/api/agent-instructions/**"
+      - "painel/src/components/config/AgentInstructionsSettings.tsx"
+      - "painel/src/app/configuracoes/page.tsx"
+      - "painel/src/services/company-context-builder.service.ts"
+      - "painel/src/services/company-prompt-builder.service.ts"
+      - "painel/src/core/context/context-builder.service.ts"
+      - "painel/src/core/ai/prompt-builder.service.ts"
+      - "painel/prisma/**"
+      - "painel/tests/regression/agent-instructions-regression.mjs"
+      - "painel/tests/regression/agent-instructions-browser-real.mjs"
+      - ".github/workflows/agent-instructions-validation.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - name: Agent instructions (simulated persistence)
+        run: node tests/regression/agent-instructions-regression.mjs
+      - name: Existing conversation guard
+        run: npm run test:regression:tf6
+  real-postgres-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: synthetic_agent
+          POSTGRES_PASSWORD: synthetic_agent_password
+          POSTGRES_DB: m1m_agent_isolated
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic_agent -d m1m_agent_isolated"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://synthetic_agent:synthetic_agent_password@127.0.0.1:5432/m1m_agent_isolated
+      M1M_SESSION_SECRET: synthetic-only-agent-browser-ci-20261028
+      M1M_AGENT_ISOLATED_TEST: "1"
+      M1M_TF3A_UNREAD_LEDGER_ENABLED: "false"
+      M1M_AGENT_REPORT_DIR: /tmp/m1m-agent-instructions-report
+      NEXT_TELEMETRY_DISABLED: "1"
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - name: Install isolated browser runner (no lockfile changes)
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Initialize empty isolated database before the new migration
+        run: |
+          node -e 'const fs=require("fs"); const s=fs.readFileSync("prisma/schema.prisma","utf8"); if(!s.includes("  agentInstructions      String?"))throw Error("Schema inesperado"); fs.writeFileSync("prisma/agent-test-baseline.prisma",s.replace("  agentInstructions      String?\n",""));'
+          npx prisma db push --schema prisma/agent-test-baseline.prisma
+          rm prisma/agent-test-baseline.prisma
+      - name: Real login, PostgreSQL persistence and browser validation
+        run: node tests/regression/agent-instructions-browser-real.mjs
+      - name: Preserve report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-instructions-real-postgres-browser
+          path: /tmp/m1m-agent-instructions-report/M1M_INSTRUCAO_AGENTE_RESULTADO.txt
+          if-no-files-found: warn
+      - name: Diagnostic log on failure (synthetic data only)
+        if: failure()
+        run: tail -n 100 "$M1M_AGENT_REPORT_DIR/server.log" || true

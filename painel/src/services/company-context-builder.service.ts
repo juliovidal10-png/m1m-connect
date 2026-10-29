@@ -27,6 +27,7 @@ export type CompanyInformationContext = {
     email: string | null;
     website: string | null;
     instagram: string | null;
+    agentInstructions?: string | null;
   };
   knowledgeProfile: {
     presentation: string | null;
@@ -144,6 +145,7 @@ export const companyContextBuilderService = {
           company.website,
         instagram:
           company.instagram,
+        agentInstructions: company.agentInstructions,
       },
       knowledgeProfile:
         knowledgeProfile

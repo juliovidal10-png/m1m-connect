@@ -1,0 +1,22 @@
+{
+  "operation": "AGENT_INSTRUCTIONS_REAL_PG_BROWSER",
+  "status": "PASSED",
+  "postgresReal": true,
+  "browserReal": true,
+  "authenticationReal": true,
+  "openAIReal": false,
+  "whatsappAccess": false,
+  "checks": [
+    "Migration aditiva executada em banco novo isolado",
+    "Login na tela com senha, cookie e sessao reais da empresa A",
+    "Salvar pela interface, conferir no PostgreSQL e persistir apos recarregar pagina",
+    "Atualizacao subsequente lida pela API real",
+    "Duas empresas com sessoes independentes; escrita A nao altera B; body com outra empresa recusado",
+    "Atendente autenticado recusado na API e campo desabilitado",
+    "Escrita sem sessao recusada",
+    "Limpeza da instrucao preserva conhecimento e controle da IA"
+  ],
+  "syntheticRowsRemoved": true,
+  "temporaryAppStopped": true,
+  "limits": "Sem chamada real OpenAI; aplicacao e navegador reais em desenvolvimento, nao build de producao. Prompts cobertos separadamente por regressao de modulos reais com persistencia simulada."
+}
