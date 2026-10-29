@@ -56,7 +56,9 @@ try{
  assert.equal((await repository.listByCompany('empresa-teste',{responsibleId:'nonexistent-synthetic-user'})).length,0);
  const count=(await db.query('SELECT count(*)::int AS n FROM m1m_messages')).rows[0].n;assert.equal(count,92900);
  await db.query(await fs.readFile('../tools/performance/candidate-latest-message-index-rollback.sql','utf8'));indexCreated=false;
- await measure('ROLLED_BACK');report.status='PASSED';
+ await measure('ROLLED_BACK');
+ report.queryShapes=queries.map(q=>({shapeHash:createHash('sha256').update(q.query).digest('hex'),sql:q.query,parameterCount:JSON.parse(q.params).length}));
+ report.status='PASSED';
  report.limits=['Three sequential samples per phase on synthetic fixture (290 customers/2900 messages A; 1 customer/90000 messages B), no cold-cache guarantee.','Actual repository and Prisma SQL executed, query duration/shape hash only; no production SQL capture or browser/HTTP timing.','Candidate index addition/removal applied only in this fresh isolated database; no production migration.','No required speedup threshold: report observed behavior without changing planner settings or discarding records. Production metadata and actual HTTP validation remain required.'];
 }catch(e){report.status='FAILED';report.failure=String(e?.message||e).slice(0,1500);process.exitCode=1}
 finally{
