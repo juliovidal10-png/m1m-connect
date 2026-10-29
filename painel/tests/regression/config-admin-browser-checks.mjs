@@ -22,7 +22,7 @@ export async function runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,
  await a.page.goto(base+'/configuracoes');await gridCheck(a.page,false,1440);await gridCheck(a.page,false,390);pass('Central: dez cartoes na ordem aprovada, tres colunas desktop/uma mobile e ordem de Tab');
  await a.page.setViewportSize({width:1440,height:900});
  const ctx=await browser.newContext();await ctx.route('**/*',r=>r.request().url().startsWith(base+'/')?r.continue():r.abort());
- const page=await ctx.newPage();page.setDefaultTimeout(60000);
+ let page=await ctx.newPage();page.setDefaultTimeout(60000);
  const manage=id=>base+'/m1m-admin/companies/'+id+'/manage';
  const api=(id,suffix)=>'/api/admin/companies/'+id+'/'+suffix;
  const sql=id=>db.query('SELECT "aiEnabled","humanReturnMode","humanClosingMessage","agentInstructions","outOfHoursMessage" FROM m1m_companies WHERE id=$1',[id]).then(r=>r.rows[0]);
@@ -31,7 +31,10 @@ export async function runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,
   for(const c of [ctx,b.context]){assert.equal((await c.request.get(base+api(ids.A,suffix))).status(),401);assert.equal((await c.request.put(base+api(ids.A,suffix),{data:{}})).status(),401)}
  }
  await page.goto(manage(ids.A));await page.getByText('Acesso administrativo não autorizado.',{exact:true}).waitFor();pass('Gerenciamento e tres endpoints negam anonimo e sessao comum de cliente');
- await page.goto(base+'/m1m-admin');await page.getByLabel('Chave administrativa',{exact:true}).fill(adminKey);
+ // Prepare a rota no servidor antes de abrir um documento novo no runner de desenvolvimento.
+ assert.equal((await ctx.request.get(base+'/m1m-admin')).status(),200);
+ await page.close();page=await ctx.newPage();page.setDefaultTimeout(60000);
+ await page.goto(base+'/m1m-admin',{waitUntil:'domcontentloaded'});await page.getByLabel('Chave administrativa',{exact:true}).fill(adminKey);
  const login=page.waitForResponse(r=>r.url()===base+'/api/admin/session'&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Entrar no M1M Admin',exact:true}).click();assert.equal((await login).status(),200);
  assert.equal((await ctx.cookies()).some(c=>c.name==='m1m_session'),false,'Nao exigir login do cliente');
