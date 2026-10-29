@@ -8,7 +8,6 @@ import {
 } from "react";
 
 import Link from "next/link";
-import CompanyAiControl from "@/components/config/CompanyAiControl";
 
 type CustomerRecord = {
   id: string;
@@ -748,8 +747,6 @@ export default function DashboardOperacional() {
                   </div>
                 </div>
               )}
-
-            <CompanyAiControl compact />
 
             <div className="flex flex-wrap items-center gap-3 sm:ml-auto xl:ml-0">
               {lastUpdatedAt && (

@@ -6,6 +6,9 @@ on:
       - "painel/src/app/api/agent-instructions/**"
       - "painel/src/components/config/AgentInstructionsSettings.tsx"
       - "painel/src/app/configuracoes/page.tsx"
+      - "painel/src/app/api/company/route.ts"
+      - "painel/src/components/dashboard/DashboardOperacional.tsx"
+      - "painel/tests/regression/ai-control-permissions-regression.mjs"
       - "painel/src/app/m1m-admin/companies/**"
       - "painel/src/app/api/admin/companies/**"
       - "painel/src/components/config/HumanAttendanceSettings.tsx"
@@ -44,6 +47,8 @@ jobs:
         run: node tests/regression/agent-instructions-regression.mjs
       - name: Administrative configuration access (simulated persistence)
         run: node tests/regression/config-admin-access-regression.mjs
+      - name: Company and global admin AI control permissions
+        run: node tests/regression/ai-control-permissions-regression.mjs
       - name: Existing conversation guard
         run: npm run test:regression:tf6
   real-postgres-browser:
@@ -68,6 +73,7 @@ jobs:
       M1M_SESSION_SECRET: synthetic-only-agent-browser-ci-20261028
       M1M_AGENT_ISOLATED_TEST: "1"
       M1M_CONFIG_ADMIN_TEST: "1"
+      M1M_AI_CONTROL_TEST: "1"
       M1M_ADMIN_KEY: synthetic-only-config-admin-ci
       M1M_TF3A_UNREAD_LEDGER_ENABLED: "false"
       M1M_AGENT_REPORT_DIR: /tmp/m1m-agent-instructions-report

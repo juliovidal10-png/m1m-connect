@@ -4,7 +4,7 @@ import {
 } from "next/server";
 
 import { M1MUserPermission } from "@/generated/prisma/enums";
-import { authorizationService } from "@/services/auth/authorization.service";
+import { authorizationService, AuthorizationError } from "@/services/auth/authorization.service";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { companyService } from "@/services/company.service";
@@ -107,7 +107,7 @@ export async function PUT(
         ),
       },
       {
-        status: 500,
+        status: error instanceof AuthorizationError ? error.statusCode : 500,
       },
     );
   }
