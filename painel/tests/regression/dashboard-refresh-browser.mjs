@@ -24,27 +24,29 @@ try{
   const entry=path.join(temp,'entry.jsx');
   await fs.writeFile(entry,`import React from ${JSON.stringify(require.resolve('react'))};import{createRoot}from ${JSON.stringify(require.resolve('react-dom/client'))};import Dashboard from ${JSON.stringify(componentFile)};const root=createRoot(document.getElementById('root'));window.mount=()=>{window.mountedAt=performance.now();root.render(<Dashboard/>)};window.unmount=()=>root.unmount();`);
   const js=(await build({entryPoints:[entry],bundle:true,write:false,jsx:'automatic',nodePaths:[path.join(root,'node_modules')],define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'isolated-next-link',setup(b){b.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'isolated-link'}));b.onLoad({filter:/.*/,namespace:'isolated-link'},()=>({contents:'import React from "react";export default function Link({children,...props}){return <a {...props}>{children}</a>}',loader:'jsx',resolveDir:root}))}}]})).outputFiles[0].text;
-  for(let iteration=1;iteration<=3;iteration++){
+  for(const polling of [false,true]) for(let iteration=1;iteration<=3;iteration++){
    const page=await browser.newPage();await page.route('**/*',r=>r.abort());
    await page.setContent(`<style>${css}body{margin:0;font-family:Arial,sans-serif}</style><div id="root"></div>`);
-   await page.evaluate(()=>{
+   await page.evaluate(polling=>{
     window.requests=[];window.testHidden=false;window.fail=false;
     Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.testHidden});
-    const originalInterval=window.setInterval;window.setInterval=(f,ms)=>{if(ms===30000)window.poll=f;return originalInterval(f,ms)};
+    const originalInterval=window.setInterval;window.setInterval=(f,ms)=>{if(ms===30000)window.poll=polling?f:()=>{};return polling?originalInterval(f,ms):0};
     window.fetch=(endpoint,options={})=>new Promise((resolve,reject)=>{
      const row={endpoint,started:performance.now(),aborted:false};window.requests.push(row);
      const failed=window.fail;const bodies={'/api/customers':[{id:'A',status:'IA'},{id:'B',status:'HUMANO'}],'/api/reminders':[], '/api/payment-receipts':[], '/api/company/access-status':{}};
      const timer=setTimeout(()=>{row.finished=performance.now();resolve({ok:!(failed&&endpoint==='/api/customers'),json:async()=>failed&&endpoint==='/api/customers'?{error:'Erro controlado'}:bodies[endpoint]})},endpoint==='/api/customers'?600:20);
      options.signal?.addEventListener('abort',()=>{row.aborted=true;clearTimeout(timer);reject(new DOMException('Aborted','AbortError'))},{once:true});
     });
-   });
+   },polling);
    await page.addScriptTag({content:js});
    await page.evaluate(()=>window.mount());
+   await page.waitForFunction(()=>typeof window.poll==='function');
+   await page.evaluate(()=>window.poll());
    const heading=page.getByRole('heading',{name:'Dashboard Operacional',exact:true});await heading.waitFor();
    const shellMs=await page.evaluate(()=>performance.now()-window.mountedAt);
    await page.getByText('Clientes cadastrados na empresa.',{exact:true}).waitFor();
    const indicatorsMs=await page.evaluate(()=>performance.now()-window.mountedAt);
-   rows.push({version,iteration,shellMs:Math.round(shellMs),indicatorsMs:Math.round(indicatorsMs),injectedCustomerDelayMs:600});
+   rows.push({version,polling,iteration,initialRequests:await page.evaluate(()=>window.requests.length),shellMs:Math.round(shellMs),indicatorsMs:Math.round(indicatorsMs),injectedCustomerDelayMs:600});
    if(version==='after'){
     assert(shellMs<indicatorsMs,'Structure precedes indicators');
     await page.getByRole('button',{name:'Atualizar',exact:true}).click();
