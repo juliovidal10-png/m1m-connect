@@ -59,3 +59,7 @@ O primeiro ensaio parou no aceite obrigatório dos usuários sintéticos. O harn
 A inclusão nos prompts continua coberta pelo teste de módulos reais com persistência simulada. Respostas efetivamente geradas pela OpenAI continuam pendentes; não houve chamada ao modelo nesta validação. Também não equivale a build de produção ou a fluxo completo de WhatsApp.
 
 Relatório estruturado: instrucao-agente-banco-navegador-real.txt. Alterações posteriores somente documentais podem reaproveitar essa evidência sem repetir a bateria.
+
+## Atualização — respostas OpenAI reais aprovadas em 29/10/2026
+
+O proprietário devolveu o TXT M1M_INSTRUCAO_OPENAI_RESULTADO_20261029-070733-132.txt com APROVADO em seis gerações reais: institucional e setorial, A/V1, A/V2 e B/V1. Expressões configuradas respeitadas, telefone sintético preservado e needsHuman=false. Pacote executou builders/provider reais com contextos sintéticos em memória; não leu banco nessa rodada. Persistência/F5/autenticação/isolamento foram comprovados separadamente no PostgreSQL/Chromium reais. Evidência e limites em instrucao-agente-openai-real-20261029.md. Não repetir os testes aprovados por mudanças apenas documentais. Nenhum merge, deploy ou migration em produção foi executado.
