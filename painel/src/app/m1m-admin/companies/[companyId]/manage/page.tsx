@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
+import AgentInstructionsSettings from "@/components/config/AgentInstructionsSettings";
+import HumanAttendanceSettings from "@/components/config/HumanAttendanceSettings";
+import AutomaticMessagesSettings from "@/components/config/AutomaticMessagesSettings";
 import CompanyProfileSettings from "@/components/config/CompanyProfileSettings";
 import CompanySchedulesSettings from "@/components/config/CompanySchedulesSettings";
 import CompanySettings from "@/components/config/CompanySettings";
@@ -22,6 +25,9 @@ type CompanyResponse = {
 };
 
 type ActiveSection =
+  | "humanAttendance"
+  | "agentInstructions"
+  | "automaticMessages"
   | "overview"
   | "company"
   | "companyProfile"
@@ -49,12 +55,6 @@ const sections: Array<{
       "Informações que a IA utiliza para conhecer o negócio e responder clientes.",
   },
   {
-    id: "companySchedules",
-    title: "Horário Geral",
-    description:
-      "Dias e horários padrão de atendimento da empresa.",
-  },
-  {
     id: "payments",
     title: "Pagamentos",
     description:
@@ -68,10 +68,19 @@ const sections: Array<{
   },
   {
     id: "users",
-    title: "Usuários",
+    title: "Usuários e Permissões",
     description:
       "Cadastre colaboradores, defina acessos e gere convites de primeiro acesso.",
   },
+  {
+    id: "companySchedules",
+    title: "Horário Geral",
+    description:
+      "Dias e horários padrão de atendimento da empresa.",
+  },
+  { id: "humanAttendance", title: "Atendimento Humano", description: "Defina a transição entre equipe e atendimento automático." },
+  { id: "agentInstructions", title: "Agente de IA", description: "Configure o comportamento e as instruções do agente desta empresa." },
+  { id: "automaticMessages", title: "Mensagens Automáticas", description: "Configure mensagens enviadas fora do expediente." },
   {
     id: "whatsapp",
     title: "WhatsApp",
@@ -82,7 +91,10 @@ const sections: Array<{
 
 export default function M1MAdminManageCompanyPage() {
   const params = useParams<{ companyId: string }>();
-  const companyId = params.companyId;
+  return <ManageCompanyWorkspace key={params.companyId} companyId={params.companyId} />;
+}
+
+function ManageCompanyWorkspace({ companyId }: { companyId: string }) {
 
   const [companyName, setCompanyName] =
     useState("Carregando...");
@@ -225,6 +237,22 @@ export default function M1MAdminManageCompanyPage() {
                 Empresa ID: {companyId}
               </p>
             </>
+          ) : activeSection === "humanAttendance" ? (
+            <div className="mt-7">
+              <HumanAttendanceSettings onBack={backToOverview}
+                apiUrl={`/api/admin/companies/${companyId}/profile`} adminMode />
+            </div>
+          ) : activeSection === "agentInstructions" ? (
+            <div className="mt-7">
+              <AgentInstructionsSettings onBack={backToOverview}
+                apiUrl={`/api/admin/companies/${companyId}/agent-instructions`}
+                companyApiUrl={`/api/admin/companies/${companyId}/profile`} adminMode />
+            </div>
+          ) : activeSection === "automaticMessages" ? (
+            <div className="mt-7">
+              <AutomaticMessagesSettings onBack={backToOverview}
+                apiUrl={`/api/admin/companies/${companyId}/out-of-hours`} />
+            </div>
           ) : activeSection === "company" ? (
             <div className="mt-7">
               <CompanySettings

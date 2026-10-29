@@ -52,7 +52,6 @@ type Section = {
 };
 
 const sections: Section[] = [
-  { id: "agentInstructions", title: "Agente de IA", description: "Configure o comportamento e as instruções do agente desta empresa.", enabled: true, icon: "ai", actionLabel: "Configurar →" },
   {
     id: "company",
     title: "Empresa",
@@ -60,6 +59,24 @@ const sections: Section[] = [
       "Dados institucionais, endereço e canais oficiais.",
     enabled: true,
     icon: "company",
+    actionLabel: "Abrir →",
+  },
+  {
+    id: "companyProfile",
+    title: "Conhecimento da Empresa",
+    description:
+      "Ensine à IA as informações essenciais do negócio.",
+    enabled: true,
+    icon: "ai",
+    actionLabel: "Configurar →",
+  },
+  {
+    id: "payments",
+    title: "Pagamentos",
+    description:
+      "Formas de pagamento, condições e orientações comerciais.",
+    enabled: true,
+    icon: "payments",
     actionLabel: "Abrir →",
   },
   {
@@ -90,39 +107,22 @@ const sections: Section[] = [
     actionLabel: "Abrir →",
   },
   {
-    id: "automaticMessages",
-    title: "Mensagens Automáticas",
-    description:
-      "Configure mensagens enviadas fora do expediente.",
-    enabled: true,
-    icon: "messages",
-    actionLabel: "Abrir →",
-  },
-  {
-    id: "companyProfile",
-    title: "Conhecimento da Empresa",
-    description:
-      "Ensine à IA as informações essenciais do negócio.",
-    enabled: true,
-    icon: "ai",
-    actionLabel: "Configurar →",
-  },
-  {
-    id: "payments",
-    title: "Pagamentos",
-    description:
-      "Formas de pagamento, condições e orientações comerciais.",
-    enabled: true,
-    icon: "payments",
-    actionLabel: "Abrir →",
-  },
-  {
     id: "humanAttendance",
     title: "Atendimento Humano",
     description:
       "Defina a transição entre equipe e atendimento automático.",
     enabled: true,
     icon: "human",
+    actionLabel: "Abrir →",
+  },
+  { id: "agentInstructions", title: "Agente de IA", description: "Configure o comportamento e as instruções do agente desta empresa.", enabled: true, icon: "ai", actionLabel: "Configurar →" },
+  {
+    id: "automaticMessages",
+    title: "Mensagens Automáticas",
+    description:
+      "Configure mensagens enviadas fora do expediente.",
+    enabled: true,
+    icon: "messages",
     actionLabel: "Abrir →",
   },
   {
