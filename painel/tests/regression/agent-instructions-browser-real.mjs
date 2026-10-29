@@ -21,7 +21,7 @@ const db=new pg.Client({connectionString:process.env.DATABASE_URL,connectionTime
 let app,browser,seeded=false;
 const pass=(name)=>{report.checks.push(name);console.log('PASS: '+name)};
 async function scalar(sql,args=[]){return(await db.query(sql,args)).rows[0]}
-const password='Synthetic-'+randomUUID(),ids={A:prefix+'-A',B:prefix+'-B'};
+const password='Synthetic-'+randomUUID(),ids={A:process.env.M1M_CONFIG_ADMIN_TEST==='1'?'empresa-teste':prefix+'-A',B:prefix+'-B'};
 const email=(who)=>who.toLowerCase()+'-'+prefix+'@example.invalid';
 async function login(who){
  const context=await browser.newContext();
@@ -59,7 +59,7 @@ try{
  await db.query(fs.readFileSync(new URL('../../prisma/migrations/20261029020000_agent_instructions/migration.sql',import.meta.url),'utf8'));
  pass('Migration aditiva executada em banco novo isolado');
  seeded=true;
- for(const companyId of Object.values(ids))await db.query('INSERT INTO m1m_companies(id,name,slug,"updatedAt","onboardingCompleted","subscriptionStatus","aiEnabled") VALUES($1,$2,$1,now(),true,\'ACTIVE\',false)',[companyId,'Empresa sintetica '+companyId.slice(-1)]);
+ for(const companyId of Object.values(ids))await db.query('INSERT INTO m1m_companies(id,name,slug,"updatedAt","onboardingCompleted","subscriptionStatus","aiEnabled") VALUES($1,$2,$1,now(),true,\'ACTIVE\',false)',[companyId,companyId==='empresa-teste'?'Marketing1Minuto':'Empresa sintetica '+companyId.slice(-1)]);
  const hash=await bcrypt.hash(password,12);
  for(const who of ['A','B','ATTENDANT'])await db.query('INSERT INTO m1m_users(id,"companyId",name,email,"passwordHash",role,"updatedAt") VALUES($1,$2,$3,$4,$5,$6,now())',[prefix+'-'+who,ids[who==='B'?'B':'A'],'Usuario sintetico '+who,email(who),hash,who==='ATTENDANT'?'ATTENDANT':'ADMIN']);
  await db.query('INSERT INTO m1m_company_profiles(id,"companyId","productsServices","updatedAt") VALUES($1,$2,$3,now())',[prefix+'-profile',ids.A,'CONHECIMENTO_SINTETICO_PRESERVADO']);
@@ -93,6 +93,10 @@ try{
  await save(a.page,'');assert.equal((await scalar('SELECT "agentInstructions" FROM m1m_companies WHERE id=$1',[ids.A])).agentInstructions,null);
  assert.equal((await scalar('SELECT "productsServices" FROM m1m_company_profiles WHERE "companyId"=$1',[ids.A])).productsServices,'CONHECIMENTO_SINTETICO_PRESERVADO');
  assert.equal((await scalar('SELECT "aiEnabled" FROM m1m_companies WHERE id=$1',[ids.A])).aiEnabled,false);pass('Limpeza da instrucao preserva conhecimento e controle da IA');
+ if(process.env.M1M_CONFIG_ADMIN_TEST==='1'){
+  const {runConfigAdminBrowserChecks}=await import('./config-admin-browser-checks.mjs');
+  await runConfigAdminBrowserChecks({browser,db,base,a,b,ids,pass,adminKey:process.env.M1M_ADMIN_KEY});
+ }
  report.status='PASSED';
 }catch(error){report.status='FAILED';report.failure=String(error?.message||error).slice(0,2000);process.exitCode=1;
 }finally{

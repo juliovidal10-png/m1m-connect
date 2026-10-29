@@ -22,6 +22,8 @@ type CompanyResponse = {
 
 type HumanAttendanceSettingsProps = {
   onBack: () => void;
+  apiUrl?: string;
+  adminMode?: boolean;
 };
 
 function getErrorMessage(
@@ -35,6 +37,8 @@ function getErrorMessage(
 
 export default function HumanAttendanceSettings({
   onBack,
+  apiUrl = "/api/company",
+  adminMode = false,
 }: HumanAttendanceSettingsProps) {
   const [humanReturnMode, setHumanReturnMode] =
     useState<HumanReturnMode>(
@@ -65,7 +69,7 @@ export default function HumanAttendanceSettings({
 
       try {
         const response = await fetch(
-          "/api/company",
+          apiUrl,
           {
             method: "GET",
             cache: "no-store",
@@ -101,7 +105,7 @@ export default function HumanAttendanceSettings({
       } finally {
         setIsLoading(false);
       }
-    }, []);
+    }, [apiUrl]);
 
   useEffect(() => {
     void loadSettings();
@@ -122,7 +126,7 @@ export default function HumanAttendanceSettings({
 
     try {
       const response = await fetch(
-        "/api/company",
+        apiUrl,
         {
           method: "PUT",
           headers: {
@@ -184,7 +188,7 @@ export default function HumanAttendanceSettings({
       </button>
 
       <div className="mb-5">
-        <CompanyAiControl />
+        <CompanyAiControl key={apiUrl} apiUrl={apiUrl} adminMode={adminMode} />
       </div>
 
       <section className="rounded-2xl border border-teal-100 bg-white shadow-sm">

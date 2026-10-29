@@ -9,6 +9,7 @@ import {
 
 type AutomaticMessagesSettingsProps = {
   onBack: () => void;
+  apiUrl?: string;
 };
 
 type MessageResponse = {
@@ -27,6 +28,7 @@ function getErrorMessage(
 
 export default function AutomaticMessagesSettings({
   onBack,
+  apiUrl = "/api/company/out-of-hours",
 }: AutomaticMessagesSettingsProps) {
   const [message, setMessage] =
     useState("");
@@ -51,7 +53,7 @@ export default function AutomaticMessagesSettings({
       try {
         const response =
           await fetch(
-            "/api/company/out-of-hours",
+            apiUrl,
             {
               method: "GET",
               cache: "no-store",
@@ -82,7 +84,7 @@ export default function AutomaticMessagesSettings({
       } finally {
         setIsLoading(false);
       }
-    }, []);
+    }, [apiUrl]);
 
   useEffect(() => {
     void loadMessage();
@@ -115,7 +117,7 @@ export default function AutomaticMessagesSettings({
     try {
       const response =
         await fetch(
-          "/api/company/out-of-hours",
+          apiUrl,
           {
             method: "PUT",
             headers: {

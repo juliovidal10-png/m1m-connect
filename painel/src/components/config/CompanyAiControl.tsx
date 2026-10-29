@@ -4,10 +4,14 @@ import { useEffect, useState } from "react";
 
 type CompanyAiControlProps = {
   compact?: boolean;
+  apiUrl?: string;
+  adminMode?: boolean;
 };
 
 export default function CompanyAiControl({
   compact = false,
+  apiUrl = "/api/company",
+  adminMode = false,
 }: CompanyAiControlProps) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [authorized, setAuthorized] = useState(false);
@@ -20,7 +24,7 @@ export default function CompanyAiControl({
     setError("");
 
     try {
-      const response = await fetch("/api/company", {
+      const response = await fetch(apiUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ aiEnabled: !enabled }),
@@ -40,16 +44,16 @@ export default function CompanyAiControl({
   }
 
   useEffect(() => {
-    fetch("/api/auth/me", { cache: "no-store" })
+    fetch(adminMode ? "/api/admin/session" : "/api/auth/me", { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => {
         setAuthorized(
-          data.user?.role === "ADMIN" || data.user?.isPrimary === true
+          adminMode ? data.authenticated === true : data.user?.role === "ADMIN" || data.user?.isPrimary === true
         );
       })
       .catch(() => setAuthorized(false));
 
-    fetch("/api/company", { cache: "no-store" })
+    fetch(apiUrl, { cache: "no-store" })
       .then((response) => response.json())
       .then((data) => {
         if (typeof data.aiEnabled === "boolean") {
@@ -57,7 +61,7 @@ export default function CompanyAiControl({
         }
       })
       .catch(() => setEnabled(null));
-  }, []);
+  }, [apiUrl, adminMode]);
 
   return (
     <div className={compact

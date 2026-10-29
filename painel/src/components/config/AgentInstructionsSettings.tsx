@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import CompanyAiControl from "./CompanyAiControl";
 import { MAX_AGENT_INSTRUCTIONS_LENGTH } from "@/lib/agent-instructions";
 
-export default function AgentInstructionsSettings({ onBack }: { onBack: () => void }) {
+export default function AgentInstructionsSettings({
+  onBack,
+  apiUrl = "/api/agent-instructions",
+  companyApiUrl = "/api/company",
+  adminMode = false,
+}: {
+  onBack: () => void;
+  apiUrl?: string;
+  companyApiUrl?: string;
+  adminMode?: boolean;
+}) {
   const [text, setText] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -13,7 +23,7 @@ export default function AgentInstructionsSettings({ onBack }: { onBack: () => vo
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/agent-instructions", { cache: "no-store", signal: controller.signal })
+    fetch(apiUrl, { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Erro ao carregar.");
@@ -21,13 +31,13 @@ export default function AgentInstructionsSettings({ onBack }: { onBack: () => vo
       })
       .catch((cause) => { if (!controller.signal.aborted) setError(cause.message); });
     return () => controller.abort();
-  }, []);
+  }, [apiUrl]);
 
   async function save() {
     if (!loaded || saving) return;
     setSaving(true); setError(""); setSaved(false);
     try {
-      const response = await fetch("/api/agent-instructions", {
+      const response = await fetch(apiUrl, {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentInstructions: text }),
       });
@@ -41,7 +51,7 @@ export default function AgentInstructionsSettings({ onBack }: { onBack: () => vo
   return <section className="space-y-5">
     <button type="button" onClick={onBack} className="mb-5 inline-flex items-center rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-black/60 transition hover:border-teal-200 hover:text-teal-700">← Voltar para configurações</button>
     <h2 className="text-xl font-bold">Agente de IA</h2>
-    <CompanyAiControl />
+    <CompanyAiControl key={companyApiUrl} apiUrl={companyApiUrl} adminMode={adminMode} />
     <div className="space-y-3 rounded-2xl border border-black/10 bg-white p-6">
       <label htmlFor="agent-instructions" className="block font-semibold">Instrução do agente</label>
       <p className="text-sm text-black/60">Oriente o comportamento, a concisão, as perguntas necessárias, os limites e os encaminhamentos desta empresa. Cadastre produtos e informações do negócio na área de conhecimento.</p>
