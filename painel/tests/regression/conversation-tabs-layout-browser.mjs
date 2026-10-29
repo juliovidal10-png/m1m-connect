@@ -16,7 +16,7 @@ try {
  const entry=path.join(temp,'entry.jsx');
  await fs.writeFile(entry,`import React,{useState} from ${JSON.stringify(require.resolve('react'))};import{createRoot}from ${JSON.stringify(require.resolve('react-dom/client'))};import Sidebar from ${JSON.stringify(component)};function App(){const[q,setQ]=useState('OPEN');const[count,setCount]=useState(1);window.setCount=setCount;return <Sidebar activeQueue={q} onQueueChange={v=>{window.lastQueue=v;setQ(v)}} queueCounts={{waiting:count,inService:count}} searchQuery="" onSearchChange={()=>{}} isLoading={false} hasLoaded={true} error={null} isLoadingMore={false} hasMore={false} onLoadMore={()=>{}} items={[]}/>};createRoot(document.getElementById('root')).render(<App/>);`);
  const js=(await build({entryPoints:[entry],bundle:true,write:false,jsx:'automatic',nodePaths:[path.join(root,'node_modules')],define:{'process.env.NODE_ENV':'"production"'}})).outputFiles[0].text;
- const compiler=await compile('@import "tailwindcss";',{base:root});
+ const compiler=await compile('@import "tailwindcss";',{base:root,onDependency:()=>{}});
  const css=compiler.build(source.match(/[^\s"'`<>]+/g));
  browser=await chromium.launch({headless:true});
  const page=await browser.newPage();
@@ -32,6 +32,7 @@ try {
    for(const [name,queue] of [['Abertas','OPEN'],[`Aguardando (${count})`,'WAITING'],[`Em atendimento (${count})`,'IN_SERVICE']]){
     await page.getByRole('button',{name,exact:true}).click();
     await page.waitForFunction(q=>window.lastQueue===q,queue);
+    await page.waitForFunction(n=>[...document.querySelectorAll('button')].find(b=>b.textContent===n)&&getComputedStyle([...document.querySelectorAll('button')].find(b=>b.textContent===n)).color==='rgb(10, 144, 144)',name);
     const result=await page.locator('button').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect(),p=b.parentElement.getBoundingClientRect(),s=getComputedStyle(b);return {name:b.textContent,inside:r.left>=p.left&&r.right<=p.right+1,overflow:b.scrollWidth>b.clientWidth+1,font:parseFloat(s.fontSize),selected:s.color==='rgb(10, 144, 144)',box:{x:r.x,y:r.y,right:r.right,bottom:r.bottom}}}));
     assert.equal(result.length,3);assert(result.every(b=>b.inside&&!b.overflow&&b.font>=12),JSON.stringify(result));
     assert.equal(result.filter(b=>b.selected).length,1);assert.equal(result.find(b=>b.selected).name,name);
