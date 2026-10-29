@@ -1,3 +1,4 @@
+import { buildAgentInstructions } from "@/lib/agent-instructions";
 import type {
   CompanyInformationContext,
 } from "@/services/company-context-builder.service";
@@ -269,7 +270,9 @@ export const companyPromptBuilderService = {
       retrievedKnowledge,
     ].join("\n");
 
+    const agentGuidance = buildAgentInstructions(input.context.company.agentInstructions);
     const outputStyleGuidance = [
+      agentGuidance,
       "- Responda apenas ao que o cliente perguntou.",
       "- Responda de forma natural, direta e objetiva, sem transformar a conversa em questionário, roteiro ou apresentação comercial.",
       "- Faça no máximo uma pergunta por resposta e somente quando ela for realmente necessária para responder ou avançar o pedido atual. Nunca agrupe duas ou mais perguntas, mesmo como alternativas.",

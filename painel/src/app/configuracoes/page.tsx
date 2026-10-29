@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import AutomaticMessagesSettings from "@/components/config/AutomaticMessagesSettings";
 import CompanySchedulesSettings from "@/components/config/CompanySchedulesSettings";
+import AgentInstructionsSettings from "@/components/config/AgentInstructionsSettings";
 import CompanySettings from "@/components/config/CompanySettings";
 import CompanyProfileSettings from "@/components/config/CompanyProfileSettings";
 import HumanAttendanceSettings from "@/components/config/HumanAttendanceSettings";
@@ -14,6 +15,7 @@ import M1MCard from "@/components/m1m/M1MCard";
 import M1MPageHeader from "@/components/m1m/M1MPageHeader";
 
 type ActiveSection =
+  | "agentInstructions"
   | "overview"
   | "company"
   | "sectors"
@@ -50,6 +52,7 @@ type Section = {
 };
 
 const sections: Section[] = [
+  { id: "agentInstructions", title: "Agente de IA", description: "Configure o comportamento e as instruções do agente desta empresa.", enabled: true, icon: "ai", actionLabel: "Configurar →" },
   {
     id: "company",
     title: "Empresa",
@@ -311,6 +314,7 @@ export default function ConfiguracoesPage() {
                         }
 
                         if (
+                          section.id === "agentInstructions" ||
                           section.id ===
                             "company" ||
                           section.id ===
@@ -343,6 +347,8 @@ export default function ConfiguracoesPage() {
                   )
                 }
               />
+            ) : activeSection === "agentInstructions" ? (
+              <AgentInstructionsSettings onBack={() => setActiveSection("overview")} />
             ) : activeSection ===
               "companySchedules" ? (
               <CompanySchedulesSettings

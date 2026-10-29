@@ -74,6 +74,7 @@ export type SectorContext = {
     email: string | null;
     website: string | null;
     instagram: string | null;
+    agentInstructions?: string | null;
     outOfHoursMessage: string | null;
     humanReturnMode:
       | "IMMEDIATE"
@@ -219,6 +220,7 @@ export const contextBuilderService = {
           company.website,
         instagram:
           company.instagram,
+        agentInstructions: company.agentInstructions,
         outOfHoursMessage:
           company.outOfHoursMessage,
         humanReturnMode:

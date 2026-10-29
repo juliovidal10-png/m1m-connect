@@ -1,0 +1,39 @@
+name: Agent instructions validation
+on:
+  pull_request:
+    paths:
+      - "painel/src/lib/agent-instructions.ts"
+      - "painel/src/app/api/agent-instructions/**"
+      - "painel/src/components/config/AgentInstructionsSettings.tsx"
+      - "painel/src/app/configuracoes/page.tsx"
+      - "painel/src/services/company-context-builder.service.ts"
+      - "painel/src/services/company-prompt-builder.service.ts"
+      - "painel/src/core/context/context-builder.service.ts"
+      - "painel/src/core/ai/prompt-builder.service.ts"
+      - "painel/prisma/**"
+      - "painel/tests/regression/agent-instructions-regression.mjs"
+      - ".github/workflows/agent-instructions-validation.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - name: Agent instructions (simulated persistence)
+        run: node tests/regression/agent-instructions-regression.mjs
+      - name: Existing conversation guard
+        run: npm run test:regression:tf6
