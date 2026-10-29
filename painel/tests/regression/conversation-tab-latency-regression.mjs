@@ -47,7 +47,13 @@ async function benchmark(text, label) {
     return Response.json(raw.slice(skip, skip+take));
   }});
   const get = async params => route.GET(new Request('http://test/api/chat/list?'+params));
-  await get('queueCounts=1'); // O polling existente ja carrega o inventario compartilhado.
+  const coldStart = performance.now();
+  const cold = await Promise.all([get('queueCounts=1'), get('waitingCount=1')]);
+  const [tabCounts, alertCount] = await Promise.all(cold.map(r => r.json()));
+  assert.equal(alertCount.waitingCount, tabCounts.waiting);
+  const sharedCold = {version: label, scenario: 'abas+alerta simultaneos, inventario frio', ms: Math.round((performance.now()-coldStart)*10)/10, chatCalls, groupCalls};
+  if(label === 'candidate') { assert.equal(chatCalls, 2); assert.equal(groupCalls, 0); }
+
   const rows = [];
   for (const selected of ['OPEN','WAITING','IN_SERVICE','OPEN']) {
     const beforeChat = chatCalls, beforeGroup = groupCalls, start = performance.now();
@@ -73,7 +79,7 @@ async function benchmark(text, label) {
     const totals = await (await get('queueCounts=1')).json();
     assert.equal(totals.waiting, 1); assert.equal(totals.inService, 2);
   }
-  return rows;
+  return [sharedCold, ...rows];
 }
 const rows = [];
 if(base) rows.push(...await benchmark(execFileSync('git', ['show', base+':painel/src/app/api/chat/list/route.ts'], {encoding:'utf8'}), 'baseline'));
