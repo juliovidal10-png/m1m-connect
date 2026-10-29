@@ -1,0 +1,27 @@
+name: Conversation tabs layout
+on:
+  pull_request:
+    paths:
+      - "painel/src/components/chat/ChatConversationSidebar.tsx"
+      - "painel/tests/regression/conversation-tabs-layout-browser.mjs"
+      - ".github/workflows/conversation-tabs-layout.yml"
+permissions:
+  contents: read
+jobs:
+  layout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm install --no-save --package-lock=false --ignore-scripts esbuild@0.25.12 playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/regression/conversation-tabs-layout-browser.mjs
