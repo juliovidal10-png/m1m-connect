@@ -727,17 +727,6 @@ export const customerRepository = {
             },
             take: 1,
           },
-          messages: {
-            select: {
-              content: true,
-              rawPayload: true,
-              sentAt: true,
-            },
-            orderBy: {
-              sentAt: "desc",
-            },
-            take: 1,
-          },
           _count: {
             select: {
               attendances: true,
@@ -767,23 +756,41 @@ export const customerRepository = {
         ],
       });
 
-    const presentedCustomers =
-      customers.map((customer) => {
-        const displayData =
-          buildDisplayData(
-            customer,
-          );
+    // Prisma's nested take: 1 loads every matching message before trimming in memory.
+    // Select only latest IDs first, then fetch payloads for those rows in one batch.
+    // SQL is constant; company and customer IDs remain bound parameters.
+    const latestMessages = customers.length
+      ? await prisma.$queryRawUnsafe<Array<{
+          customerId: string;
+          content: string | null;
+          rawPayload: unknown;
+          sentAt: Date;
+        }>>(
+          `WITH latest_ids AS MATERIALIZED (
+             SELECT DISTINCT ON (m."customerId") m.id
+             FROM "m1m_messages" m
+             WHERE m."companyId" = $1 AND m."customerId" = ANY($2::text[])
+             ORDER BY m."customerId", m."sentAt" DESC
+           )
+           SELECT m."customerId", m.content, m."rawPayload", m."sentAt"
+           FROM latest_ids l JOIN "m1m_messages" m ON m.id = l.id
+           WHERE m."companyId" = $1`,
+          companyId,
+          customers.map((customer) => customer.id),
+        )
+      : [];
+    const latestByCustomer = new Map(
+      latestMessages.map((message) => [message.customerId, message]),
+    );
 
-        const {
-          messages: _messages,
-          ...customerData
-        } = customer;
-
-        return {
-          ...customerData,
-          ...displayData,
-        };
+    const presentedCustomers = customers.map((customer) => {
+      const latest = latestByCustomer.get(customer.id);
+      const displayData = buildDisplayData({
+        ...customer,
+        messages: latest ? [latest] : [],
       });
+      return { ...customer, ...displayData };
+    });
 
     if (!search) {
       return presentedCustomers;
