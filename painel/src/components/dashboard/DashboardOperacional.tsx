@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -416,18 +417,27 @@ export default function DashboardOperacional() {
     null,
   );
 
+  const dashboardActive = useRef(false);
+  const dashboardRequest = useRef<AbortController | null>(null);
+  const trialRequest = useRef<AbortController | null>(null);
+
   const loadTrialAccess =
     useCallback(async () => {
+      if (!dashboardActive.current || document.hidden || trialRequest.current) return;
+      const controller = new AbortController();
+      trialRequest.current = controller;
       try {
         const response =
           await fetch(
             "/api/company/access-status",
             {
+              signal: controller.signal,
               cache:
                 "no-store",
             },
           );
 
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           setTrialAccess(null);
           return;
@@ -436,14 +446,19 @@ export default function DashboardOperacional() {
         const result =
           (await response.json()) as TrialAccessData;
 
-        setTrialAccess(result);
+        if (!controller.signal.aborted) setTrialAccess(result);
       } catch {
-        setTrialAccess(null);
+        if (!controller.signal.aborted) setTrialAccess(null);
+      } finally {
+        if (trialRequest.current === controller) trialRequest.current = null;
       }
     }, []);
 
   const loadDashboard =
     useCallback(async () => {
+      if (!dashboardActive.current || document.hidden || dashboardRequest.current) return;
+      const controller = new AbortController();
+      dashboardRequest.current = controller;
       setIsLoading(true);
       setError("");
 
@@ -456,6 +471,7 @@ export default function DashboardOperacional() {
           fetch(
             "/api/customers",
             {
+              signal: controller.signal,
               cache:
                 "no-store",
             },
@@ -463,6 +479,7 @@ export default function DashboardOperacional() {
           fetch(
             "/api/reminders",
             {
+              signal: controller.signal,
               cache:
                 "no-store",
             },
@@ -470,6 +487,7 @@ export default function DashboardOperacional() {
           fetch(
             "/api/payment-receipts",
             {
+              signal: controller.signal,
               cache:
                 "no-store",
             },
@@ -507,6 +525,11 @@ export default function DashboardOperacional() {
           );
         }
 
+        if (controller.signal.aborted) return;
+        if (!Array.isArray(customersData) || !Array.isArray(remindersData) || !Array.isArray(receiptsData)) {
+          throw new Error("Resposta inválida ao atualizar os indicadores.");
+        }
+
         setData({
           customers:
             Array.isArray(
@@ -532,38 +555,53 @@ export default function DashboardOperacional() {
           new Date(),
         );
       } catch (loadError) {
+        if (controller.signal.aborted) return;
+        controller.abort();
         setError(
           loadError instanceof Error
             ? loadError.message
             : "Erro ao carregar o Dashboard Operacional.",
         );
       } finally {
-        setIsLoading(false);
+        if (dashboardRequest.current === controller) {
+          dashboardRequest.current = null;
+          setIsLoading(false);
+        }
       }
     }, []);
 
   useEffect(() => {
-    void loadDashboard();
-    void loadTrialAccess();
-
-    const intervalId =
-      window.setInterval(
-        () => {
-          void loadDashboard();
-          void loadTrialAccess();
-        },
-        30_000,
-      );
-
-    return () => {
-      window.clearInterval(
-        intervalId,
-      );
+    dashboardActive.current = true;
+    let intervalId: number | undefined;
+    const cancelPending = () => {
+      dashboardRequest.current?.abort();
+      trialRequest.current?.abort();
+      dashboardRequest.current = null;
+      trialRequest.current = null;
     };
-  }, [
-    loadDashboard,
-    loadTrialAccess,
-  ]);
+    const refresh = () => {
+      void loadDashboard();
+      void loadTrialAccess();
+    };
+    const syncVisibility = () => {
+      window.clearInterval(intervalId);
+      if (document.hidden) {
+        cancelPending();
+        return;
+      }
+      refresh();
+      // Preserve the existing operational interval; suppress overlapping cycles.
+      intervalId = window.setInterval(refresh, 30_000);
+    };
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    return () => {
+      dashboardActive.current = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", syncVisibility);
+      cancelPending();
+    };
+  }, [loadDashboard, loadTrialAccess]);
 
   const trialRemainingDays =
     getRemainingTrialDays(
@@ -695,20 +733,6 @@ export default function DashboardOperacional() {
       };
     }, [data]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-[#f7f7f8]">
-        <div className="text-center">
-          <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-black/10 border-t-[#0A9090]" />
-
-          <p className="mt-3 text-sm font-medium text-black/45">
-            Carregando operação...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8]">
       <div className="mx-auto w-full max-w-[1500px] px-6 py-7 lg:px-8">
@@ -751,11 +775,12 @@ export default function DashboardOperacional() {
             <div className="flex flex-wrap items-center gap-3 sm:ml-auto xl:ml-0">
               {lastUpdatedAt && (
                 <p className="whitespace-nowrap text-xs text-black/40">
-                  Atualizado às {formatTime(lastUpdatedAt)}
+                  {error ? "Última atualização válida às" : "Atualizado às"} {formatTime(lastUpdatedAt)}
                 </p>
               )}
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={() => {
                   void loadDashboard();
                   void loadTrialAccess();
@@ -765,7 +790,7 @@ export default function DashboardOperacional() {
                 <span className="flex items-center justify-center">
                   <RefreshIcon />
                 </span>
-                <span className="leading-none">Atualizar</span>
+                <span className="leading-none">{isLoading ? "Atualizando…" : "Atualizar"}</span>
               </button>
             </div>
           </div>
@@ -773,10 +798,16 @@ export default function DashboardOperacional() {
 
         {error && (
           <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
+            {error}{lastUpdatedAt ? " Os indicadores exibidos estão desatualizados." : ""}
           </div>
         )}
 
+        {!lastUpdatedAt ? (
+          <div className="mt-6 rounded-2xl border border-black/5 bg-white p-6 text-sm text-black/50" role="status">
+            {isLoading ? "Carregando indicadores…" : "Indicadores indisponíveis. Tente atualizar novamente."}
+          </div>
+        ) : (
+          <div aria-busy={isLoading}>
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MetricCard
             label="Agenda de hoje"
@@ -963,6 +994,8 @@ export default function DashboardOperacional() {
             </div>
           </article>
         </section>
+          </div>
+        )}
       </div>
     </main>
   );
