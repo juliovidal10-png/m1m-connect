@@ -442,8 +442,11 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
   if (inFlight) return inFlight;
 
   const refresh = (async () => {
-    const take = 200;
-    const maxPages = 50;
+    // A Evolution calcula a ultima mensagem de todas as conversas antes do LIMIT.
+    // Lotes maiores evitam repetir essa consulta; o teto continua em 10.000 registros.
+    // Este lote interno nao altera o limite de 100 itens por pagina da interface.
+    const take = 1000;
+    const maxPages = 10;
     const chats: EvolutionChat[] = [];
     const seen = new Set<string>();
     let complete = false;

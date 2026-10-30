@@ -19,13 +19,13 @@ const queue = moduleTS(fs.readFileSync(new URL('lib/conversation-queue.ts', src)
 const base = process.argv.find(x => x.startsWith('--compare-base='))?.split('=')[1];
 const candidateSource = fs.readFileSync(new URL('app/api/chat/list/route.ts', src), 'utf8');
 const raw = [], customers = [], attendances = [];
-for (let n = 0; n < 244; n++) {
-  const group = n < 240;
+for (let n = 0; n < 564; n++) {
+  const group = n < 560;
   const jid = group ? `1203${n}@g.us` : `5565999${n}@s.whatsapp.net`;
   raw.push({remoteJid: jid, pushName: `Conversa ${n}`, updatedAt: new Date(1800000000000 - n*1000).toISOString()});
   if (!group) {
     customers.push({id: `c${n}`, companyId: 'A', remoteJid: jid, name: `Conversa ${n}`, attendances: []});
-    if(n < 243) attendances.push({id: `a${n}`, companyId: 'A', customerId: `c${n}`, state: 'HUMANO', sectorId: 'A', responsibleId: n === 242 ? 'user1' : null, startedAt: n});
+    if(n < 563) attendances.push({id: `a${n}`, companyId: 'A', customerId: `c${n}`, state: 'HUMANO', sectorId: 'A', responsibleId: n === 562 ? 'user1' : null, startedAt: n});
   }
 }
 for (const c of customers) c.attendances = attendances.filter(a => a.customerId === c.id);
@@ -52,7 +52,7 @@ async function benchmark(text, label) {
   const [tabCounts, alertCount] = await Promise.all(cold.map(r => r.json()));
   assert.equal(alertCount.waitingCount, tabCounts.waiting);
   const sharedCold = {version: label, scenario: 'abas+alerta simultaneos, inventario frio', ms: Math.round((performance.now()-coldStart)*10)/10, chatCalls, groupCalls};
-  if(label === 'candidate') { assert.equal(chatCalls, 2); assert.equal(groupCalls, 0); }
+  if(label === 'candidate') { assert.equal(chatCalls, 1); assert.equal(groupCalls, 0); }
 
   const rows = [];
   for (const selected of ['OPEN','WAITING','IN_SERVICE','OPEN']) {
