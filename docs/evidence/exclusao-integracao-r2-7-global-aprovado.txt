@@ -1,0 +1,32 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | INTEGRACAO ISOLADA R2.7
+Base: 40ebcebb3cbfe7bcf3947e6ccceda991c163b806
+Candidato SHA256: b4f6653d9ebeda272344fc8c2b03ce964b42ce8fe77c6bc62f1ee24129df8b41
+SQL SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+Imagem PostgreSQL: sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+Reaproveitado R2.6: exclusao, revisao, retomada, descarte, F5, grupos, permissoes e isolamento aprovados. Esta rodada testa somente administracao global.
+Evidencia reaproveitada: R2.2 20261030-070045; 14 verificacoes PASSED em PostgreSQL 16.15 real. Nao repetidas nesta rodada. RepositorySHA256=f64fefb2a0f2460d9f49aaad06599c7a94dffaabadb951216ded11dfcf3f9039
+{
+  "operation": "DELETION_INTEGRATION_R2",
+  "status": "PASSED",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": true,
+  "browserReal": true,
+  "eventsSynthetic": true,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado em banco novo isolado",
+    "Usuarios sinteticos ativos com email normalizado conforme login real",
+    "Administrador global usa empresa selecionada, sem sessao de cliente",
+    "Navegador global: revisao e retorno preservam empresa selecionada sem login do cliente"
+  ],
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "reusedEvidence": "R2.6 20261030-093148: fluxo de exclusao/revisao no navegador e APIs aprovado; nao repetido nesta rodada",
+  "temporaryProcessesStopped": true,
+  "outboundSynthetic": 0
+}
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.

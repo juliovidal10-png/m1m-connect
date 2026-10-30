@@ -23,6 +23,10 @@ export async function POST(request: NextRequest) {
     const instance = company?.whatsappInstanceName?.trim();
     if (!instance || !API_URL || !API_KEY) return NextResponse.json({ error: "Instancia indisponivel" }, { status: 503 });
 
+    if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+      const {isDeletedOrPendingMessage}=await import("@/services/conversation-deletion.service");
+      for(const id of ids)if(await isDeletedOrPendingMessage(user.companyId,instance,id as string))return NextResponse.json({error:"A mensagem não faz parte do histórico disponível desta conversa."},{status:410});
+    }
     // Os identificadores informados pelo navegador sao apenas candidatos.
     // Cada registro deve ser reencontrado na instancia e vinculado ao JID da conversa
     // pelo proprio remoteJid ou pelo remoteJidAlt persistido na mensagem.

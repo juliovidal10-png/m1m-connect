@@ -44,6 +44,7 @@ enum M1MAttendanceEventType {
   TAKEN_BY_HUMAN
   FINISHED_BY_HUMAN
   FINISHED_BY_AI
+  REOPENED_AFTER_REVIEW
 }
 
 enum M1MAttendanceActorType {
@@ -151,6 +152,9 @@ model M1MCompany {
   legalAcceptances     M1MLegalAcceptance[]
 
   @@map("m1m_companies")
+  conversationDeletions M1MConversationDeletion[]
+  conversationDeletionReviews M1MConversationDeletionReview[]
+
 }
 
 model M1MCompanyProfile {
@@ -308,6 +312,7 @@ enum M1MUserPermission {
   VIEW_RECEIPTS
   DELETE_CUSTOMERS
   DELETE_MESSAGES
+  DELETE_CONVERSATIONS
   MANAGE_USERS
   MANAGE_SECTORS
   MANAGE_HOURS
@@ -687,3 +692,63 @@ model M1MLegalAcceptance {
   @@map("m1m_legal_acceptances")
 }
 
+
+// Estruturas do SQL autorizado em docs/proposals/exclusoes-conversas.sql.
+// Checks e indice parcial de pendencias continuam definidos nesse SQL revisavel.
+model M1MConversationDeletion {
+  id String @id
+  companyId String
+  instanceName String
+  remoteJid String
+  aliases String[]
+  requestKey String
+  actorKind String
+  actorId String
+  state String @default("PREVIEW")
+  version Int @default(1)
+  previewAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  confirmedAt DateTime?
+  completedAt DateTime?
+  lastErrorCode String?
+  company M1MCompany @relation(fields:[companyId], references:[id], onDelete:Restrict)
+  messageKeys M1MConversationDeletionMessageKey[]
+  reviews M1MConversationDeletionReview[]
+  @@unique([companyId,requestKey])
+  @@unique([id,companyId,instanceName])
+  @@index([companyId,instanceName,remoteJid,previewAt(sort:Desc)],map:"m1m_conversation_deletions_scope_idx")
+  @@index([aliases],type:Gin,map:"m1m_conversation_deletions_aliases_idx")
+  @@map("m1m_conversation_deletions")
+}
+model M1MConversationDeletionMessageKey {
+  deletionId String
+  companyId String
+  instanceName String
+  localMessageId String
+  evolutionMessageId String
+  expectedUpdatedAt DateTime
+  deletion M1MConversationDeletion @relation(fields:[deletionId,companyId,instanceName],references:[id,companyId,instanceName],onDelete:Restrict)
+  @@id([deletionId,evolutionMessageId])
+  @@index([companyId,instanceName,evolutionMessageId],map:"m1m_conversation_deletion_message_lookup_idx")
+  @@map("m1m_conversation_deletion_message_keys")
+}
+model M1MConversationDeletionReview {
+  id String @id
+  deletionId String?
+  companyId String
+  instanceName String
+  remoteJid String
+  evolutionMessageId String
+  reason String
+  state String @default("PENDING")
+  normalizedPayload Json?
+  firstSeenAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  lastSeenAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  version Int @default(1)
+  reviewedAt DateTime?
+  reviewerKind String?
+  reviewerId String?
+  company M1MCompany @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  deletion M1MConversationDeletion? @relation(fields:[deletionId,companyId,instanceName],references:[id,companyId,instanceName],onDelete:Restrict)
+  @@unique([companyId,instanceName,evolutionMessageId])
+  @@map("m1m_conversation_deletion_reviews")
+}

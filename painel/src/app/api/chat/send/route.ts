@@ -63,7 +63,7 @@ const API_URL =
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
 
-export async function POST(
+async function postWithoutDeletionGuard(
   request: Request,
 ) {
   try {
@@ -333,6 +333,10 @@ export async function POST(
         messageAuthorName,
       );
 
+      if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+        const deletion=await import("@/services/conversation-deletion.service");
+        await deletion.recordAuthenticatedSend({companyId,instanceName,remoteJid},evolutionMessageId,{content:text,type:"TEXT"},authenticatedUser.userId,messageAuthorName);
+      }
       // Transicao explicita do envio autenticado, nunca inferida pelo historico.
       const takeover = await humanTakeoverService.processAuthenticatedOutgoing({
         companyId,
@@ -401,3 +405,9 @@ export async function POST(
 
 
 
+
+export async function POST(request: Request) {
+  if(process.env.M1M_CONVERSATION_DELETION_ENABLED!=="true")return postWithoutDeletionGuard(request);
+  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
+  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"remote",true);
+}

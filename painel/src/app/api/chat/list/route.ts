@@ -744,8 +744,15 @@ export async function GET(request: Request) {
       });
     }
 
+    const deletionSnapshot=process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"
+      ? await (await import("@/services/conversation-deletion.service")).deletionListSnapshot(companyId,instanceName) : [];
+    const hiddenAfterDeletion=new Set(deletionSnapshot.filter(row=>row.state!=="RESUMED").flatMap(row=>row.aliases as string[]));
     function visible(items: EnrichedChat[], applyQueue = true): EnrichedChat[] {
-      return items.filter((chat) => {
+      return items.map(chat=>{
+        const resumed=deletionSnapshot.find(row=>row.state==='RESUMED'&&(row.aliases as string[]).some(jid=>jid===chat.remoteJid||jid===chat.canonicalJid));
+        return resumed?{...chat,lastMessage:resumed.lastMessage as EnrichedChat["lastMessage"]}:chat;
+      }).filter((chat) => {
+        if(hiddenAfterDeletion.has(chat.remoteJid||"")||hiddenAfterDeletion.has(chat.canonicalJid||""))return false;
         if (applyQueue && queue && getConversationQueue(chat) !== queue) return false;
         if (canViewAllConversations) return true;
         const isHuman =
@@ -776,7 +783,10 @@ export async function GET(request: Request) {
     if (wantsQueueCounts) {
       const rawChats = await getOperationalInventory(companyId, instanceName);
       const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
+      const pendingReviewCount=process.env.M1M_CONVERSATION_DELETION_ENABLED === "true" && (authenticatedUser.isPrimary || String(authenticatedUser.role)==="ADMIN")
+        ? Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName} AND state='PENDING'`)[0].count) : undefined;
       return NextResponse.json({
+        pendingReviewCount,
         waiting: items.filter((chat) => getConversationQueue(chat) === "WAITING").length,
         inService: items.filter((chat) => getConversationQueue(chat) === "IN_SERVICE").length,
       });

@@ -272,7 +272,24 @@ function isReceiptMediaType(
 }
 
 export const incomingMessagePipelineService = {
-  async process(
+  async process(rawMessage: unknown, instanceName: string, options?: PipelineOptions): Promise<{processed:boolean;action:string;[key:string]:unknown}> {
+    if(process.env.M1M_CONVERSATION_DELETION_ENABLED !== "true")return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    const message=conversationSyncService.normalizeMessage(rawMessage);
+    if(!message)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    const company=await companyRepository.findByWhatsappInstanceName(instanceName.trim());
+    if(!company)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    const access=await companyAccessService.checkCompanyAccess(company.id);
+    if(!access.allowed)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    const deletion=await import("./conversation-deletion.service");
+    const scope=await deletion.canonicalDeletionScope({companyId:company.id,instanceName:instanceName.trim(),remoteJid:message.remoteJid});
+    return deletion.withDeletionConversation(scope,async()=>{
+      if(options?.dryRun && await deletion.deletionMarker(scope))return {processed:false,action:"DELETION_REVIEW_REQUIRED_DRY_RUN"};
+      const intercepted=await deletion.interceptDeletedEvent(scope,message);
+      if(intercepted.action!=="NORMAL_FLOW")return {processed:false,action:intercepted.action};
+      return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    });
+  },
+  async processWithoutDeletionGuard(
     rawMessage: unknown,
     instanceName: string,
     options?: PipelineOptions,

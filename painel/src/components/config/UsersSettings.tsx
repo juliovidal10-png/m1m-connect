@@ -82,6 +82,14 @@ export default function UsersSettings({
   apiBaseUrl = "/api/users",
 }: UsersSettingsProps) {
   const [users, setUsers] = useState<User[]>([]);
+  const [conversationDeletionAvailable,setConversationDeletionAvailable]=useState(false);
+  useEffect(()=>{
+    const controller=new AbortController();
+    const selected=apiBaseUrl.match(/^\/api\/admin\/companies\/([^/]+)\/users$/)?.[1];
+    const url='/api/conversation-deletions'+(selected?'?companyId='+encodeURIComponent(decodeURIComponent(selected)):'');
+    fetch(url,{cache:'no-store',signal:controller.signal}).then(r=>r.ok?r.json():null).then(data=>{if(!controller.signal.aborted)setConversationDeletionAvailable(data?.enabled===true);}).catch(()=>{});
+    return()=>controller.abort();
+  },[apiBaseUrl]);
 
   const [form, setForm] = useState<UserFormData>(emptyForm);
 
@@ -203,7 +211,7 @@ export default function UsersSettings({
     setForm((current) => ({
       ...current,
       useCustomPermissions: enabled,
-      permissions: enabled ? current.permissions : [],
+      permissions: enabled ? current.permissions : current.permissions.filter(p=>p==="DELETE_CONVERSATIONS"),
     }));
 
     clearFeedback();
@@ -250,7 +258,7 @@ export default function UsersSettings({
             role: form.role,
             useCustomPermissions:
               form.role === "ADMIN" ? false : form.useCustomPermissions,
-            permissions: form.role === "ADMIN" ? [] : form.permissions,
+            permissions: form.role === "ADMIN" ? form.permissions.filter(p=>p==="DELETE_CONVERSATIONS") : form.permissions,
             active: form.active,
           }),
         },
@@ -664,10 +672,14 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
             disabled={form.role === "ADMIN"}
             onEnabledChange={updateCustomPermissions}
             onPermissionsChange={(permissions) =>
-              updateField("permissions", permissions)
+              updateField("permissions", [...permissions.filter(p=>p!=="DELETE_CONVERSATIONS"),...form.permissions.filter(p=>p==="DELETE_CONVERSATIONS")])
             }
           />
 
+          {conversationDeletionAvailable&&<label className="mt-5 flex items-start gap-3 rounded-2xl border border-red-100 p-4">
+            <input type="checkbox" disabled={isSaving} checked={form.permissions.includes("DELETE_CONVERSATIONS")} onChange={event=>updateField("permissions",event.target.checked?[...form.permissions.filter(p=>p!=="DELETE_CONVERSATIONS"),"DELETE_CONVERSATIONS"]:form.permissions.filter(p=>p!=="DELETE_CONVERSATIONS"))} className="mt-1 h-4 w-4"/>
+            <span><strong className="block text-sm">Excluir conversas no M1M Connect</strong><span className="text-sm text-black/60">Concessão explícita, inclusive para administradores. Permite excluir o histórico local de uma conversa; não apaga mensagens no WhatsApp nem libera limpeza geral.</span></span>
+          </label>}
           <div className="mt-6 flex justify-end">
             <button
               type="submit"
