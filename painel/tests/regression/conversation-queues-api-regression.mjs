@@ -139,10 +139,24 @@ state.calls = [];
 assert.equal((await get('waitingCount=1')).waitingCount, afterNew.waiting + 1);
 assert.equal(state.calls.filter(c => c.url.includes('/group/')).length, 0);
 assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length, 1);
+// Mais de um lote interno: nao truncar em 1.000 nem alterar a pagina de 100.
+for (let n = 0; n < 1000; n++) add('HUMANO');
+clockOffset += 61000; state.calls = [];
+const many = await get('queueCounts=1');
+assert.equal(many.waiting, afterNew.waiting + 1001);
+assert.deepEqual(state.calls.map(c => [c.body.take, c.body.skip]), [[1000, 0], [1000, 1000]]);
+assert.equal((await get('queue=WAITING&offset=1000&limit=999')).items.length, 100);
+// Lote exato de 1.000 exige confirmar o fim; cache isolado entre empresas.
+for (let n = 0; n < 999; n++) add('HUMANO', {company: 'B'});
+state.company = 'B'; clockOffset += 61000; state.calls = [];
+assert.equal((await get('queueCounts=1')).waiting, 1000);
+assert.deepEqual(state.calls.map(c => [c.body.take, c.body.skip]), [[1000, 0], [1000, 1000]]);
+state.company = 'A';
 // Varredura limitada: informa indisponibilidade em vez de aparentar fila vazia.
 state.infinite = true; state.calls = []; clockOffset += 61000;
 result = await get('queue=WAITING&search=inexistente'); assert.equal(result.status, 503);
-assert.equal(state.calls.length, 50);
+assert.equal(state.calls.length, 10);
+assert.ok(state.calls.every(c => c.body.take === 1000));
 result = await get('waitingCount=1'); assert.equal(result.status, 500);
 assert.equal(result.waitingCount, undefined, 'falha nao pode ser apresentada como zero');
 console.log('PASS API: filas exclusivas; filtro/busca antes da paginacao; grupos; finalizados e acesso historico; transicoes/reconsulta; contadores por permissao/setor; isolamento empresa/instancia; limite de varredura. Banco/auth/Evolution simulados.');
