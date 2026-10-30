@@ -8,10 +8,13 @@ import {createServer} from 'node:http';
 const require=createRequire(process.env.M1M_DELETION_REQUIRE_BASE||import.meta.url);
 const {Client}=require('pg'),bcrypt=require('bcryptjs');
 assert.equal(process.env.M1M_DELETION_ISOLATED,'1');
-const embedded=process.env.M1M_DELETION_EMBEDDED==='1',withBrowser=process.env.M1M_DELETION_BROWSER==='1',globalOnly=process.env.M1M_DELETION_GLOBAL_ONLY==='1',concurrencyOnly=process.env.M1M_DELETION_CONCURRENCY_ONLY==='1';
-const report={operation:'DELETION_INTEGRATION_R2',status:'STARTED',postgresServerReal:!embedded,postgresEmbedded:embedded,authenticationReal:false,browserReal:false,eventsSynthetic:true,whatsappAccess:false,checks:[]};
+const embedded=process.env.M1M_DELETION_EMBEDDED==='1',withBrowser=process.env.M1M_DELETION_BROWSER==='1',globalOnly=process.env.M1M_DELETION_GLOBAL_ONLY==='1',concurrencyOnly=process.env.M1M_DELETION_CONCURRENCY_ONLY==='1',durableOnly=process.env.M1M_DURABLE_RECEIPT_ONLY==='1';
+const report={operation:durableOnly?'DURABLE_CONCURRENT_RECEIPT_R3':'DELETION_INTEGRATION_R2',status:'STARTED',postgresServerReal:!embedded,postgresEmbedded:embedded,authenticationReal:false,browserReal:false,eventsSynthetic:true,whatsappAccess:false,checks:[]};
 const sql=fs.readFileSync(new URL('../../../docs/proposals/exclusoes-conversas.sql',import.meta.url),'utf8');
 report.sqlSha256=createHash('sha256').update(sql).digest('hex');
+const extension=fs.readFileSync(new URL('../../../docs/proposals/recebimento-concorrente-revisao-proposta.sql',import.meta.url),'utf8'),rollback=fs.readFileSync(new URL('../../../docs/proposals/recebimento-concorrente-revisao-rollback.sql',import.meta.url),'utf8');
+report.extensionSqlSha256=createHash('sha256').update(extension).digest('hex');report.rollbackSqlSha256=createHash('sha256').update(rollback).digest('hex');
+if(durableOnly)assert.equal(report.extensionSqlSha256,'a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e');
 const port=async()=>{const s=createServer();await new Promise(r=>s.listen(0,'127.0.0.1',r));const p=s.address().port;await new Promise(r=>s.close(r));return p;};
 const jid='5511999000001@s.whatsapp.net',group='120363000000001@g.us',human='5511999000002@s.whatsapp.net';
 const event=(id,text,remote=jid,fromMe=false)=>({key:{id,remoteJid:remote,fromMe},message:{conversation:text},messageType:'conversation',messageTimestamp:Math.floor(Date.now()/1000),pushName:'Contato sintetico A'});
@@ -20,16 +23,18 @@ const history=new Map([[jid,[old]],[group,[oldGroup]],[human,[]]]);
 let outbound=0,app,db,engine,socket,mock,browser,context,log='',connectionString=process.env.DATABASE_URL;
 const secret='synthetic-webhook-'+randomUUID(),adminKey='synthetic-admin-'+randomUUID(),password='Synthetic-'+randomUUID();
 const pass=s=>report.checks.push(s);
+async function stopApplication(){if(!app?.pid)return;
+  if(process.platform==='win32'){const result=spawnSync('taskkill.exe',['/PID',String(app.pid),'/T','/F'],{stdio:'ignore'});if(result.status!==0&&app.exitCode===null)throw Error('APP_STOP_FAILED');}
+  else{try{process.kill(-app.pid,'SIGTERM');}catch(e){if(e.code!=='ESRCH')throw e;}await new Promise(r=>setTimeout(r,500));try{process.kill(-app.pid,'SIGKILL');}catch(e){if(e.code!=='ESRCH')throw e;}}
+ app=undefined;
+}
 let cleanupPromise;
 function cleanupResources(){return cleanupPromise??=(async()=>{
  delete report._page;const errors=[];
  const stop=async(name,work)=>{try{await work();}catch{errors.push(name);}};
  if(context)await stop('browser-context',()=>context.close());
  if(browser)await stop('browser',()=>browser.close());
- if(app?.pid)await stop('application',async()=>{
-  if(process.platform==='win32'){const result=spawnSync('taskkill.exe',['/PID',String(app.pid),'/T','/F'],{stdio:'ignore'});if(result.status!==0&&app.exitCode===null)throw Error('APP_STOP_FAILED');}
-  else{try{process.kill(-app.pid,'SIGTERM');}catch(e){if(e.code!=='ESRCH')throw e;}await new Promise(r=>setTimeout(r,500));try{process.kill(-app.pid,'SIGKILL');}catch(e){if(e.code!=='ESRCH')throw e;}}
- });
+ if(app?.pid)await stop('application',stopApplication);
  if(db)await stop('database-client',()=>db.end());
  if(mock)await stop('fake-provider',async()=>{mock.closeAllConnections();await new Promise(r=>mock.close(r));});
  if(socket)await stop('embedded-socket',()=>socket.stop());
@@ -45,7 +50,14 @@ try{
  if(!embedded){const v=Number((await db.query('SHOW server_version_num')).rows[0].server_version_num);assert.ok(v>=160000&&v<170000);}
  assert.equal(Number((await db.query("SELECT count(*) n FROM information_schema.tables WHERE table_schema='public'")).rows[0].n),0);
  await db.query(fs.readFileSync(new URL('../fixtures/conversation-deletion-baseline.sql',import.meta.url),'utf8'));await db.query(sql);pass('SQL exato aplicado em banco novo isolado');
+ if(durableOnly){
+  const constraints=async()=>(await db.query("SELECT conname,pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid='m1m_conversation_deletion_reviews'::regclass ORDER BY conname")).rows;
+  const before=await constraints();await db.query(extension);const after=await constraints();for(const c of before.filter(c=>!c.def.includes('UNRESOLVED_IDENTITY')))assert.ok(after.some(n=>n.conname===c.conname&&n.def===c.def));
+  await db.query(rollback);await db.query(extension);pass('Dois CHECKs ampliados e demais constraints preservadas; rollback sem registros novos e reaplicacao aprovados no PostgreSQL real');
+ }
+
  for(const [id,name,instance] of [['empresa-teste','Marketing1Minuto','M1MTesteIA'],['synthetic-B','Empresa sintetica B','instance-B']])await db.query(`INSERT INTO m1m_companies(id,name,slug,"whatsappInstanceName","onboardingCompleted","subscriptionStatus","aiEnabled","updatedAt") VALUES($1,$2,$1,$3,true,'ACTIVE',false,now())`,[id,name,instance]);
+ if(durableOnly){for(const reason of ['INVALID_REASON','UNCERTAIN_ORIGIN'])await assert.rejects(db.query(`INSERT INTO m1m_conversation_deletion_reviews(id,"companyId","instanceName","remoteJid","evolutionMessageId",reason,"normalizedPayload") VALUES($1,'empresa-teste','M1MTesteIA',$2,$1,$3,'{}'::jsonb)`,[randomUUID(),jid,reason]),e=>e.code==='23514');pass('PostgreSQL real rejeita motivo invalido e UNCERTAIN_ORIGIN sem vinculo; CHECKs preservados');}
  const hash=await bcrypt.hash(password,10);
  for(const [id,company,role,perms,primary] of [['admin-A','empresa-teste','ADMIN',['DELETE_CONVERSATIONS'],false],['admin-B','synthetic-B','ADMIN',['DELETE_CONVERSATIONS'],false],['denied','empresa-teste','ATTENDANT',['DELETE_MESSAGES','VIEW_ALL_CONVERSATIONS'],false],['primary-no-delete','empresa-teste','ADMIN',[],true]])await db.query(`INSERT INTO m1m_users(id,"companyId",name,email,"passwordHash",role,permissions,"isPrimary","updatedAt") VALUES($1,$2,$1,$3,$4,$5,$6::"M1MUserPermission"[],$7,now())`,[id,company,id.toLowerCase()+'@example.invalid',hash,role,perms,primary]);
  assert.equal(Number((await db.query('SELECT count(*) n FROM m1m_users WHERE email <> lower(trim(email)) OR active=false')).rows[0].n),0);pass('Usuarios sinteticos ativos com email normalizado conforme login real');
@@ -65,11 +77,74 @@ try{
  const base='http://localhost:'+await port();const env={};for(const k of ['PATH','Path','HOME','USERPROFILE','SystemRoot','SYSTEMROOT','COMSPEC','TEMP','TMP','APPDATA','LOCALAPPDATA'])if(process.env[k])env[k]=process.env[k];
  Object.assign(env,{NODE_ENV:'development',DATABASE_URL:connectionString,M1M_SESSION_SECRET:'synthetic-session-'+randomUUID(),M1M_ADMIN_KEY:adminKey,M1M_WEBHOOK_SECRET:secret,M1M_CONVERSATION_DELETION_ENABLED:'true',M1M_TF3A_UNREAD_LEDGER_ENABLED:'false',EVOLUTION_API_URL:'http://127.0.0.1:'+mock.address().port,EVOLUTION_API_KEY:'synthetic-fake-provider',NEXT_TELEMETRY_DISABLED:'1'});
  assert.ok(!fs.existsSync('.env'),'Nao carregar .env do projeto');
+ async function startApplication(){
  app=spawn(process.execPath,[require.resolve('next/dist/bin/next'),'dev','--webpack','--hostname','127.0.0.1','--port',new URL(base).port],{cwd:process.cwd(),env,detached:process.platform!=='win32',stdio:['ignore','pipe','pipe']});for(const stream of [app.stdout,app.stderr])stream.on('data',b=>{log=(log+b.toString()).slice(-20000);});
  let ready=false;for(let i=0;i<120;i++){if(app.exitCode!==null)throw Error('APP_EXITED');try{if((await fetch(base+'/api/admin/session',{signal:AbortSignal.timeout(2000)})).status===200){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,500));}assert.ok(ready,'APP_NOT_READY');
+ }
+ await startApplication();
  const request=(cookie,p,options={})=>fetch(base+p,{...options,headers:{'Content-Type':'application/json',Origin:base,...(cookie?{Cookie:cookie}:{}),...options.headers},signal:AbortSignal.timeout(60000)});
  const login=async id=>{const r=await request(null,'/api/auth/login',{method:'POST',body:JSON.stringify({email:id.toLowerCase()+'@example.invalid',password})});assert.equal(r.status,200,await r.clone().text());const cookie=r.headers.get('set-cookie').split(';')[0];return {get:p=>request(cookie,p),post:(p,data)=>request(cookie,p,{method:'POST',body:JSON.stringify(data)}),put:(p,data)=>request(cookie,p,{method:'PUT',body:JSON.stringify(data)}),postOrigin:(p,data,origin)=>request(cookie,p,{method:'POST',headers:{Origin:origin},body:JSON.stringify(data)})};};
  const api='/api/conversation-deletions';
+ if(durableOnly){
+  report.reusedEvidence='R2.6/R2.7: fluxos e navegador anteriores. Esta rodada valida somente recuperacao duravel e regressao afetada.';
+  let a=await login('admin-A');report.authenticationReal=true;
+  const submit=(e,instance='M1MTesteIA')=>request(null,'/api/webhooks/evolution/messages',{method:'POST',headers:{'x-m1m-webhook-secret':secret},body:JSON.stringify({event:'messages.upsert',instance,data:e})});
+  const rowFor=async(id,company='empresa-teste',instance='M1MTesteIA')=>(await db.query('SELECT * FROM m1m_conversation_deletion_reviews WHERE "companyId"=$1 AND "instanceName"=$2 AND "evolutionMessageId"=$3',[company,instance,id])).rows[0];
+  const heldReceipt=async(e,company='empresa-teste',instance='M1MTesteIA')=>{const key=JSON.stringify([company,instance,e.key.remoteJid]);await db.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[key]);try{const r=await submit(e,instance);assert.equal(r.status,200,await r.clone().text());return r.json();}finally{await db.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}};
+  const decide=async(row,decision,client=a)=>client.post(api,{action:'review',reviewId:row.id,version:row.version,decision});
+  const attendanceBefore=Number((await db.query('SELECT count(*) n FROM m1m_attendances')).rows[0].n);
+  const prep=await a.post(api,{action:'prepare',remoteJid:jid,requestKey:randomUUID()});assert.equal(prep.status,200,await prep.clone().text());const op=await prep.json();
+  await request(null,'/api/webhooks/evolution/messages');
+  await db.query(`UPDATE m1m_companies SET "aiEnabled"=true WHERE id='empresa-teste'`);
+  const incoming=event('durable-one','EVENTO_DURAVEL_UM'),second=event('durable-two','EVENTO_DURAVEL_DOIS');
+  const key=JSON.stringify(['empresa-teste','M1MTesteIA',jid]);let confirmation,held=false;
+  try{
+   await db.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[key]);held=true;
+   confirmation=a.post(api,{action:'confirm',remoteJid:jid,id:op.id,version:op.version}).then(async r=>({status:r.status,data:await r.json()}),e=>({error:String(e)}));
+   let waiting=false;for(let i=0;i<30;i++){if((await db.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND NOT granted) AS waiting")).rows[0].waiting){waiting=true;break;}await new Promise(r=>setTimeout(r,20));}assert.ok(waiting,'CONFIRMATION_LOCK_BARRIER_REQUIRED');
+   const r=await submit(incoming);assert.equal(r.status,200,await r.clone().text());assert.equal((await r.json()).action,'ADMIN_REVIEW_CONCURRENT');
+   const stored=await rowFor(incoming.key.id);assert.equal(stored.reason,'CONCURRENT_RECEIPT');assert.equal(stored.deletionId,null);assert.equal(stored.normalizedPayload.text,'EVENTO_DURAVEL_UM');assert.equal(stored.state,'PENDING');
+   assert.equal((await db.query('SELECT 1 FROM m1m_messages WHERE "companyId"=$1 AND "evolutionMessageId"=$2',['empresa-teste',incoming.key.id])).rowCount,0);
+   report.durableBeforeAcknowledged={httpStatus:200,reviewPersisted:true,reviewVisibleFromIndependentConnection:true,exclusionStillBlocked:true};
+  }finally{if(held)await db.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}
+  const finished=await confirmation;assert.equal(finished.status,200,JSON.stringify(finished));
+  pass('Recebimento concorrente COMMITado na revisao antes do 2xx; confirmacao de exclusao aguardava barreira real');
+  const first=await rowFor(incoming.key.id);assert.equal((await heldReceipt(second)).action,'ADMIN_REVIEW_CONCURRENT');
+  const pidBefore=app.pid;await stopApplication();await startApplication();assert.notEqual(app.pid,pidBefore);a=await login('admin-A');
+  const afterRestart=await (await a.get(api+'?reviews=1')).json();assert.ok(afterRestart.items.some(r=>r.id===first.id&&r.normalizedPayload.text==='EVENTO_DURAVEL_UM'));
+  report.restart={previousPid:pidBefore,currentPid:app.pid,pendingRecovered:true,externalRedelivery:false};pass('Processo Next encerrado e reiniciado; revisao recuperada pela API sem reenviar o evento');
+  const repeated=await submit(incoming);assert.equal(repeated.status,200);assert.equal((await repeated.json()).action,'ADMIN_REVIEW');assert.equal((await rowFor(incoming.key.id)).id,first.id);
+  assert.equal((await db.query('SELECT count(*) n FROM m1m_conversation_deletion_reviews WHERE "companyId"=$1 AND "evolutionMessageId"=$2',['empresa-teste',incoming.key.id])).rows[0].n,'1');
+  pass('Repeticao apos reinicio nao duplica revisao nem grava mensagem normal');
+  const resume=await decide(first,'RESUME');assert.equal(resume.status,200,await resume.clone().text());
+  assert.equal((await db.query('SELECT count(*) n FROM m1m_messages WHERE "companyId"=\'empresa-teste\' AND "instanceName"=\'M1MTesteIA\' AND "remoteJid"=$1',[jid])).rows[0].n,'1');
+  assert.equal((await db.query('SELECT "rawPayload" FROM m1m_messages WHERE "evolutionMessageId"=$1',[incoming.key.id])).rows[0].rawPayload.m1mOrigin,'ADMIN_ACCEPTED_UNCERTAIN');
+  assert.equal((await (await submit(incoming)).json()).action,'ALREADY_REVIEWED');assert.equal((await (await submit(second)).json()).action,'ADMIN_REVIEW');
+  const discard=await decide(await rowFor(second.key.id),'DISCARD');assert.equal(discard.status,200);assert.equal((await (await submit(second)).json()).action,'IGNORE_DISCARDED_EVENT');
+  assert.equal((await rowFor(second.key.id)).normalizedPayload,null);pass('Retomada seleciona somente um evento; descarte e repeticoes nao recriam pendencias nem restauram historico');
+  const knownReceipt=await heldReceipt(old);assert.equal(knownReceipt.action,'ADMIN_REVIEW_CONCURRENT');const known=await rowFor(old.key.id);const deniedOld=await decide(known,'RESUME');assert.equal(deniedOld.status,409);assert.equal((await deniedOld.json()).code,'KNOWN_DELETED_HISTORY');assert.equal((await decide(known,'DISCARD')).status,200);assert.equal((await db.query('SELECT 1 FROM m1m_messages WHERE id=\'old-A\'')).rowCount,0);pass('Revisao revalida manifesto e impede importar historico comprovadamente excluido');
+  const race=event('durable-race','EVENTO_DURAVEL_DISPUTA');await heldReceipt(race);const pending=await rowFor(race.key.id);
+  const overlap=await Promise.all([...['RESUME','DISCARD'].map(async decision=>{const r=await decide(pending,decision);return {decision,status:r.status};}),submit(race).then(async r=>({status:r.status,action:(await r.json()).action}))]);const outcomes=overlap.slice(0,2);assert.deepEqual(outcomes.map(x=>x.status).sort(),[200,409]);assert.equal(overlap[2].status,200);assert.ok(['ADMIN_REVIEW','ADMIN_REVIEW_CONCURRENT','ALREADY_REVIEWED','IGNORE_DISCARDED_EVENT'].includes(overlap[2].action));
+  const winner=outcomes.find(x=>x.status===200).decision;assert.equal((await rowFor(race.key.id)).state,winner==='RESUME'?'RESUMED':'DISCARDED');assert.equal((await (await submit(race)).json()).action,winner==='RESUME'?'ALREADY_REVIEWED':'IGNORE_DISCARDED_EVENT');pass('Recebimento e revisoes concorrentes: uma decisao vence; outra 409; repeticao respeita decisao');
+  const other=await heldReceipt(incoming,'synthetic-B','instance-B');assert.equal(other.action,'ADMIN_REVIEW_CONCURRENT');const b=await login('admin-B');assert.equal((await decide(await rowFor(incoming.key.id,'synthetic-B','instance-B'),'RESUME',a)).status,404);assert.equal((await (await b.get(api+'?reviews=1')).json()).items.some(r=>r.evolutionMessageId===incoming.key.id),true);assert.equal((await rowFor(incoming.key.id)).state,'RESUMED');pass('Mesmo ID em empresa/instancia diferentes permanece isolado e revisao cruzada e recusada');
+  const otherInstance='synthetic-other-instance';await db.query(`UPDATE m1m_companies SET "whatsappInstanceName"=$1 WHERE id='empresa-teste'`,[otherInstance]);
+  try{assert.equal((await heldReceipt(incoming,'empresa-teste',otherInstance)).action,'ADMIN_REVIEW_CONCURRENT');}finally{await db.query(`UPDATE m1m_companies SET "whatsappInstanceName"='M1MTesteIA' WHERE id='empresa-teste'`);}
+  assert.equal((await rowFor(incoming.key.id,'empresa-teste',otherInstance)).state,'PENDING');assert.equal((await rowFor(incoming.key.id)).state,'RESUMED');pass('Mesma empresa e mesmo ID em outra instancia sintetica nao alteram revisao original');
+  const groupEvent=event('durable-group','EVENTO_GRUPO_DURAVEL',group);assert.equal((await heldReceipt(groupEvent)).action,'ADMIN_REVIEW_CONCURRENT');assert.equal((await decide(await rowFor(groupEvent.key.id),'DISCARD')).status,200);assert.equal((await (await submit(groupEvent)).json()).action,'IGNORE_DISCARDED_EVENT');pass('Recebimento concorrente em grupo permanece na revisao e respeita descarte sem atendimento automatico');
+  assert.equal((await (await a.get(api+'?reviews=1')).json()).items.some(r=>r.evolutionMessageId===incoming.key.id),false);pass('API de revisao da instancia atual nao revela pendencias de outra instancia ou empresa');
+  const humanReceipt=event('durable-human','EVENTO_PENDENTE_HUMANO',human);await heldReceipt(humanReceipt);const humanReview=await rowFor(humanReceipt.key.id);const humanBlocked=await decide(humanReview,'RESUME');assert.equal(humanBlocked.status,409);assert.equal((await rowFor(humanReceipt.key.id)).state,'PENDING');pass('Retomada em HUMANO ativo continua bloqueada; evento permanece recuperavel');
+  // Falha real de persistencia: lock em tabela existente, sem trigger/schema/fault bypass.
+  const blocker=new Client({connectionString,connectionTimeoutMillis:5000});const fail=event('durable-write-failure','NAO_CONFIRMAR_SEM_COMMIT');
+  await blocker.connect();let conversationLocked=false;
+  try{await db.query('SELECT pg_advisory_lock(hashtextextended($1,0))',[key]);conversationLocked=true;await blocker.query('BEGIN');await blocker.query('LOCK TABLE m1m_conversation_deletion_reviews IN ACCESS EXCLUSIVE MODE');const failed=await submit(fail);report.persistenceFailureHttpStatus=failed.status;assert.equal(failed.status,500,'Nao confirmar sucesso sem persistencia');}
+  finally{await blocker.query('ROLLBACK');await blocker.end();if(conversationLocked)await db.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}
+  assert.equal(await rowFor(fail.key.id),undefined);pass('Falha real de gravacao por lock_timeout retorna 500 sem ACK falso; nenhum registro parcial');
+  await assert.rejects(db.query(rollback),/ROLLBACK_BLOCKED_PRESERVE_CONCURRENT_RECEIPTS/);await db.query('ROLLBACK');assert.ok(await rowFor(second.key.id));pass('Rollback com registros CONCURRENT_RECEIPT bloqueado, incluindo decididos; dados preservados');
+  // Callback manual nao duplica atendimento quando ID ja foi persistido pelo processamento anterior.
+  const already=event('old-B','OUTRA_EMPRESA');await heldReceipt(already,'synthetic-B','instance-B');const before=Number((await db.query('SELECT count(*) n FROM m1m_attendances')).rows[0].n);assert.equal((await decide(await rowFor('old-B','synthetic-B','instance-B'),'RESUME',b)).status,200);assert.equal(Number((await db.query('SELECT count(*) n FROM m1m_attendances')).rows[0].n),before);pass('Evento ja persistido reconhecido sem duplicar mensagem ou criar atendimento');
+  assert.equal(Number((await db.query('SELECT count(*) n FROM m1m_attendances')).rows[0].n),attendanceBefore);assert.equal(outbound,0);assert.equal((await db.query('SELECT 1 FROM m1m_messages WHERE id=\'old-A\'')).rowCount,0);pass('Eventos em revisao nao acionam IA/atendimento; historico excluido segue ausente');
+
+ }else{
  if(concurrencyOnly){
   report.reusedEvidence='R2.2: nucleo PG; R2.6: fluxo principal; R2.7: navegador global. Nao repetidos.';
   const a=await login('admin-A');report.authenticationReal=true;
@@ -148,6 +223,7 @@ try{
    await page.goto(base+'/m1m-admin');await page.getByLabel('Chave administrativa',{exact:true}).fill(adminKey);await page.getByRole('button',{name:'Entrar no M1M Admin',exact:true}).click();await page.getByRole('button',{name:'Entrar no M1M Admin',exact:true}).waitFor({state:'hidden'});
    await page.locator('article').filter({hasText:'Empresa sintetica B'}).getByRole('button',{name:'Gerenciar',exact:true}).click();await page.waitForURL(u=>u.pathname==='/m1m-admin/companies/synthetic-B/manage');await page.getByRole('link',{name:/Revisar eventos de origem incerta/}).click();await page.getByText('Empresa sintetica B',{exact:true}).waitFor();await page.getByRole('link',{name:'← Voltar ao gerenciamento da empresa',exact:true}).click();await page.waitForURL(u=>u.pathname==='/m1m-admin/companies/synthetic-B/manage');assert.equal((await globalContext.cookies()).some(c=>c.name==='m1m_session'),false);pass('Navegador global: revisao e retorno preservam empresa selecionada sem login do cliente');
   }finally{await globalContext.close();}
+ }
  }
  }
  report.status='PASSED';

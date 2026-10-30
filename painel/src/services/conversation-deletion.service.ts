@@ -59,14 +59,8 @@ export async function deletionMarker(scope:DeletionScope){
     AND state IN ('DELETING','DELETED','RESUMED','FAILED') ORDER BY "previewAt" DESC,id DESC LIMIT 1`;
   return rows[0]??null;
 }
-export async function interceptDeletedEvent(scope:DeletionScope,message:{evolutionMessageId:string;content?:string|null;type?:unknown;fromMe?:boolean;sentAt?:Date;authorName?:string|null;rawPayload?:unknown;mediaUrl?:string|null;mimeType?:string|null}){
-  if(!conversationDeletionEnabled())return {action:'NORMAL_FLOW'};
-  const marker=await deletionMarker(scope);
-  if(marker){
-    const existing=await prisma.m1MMessage.findUnique({where:{companyId_instanceName_evolutionMessageId:{companyId:scope.companyId,instanceName:scope.instanceName,evolutionMessageId:message.evolutionMessageId}},select:{authorId:true,rawPayload:true}});
-    const raw=existing?.rawPayload as Row|null,receipt=raw?.m1mSendReceipt as Row|undefined;
-    if(existing?.authorId&&raw?.m1mOrigin==='AUTHENTICATED_PANEL_SEND'&&receipt?.deletionId===marker.id&&receipt?.userId===existing.authorId)return {action:'AUTHENTICATED_SEND_ALREADY_PROCESSED'};
-  }
+type ReviewableMessage={evolutionMessageId:string;content?:string|null;type?:unknown;fromMe?:boolean;sentAt?:Date;authorName?:string|null;rawPayload?:unknown;mediaUrl?:string|null;mimeType?:string|null};
+function deletionReviewPayload(message:ReviewableMessage){
   const raw=message.rawPayload&&typeof message.rawPayload==='object'?message.rawPayload as Row:{};
   const body=raw.message&&typeof raw.message==='object'?raw.message as Row:{};
   const retained:Row={};
@@ -77,7 +71,24 @@ export async function interceptDeletedEvent(scope:DeletionScope,message:{evoluti
     retained[key]=value;
   }
   if(message.content)retained.conversation=message.content;
-  const payload={text:message.content??null,type:String(message.type??'UNKNOWN'),fromMe:message.fromMe===true,sentAt:message.sentAt?.toISOString(),authorName:message.authorName??null,message:retained,mediaUrl:message.mediaUrl??null,mimeType:message.mimeType??null};
+  return {text:message.content??null,type:String(message.type??'UNKNOWN'),fromMe:message.fromMe===true,sentAt:message.sentAt?.toISOString(),authorName:message.authorName??null,message:retained,mediaUrl:message.mediaUrl??null,mimeType:message.mimeType??null};
+}
+export function isConversationBusy(error:unknown){return error instanceof ConversationDeletionError&&error.code==='CONVERSATION_BUSY';}
+export async function persistConcurrentReceipt(scope:DeletionScope,message:ReviewableMessage){
+  return conversationDeletionRepository.ingestConcurrent(scope,message.evolutionMessageId,deletionReviewPayload(message));
+}
+export async function interceptDeletedEvent(scope:DeletionScope,message:{evolutionMessageId:string;content?:string|null;type?:unknown;fromMe?:boolean;sentAt?:Date;authorName?:string|null;rawPayload?:unknown;mediaUrl?:string|null;mimeType?:string|null}){
+  if(!conversationDeletionEnabled())return {action:'NORMAL_FLOW'};
+  const previous=await prisma.$queryRaw<Row[]>`SELECT state FROM m1m_conversation_deletion_reviews WHERE "companyId"=${scope.companyId}
+    AND "instanceName"=${scope.instanceName} AND "evolutionMessageId"=${message.evolutionMessageId} LIMIT 1`;
+  if(previous[0])return {action:previous[0].state==='DISCARDED'?'IGNORE_DISCARDED_EVENT':previous[0].state==='RESUMED'?'ALREADY_REVIEWED':'ADMIN_REVIEW'};
+  const marker=await deletionMarker(scope);
+  if(marker){
+    const existing=await prisma.m1MMessage.findUnique({where:{companyId_instanceName_evolutionMessageId:{companyId:scope.companyId,instanceName:scope.instanceName,evolutionMessageId:message.evolutionMessageId}},select:{authorId:true,rawPayload:true}});
+    const raw=existing?.rawPayload as Row|null,receipt=raw?.m1mSendReceipt as Row|undefined;
+    if(existing?.authorId&&raw?.m1mOrigin==='AUTHENTICATED_PANEL_SEND'&&receipt?.deletionId===marker.id&&receipt?.userId===existing.authorId)return {action:'AUTHENTICATED_SEND_ALREADY_PROCESSED'};
+  }
+  const payload=deletionReviewPayload(message);
   if(!marker&&scope.remoteJid.endsWith('@lid')){
     const possible=await prisma.$queryRaw<Row[]>`SELECT id FROM m1m_conversation_deletions WHERE "companyId"=${scope.companyId} AND "instanceName"=${scope.instanceName}
       AND state IN ('DELETED','RESUMED','DELETING','FAILED') LIMIT 1`;
@@ -129,6 +140,8 @@ export async function listDeletionReviews(companyId:string,instanceName:string,o
 export async function importReviewedMessage(db:DeletionConnection,scope:DeletionScope,event:Row,actor:Actor) {
   const customer=(await db.query(`SELECT id FROM m1m_customers WHERE "companyId"=$1 AND "remoteJid"=$2 FOR UPDATE`,[scope.companyId,scope.remoteJid])).rows[0];
   if(!customer)throw new ConversationDeletionError("CONTACT_IDENTITY_REQUIRED");
+  const existing=(await db.query(`SELECT "customerId" FROM m1m_messages WHERE "companyId"=$1 AND "instanceName"=$2 AND "evolutionMessageId"=$3`,[scope.companyId,scope.instanceName,event.evolutionMessageId])).rows[0];
+  if(existing){if(existing.customerId!==customer.id)throw new ConversationDeletionError('REVIEW_EVENT_SCOPE_CONFLICT');return;}
   const active=(await db.query(`SELECT id,state FROM m1m_attendances WHERE "companyId"=$1 AND "customerId"=$2 AND state IN ('IA','HUMANO') ORDER BY "startedAt" DESC LIMIT 1 FOR UPDATE`,[scope.companyId,customer.id])).rows[0];
   if(active?.state==='HUMANO')throw new ConversationDeletionError("FINISH_HUMAN_ATTENDANCE_FIRST");
   const attendanceId=active?.id??randomUUID();

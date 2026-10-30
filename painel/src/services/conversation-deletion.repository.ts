@@ -143,6 +143,20 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
         return {action:row.state==='DISCARDED'?'IGNORE_DISCARDED_EVENT':row.state==='RESUMED'?'ALREADY_REVIEWED':'ADMIN_REVIEW',review:row};
       });
     },
+    async ingestConcurrent(scopeInput: DeletionScope,eventId:string,payload:Row){
+      const scope=normalizeScope(scopeInput);nonempty(eventId);
+      const normalized=Object.fromEntries(["text","type","fromMe","sentAt","authorName","message","mediaUrl","mimeType"].filter(k=>Object.hasOwn(payload,k)).map(k=>[k,payload[k]]));
+      // Custodia independente da trava ocupada: nao associa FK a exclusao ainda em andamento.
+      // A Promise so resolve depois do COMMIT de database.transaction.
+      return database.transaction(async db=>{
+        const row=(await db.query(`INSERT INTO m1m_conversation_deletion_reviews
+          (id,"companyId","instanceName","remoteJid","evolutionMessageId",reason,"normalizedPayload")
+          VALUES($1,$2,$3,$4,$5,'CONCURRENT_RECEIPT',$6::jsonb)
+          ON CONFLICT("companyId","instanceName","evolutionMessageId") DO UPDATE SET "lastSeenAt"=CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+          RETURNING id,state,version`,[randomUUID(),scope.companyId,scope.instanceName,scope.remoteJid,eventId,JSON.stringify(normalized)])).rows[0];
+        return {action:row.state==='DISCARDED'?'IGNORE_DISCARDED_EVENT':row.state==='RESUMED'?'ALREADY_REVIEWED':'ADMIN_REVIEW_CONCURRENT',review:row};
+      });
+    },
     async decide(scopeInput: DeletionScope, reviewId: string, expectedVersion: number, decision: "RESUME"|"DISCARD", actor: Actor,
       importSelected?: (db: DeletionConnection, event: Row) => Promise<void>, target?: DeletionScope) {
       const scope=normalizeScope(scopeInput);nonempty(actor.id);
@@ -155,17 +169,21 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
         if(row.state!=='PENDING' || row.version!==expectedVersion) throw new ConversationDeletionError('REVIEW_CONFLICT');
         if(!['RESUME','DISCARD'].includes(decision)) throw new ConversationDeletionError('INVALID_DECISION',400);
         const destination=target??scope;
-        if(target&&row.deletionId)throw new ConversationDeletionError('REVIEW_TARGET_NOT_UNRESOLVED');
+        if(target&&(row.deletionId||(row.reason==='CONCURRENT_RECEIPT'&&!scope.remoteJid.endsWith('@lid'))))throw new ConversationDeletionError('REVIEW_TARGET_NOT_UNRESOLVED');
         let destinationDeletion=row.deletionId;
         if(decision==='RESUME') {
           const latest=(await db.query(`SELECT id,state FROM m1m_conversation_deletions WHERE "companyId"=$1 AND "instanceName"=$2 AND $3=ANY(aliases)
             AND state IN ('DELETING','DELETED','RESUMED','FAILED') ORDER BY "previewAt" DESC,id DESC LIMIT 1 FOR UPDATE`,[destination.companyId,destination.instanceName,destination.remoteJid])).rows[0];
-          if(!latest || (!target&&latest.id!==row.deletionId) || !['DELETED','RESUMED'].includes(String(latest.state))) throw new ConversationDeletionError('STALE_DELETION');
+          const concurrent=row.reason==='CONCURRENT_RECEIPT';
+          if((!latest&&!concurrent) || (latest&&(!['DELETED','RESUMED'].includes(String(latest.state)) || (!concurrent&&!target&&latest.id!==row.deletionId)))) throw new ConversationDeletionError('STALE_DELETION');
+          const known=await db.query(`SELECT 1 FROM m1m_conversation_deletion_message_keys k JOIN m1m_conversation_deletions d ON d.id=k."deletionId"
+            WHERE k."companyId"=$1 AND k."instanceName"=$2 AND k."evolutionMessageId"=$3 AND d.state IN ('DELETING','DELETED','RESUMED','FAILED') LIMIT 1`,[scope.companyId,scope.instanceName,row.evolutionMessageId]);
+          if(known.rows.length)throw new ConversationDeletionError('KNOWN_DELETED_HISTORY');
           if(!importSelected) throw new ConversationDeletionError('IMPORT_HANDLER_REQUIRED',500);
           // Callback transacional: somente este evento, nunca pipeline automatico.
-          destinationDeletion=latest.id;
+          destinationDeletion=latest?.id??null;
           await importSelected(db,{...row.normalizedPayload as Row,evolutionMessageId:row.evolutionMessageId,originalRemoteJid:row.remoteJid,origin:'ADMIN_ACCEPTED_UNCERTAIN'});
-          await db.query(`UPDATE m1m_conversation_deletions SET state='RESUMED',version=version+1 WHERE id=$1`,[destinationDeletion]);
+          if(destinationDeletion)await db.query(`UPDATE m1m_conversation_deletions SET state='RESUMED',version=version+1 WHERE id=$1`,[destinationDeletion]);
         }
         await db.query(`UPDATE m1m_conversation_deletion_reviews SET state=$2,"remoteJid"=$5,"deletionId"=$6,"normalizedPayload"=NULL,"reviewedAt"=CURRENT_TIMESTAMP AT TIME ZONE 'UTC',
           "reviewerKind"=$3,"reviewerId"=$4,version=version+1 WHERE id=$1`,[reviewId,decision==='RESUME'?'RESUMED':'DISCARDED',actor.kind,actor.id,destination.remoteJid,destinationDeletion]);

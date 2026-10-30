@@ -282,12 +282,18 @@ export const incomingMessagePipelineService = {
     if(!access.allowed)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
     const deletion=await import("./conversation-deletion.service");
     const scope=await deletion.canonicalDeletionScope({companyId:company.id,instanceName:instanceName.trim(),remoteJid:message.remoteJid});
-    return deletion.withDeletionConversation(scope,async()=>{
+    try{return await deletion.withDeletionConversation(scope,async()=>{
       if(options?.dryRun && await deletion.deletionMarker(scope))return {processed:false,action:"DELETION_REVIEW_REQUIRED_DRY_RUN"};
       const intercepted=await deletion.interceptDeletedEvent(scope,message);
       if(intercepted.action!=="NORMAL_FLOW")return {processed:false,action:intercepted.action};
       return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
-    });
+    });}catch(error){
+      if(!options?.dryRun&&deletion.isConversationBusy(error)){
+        const durable=await deletion.persistConcurrentReceipt(scope,message);
+        return {processed:false,action:durable.action};
+      }
+      throw error;
+    }
   },
   async processWithoutDeletionGuard(
     rawMessage: unknown,

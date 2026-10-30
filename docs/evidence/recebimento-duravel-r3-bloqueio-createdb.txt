@@ -1,0 +1,11 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | RECEBIMENTO DURAVEL R3
+Base: 33a6c41e1acd3ad0d964c9b3741cc22930a2b653
+Candidato SHA256: c0ec163e7095286f60dab81bd28cf41da2f53db04c177231edbd721bf2e17c82
+SQL original SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+SQL dois CHECKs SHA256: a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e
+SQL rollback SHA256: 0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+INTERROMPIDO: Criar banco isolado da aplicacao falhou; codigo 1
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.

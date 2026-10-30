@@ -1,0 +1,92 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | RECEBIMENTO DURAVEL R3.1
+Base: 33a6c41e1acd3ad0d964c9b3741cc22930a2b653
+Candidato SHA256: c0ec163e7095286f60dab81bd28cf41da2f53db04c177231edbd721bf2e17c82
+SQL original SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+SQL dois CHECKs SHA256: a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e
+SQL rollback SHA256: 0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+Prontidao TCP confirmada; segundo banco isolado criado.
+Imagem PostgreSQL: sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+R2.6/R2.7 preservados; esta rodada testa recebimento duravel, reinicio real do Next e falha de persistencia. Sem navegador ou Evolution reais.
+{
+  "operation": "CONVERSATION_DELETION_DATABASE",
+  "status": "PASSED",
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "repositorySha256": "dccbe5061d9a7729a13a82f7146fc438faa7828bddac51c1400d84725ed2a4ff",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": false,
+  "browserReal": false,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado somente em banco novo isolado; hash registrado",
+    "Cancelamento persiste sem excluir mensagens",
+    "Exclusao persistente e idempotente; mensagem apos previa preservada",
+    "Contato, atendimento, agenda e financeiro preservados; FK de mensagem SetNull real",
+    "Exclusao nao alcanca outra empresa ou instancia",
+    "Historico conhecido nao volta ao banco nem a revisao",
+    "Evento incerto persistido e deduplicado, com whitelist e fora das mensagens normais",
+    "Revisao de outra empresa bloqueada no repositorio; nao e teste de autenticacao",
+    "Retomada transacional importa somente o evento escolhido e nao restaura historico",
+    "Descarte remove conteudo; repeticao nao recria pendencia",
+    "Falha no importador faz rollback e preserva pendencia",
+    "Duas sessoes PostgreSQL concorrentes: somente uma decisao vence",
+    "Alteracao depois da previa bloqueia exclusao",
+    "Grupo com atendimento HUMANO sem responsavel bloqueia exclusao"
+  ],
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+}
+{
+  "operation": "DURABLE_CONCURRENT_RECEIPT_R3",
+  "status": "PASSED",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": true,
+  "browserReal": false,
+  "eventsSynthetic": true,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado em banco novo isolado",
+    "Dois CHECKs ampliados e demais constraints preservadas; rollback sem registros novos e reaplicacao aprovados no PostgreSQL real",
+    "PostgreSQL real rejeita motivo invalido e UNCERTAIN_ORIGIN sem vinculo; CHECKs preservados",
+    "Usuarios sinteticos ativos com email normalizado conforme login real",
+    "Recebimento concorrente COMMITado na revisao antes do 2xx; confirmacao de exclusao aguardava barreira real",
+    "Processo Next encerrado e reiniciado; revisao recuperada pela API sem reenviar o evento",
+    "Repeticao apos reinicio nao duplica revisao nem grava mensagem normal",
+    "Retomada seleciona somente um evento; descarte e repeticoes nao recriam pendencias nem restauram historico",
+    "Revisao revalida manifesto e impede importar historico comprovadamente excluido",
+    "Recebimento e revisoes concorrentes: uma decisao vence; outra 409; repeticao respeita decisao",
+    "Mesmo ID em empresa/instancia diferentes permanece isolado e revisao cruzada e recusada",
+    "Mesma empresa e mesmo ID em outra instancia sintetica nao alteram revisao original",
+    "Recebimento concorrente em grupo permanece na revisao e respeita descarte sem atendimento automatico",
+    "API de revisao da instancia atual nao revela pendencias de outra instancia ou empresa",
+    "Retomada em HUMANO ativo continua bloqueada; evento permanece recuperavel",
+    "Falha real de gravacao por lock_timeout retorna 500 sem ACK falso; nenhum registro parcial",
+    "Rollback com registros CONCURRENT_RECEIPT bloqueado, incluindo decididos; dados preservados",
+    "Evento ja persistido reconhecido sem duplicar mensagem ou criar atendimento",
+    "Eventos em revisao nao acionam IA/atendimento; historico excluido segue ausente"
+  ],
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "extensionSqlSha256": "a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e",
+  "rollbackSqlSha256": "0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385",
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "reusedEvidence": "R2.6/R2.7: fluxos e navegador anteriores. Esta rodada valida somente recuperacao duravel e regressao afetada.",
+  "durableBeforeAcknowledged": {
+    "httpStatus": 200,
+    "reviewPersisted": true,
+    "reviewVisibleFromIndependentConnection": true,
+    "exclusionStillBlocked": true
+  },
+  "restart": {
+    "previousPid": 32296,
+    "currentPid": 24176,
+    "pendingRecovered": true,
+    "externalRedelivery": false
+  },
+  "persistenceFailureHttpStatus": 500,
+  "temporaryProcessesStopped": true,
+  "outboundSynthetic": 0
+}
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.
