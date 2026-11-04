@@ -41,7 +41,7 @@ function getErrorMessage(
     : fallbackMessage;
 }
 
-export async function POST(
+async function postWithoutDeletionGuard(
   request: NextRequest,
 ) {
   try {
@@ -140,3 +140,9 @@ export async function POST(
 }
 
 
+
+export async function POST(request: NextRequest) {
+  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
+  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
+  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"attendance",false);
+}

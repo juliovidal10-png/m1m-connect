@@ -1,0 +1,42 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | PROTECAO E ATIVACAO RESTRITA R5
+Base: baa42d405754d4a1e4b8c4818713aaaeeb0155e5
+Candidato SHA256: 1fb4ca00d69aa2e758da8636eafdcc2a3a8c27ea78fa1b568d11588f07aff5ca
+SQL original SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+SQL dois CHECKs SHA256: a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e
+SQL rollback SHA256: 0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+Prontidao TCP confirmada; segundo banco isolado criado.
+Imagem PostgreSQL: sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+R3.1 e R4 reaproveitados. Esta rodada testa somente escopo/pausa/protecao e reinicios. Sem navegador ou WhatsApp reais; nenhum schema novo.
+{
+  "operation": "DELETION_SCOPED_PROTECTION_R5",
+  "status": "PASSED",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": true,
+  "browserReal": false,
+  "eventsSynthetic": true,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado em banco novo isolado",
+    "Extensao SQL aprovada aplicada em banco novo isolado",
+    "Usuarios sinteticos ativos com email normalizado conforme login real",
+    "Empresa A habilitada; API recusa exclusao na B sem ampliar permissao",
+    "Apos reinicio e flag desligada: novas previas/confirmacoes bloqueadas; sincronizacao e webhook nao restauram historico",
+    "Revisao/retomada/descarte persistem durante pausa com permissoes e isolamento",
+    "Configuracao ausente, invalida, wildcard e instancia divergente falham fechadas apos reinicios, sem desligar protecao existente",
+    "Reativacao limitada e comportamento normal de B preservados; historico excluido e decisoes continuam duraveis"
+  ],
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "extensionSqlSha256": "a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e",
+  "rollbackSqlSha256": "0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385",
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "testedBase": "baa42d405754d4a1e4b8c4818713aaaeeb0155e5",
+  "reusedEvidence": "R3.1 durabilidade/API e R4.1/R4.2 navegador: preservados, sem repetir bateria",
+  "restarts": 6,
+  "temporaryProcessesStopped": true,
+  "outboundSynthetic": 0
+}
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.

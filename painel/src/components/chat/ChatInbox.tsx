@@ -1,5 +1,6 @@
 "use client";
 
+import { ConversationReviewAccess } from "@/components/config/ConversationDeletionReview";
 import {
   type ChangeEvent,
   type ClipboardEvent,
@@ -1298,6 +1299,7 @@ const loadContacts =
     ] ?? null;
 
 
+  const [reviewPendingCount,setReviewPendingCount]=useState<number|null>(null);
   const attendanceRevisionRef = useRef(0);
   const loadChatsInFlightRef = useRef(false);
   const listRequestRef = useRef<{ id: number; controller: AbortController | null; scope: number; attendance: number }>({ id: 0, controller: null, scope: -1, attendance: -1 });
@@ -1323,6 +1325,7 @@ const loadContacts =
       if (response.ok && Number.isSafeInteger(data.waiting) && data.waiting >= 0 &&
           Number.isSafeInteger(data.inService) && data.inService >= 0) {
         setQueueCounts({ waiting: data.waiting, inService: data.inService });
+        if(Number.isSafeInteger(data.pendingReviewCount)&&data.pendingReviewCount>=0)setReviewPendingCount(data.pendingReviewCount);
       }
     } catch { /* Preserva o ultimo total confirmado. */ }
     finally {
@@ -3953,6 +3956,7 @@ const loadContacts =
         } w-full shrink-0 md:block md:w-[300px] lg:w-[320px] min-[1366px]:w-[380px]`}
       >
         <ChatConversationSidebar
+        administrativeReview={<ConversationReviewAccess compact pendingCount={reviewPendingCount}/>}
         activeQueue={activeQueue}
         onQueueChange={(queue) => changeListScope(queue, searchQuery)}
         queueCounts={queueCounts}
@@ -4030,6 +4034,22 @@ const loadContacts =
                 selectedChat.attendanceResponsibleId ||
                 null
               }
+              onConversationDeleted={async () => {
+                const removed = selectedChat;
+                attendanceRevisionRef.current += 1;
+                listRequestRef.current.controller?.abort();
+                listRequestRef.current.id += 1;
+                loadChatsInFlightRef.current = false;
+                activeChatJidRef.current = null;
+                messagesRequestIdRef.current += 1;
+                setSelectedChat(null);
+                setMessages([]);
+                setText("");
+                setSelectedFiles([]);
+                setIsMobileConversationOpen(false);
+                setChats(current => current.filter(chat => chat.remoteJid !== removed.remoteJid));
+                await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
+              }}
               onAttendanceChanged={handleAttendanceChanged}
               lastInteraction={
                 selectedChat.updatedAt ||

@@ -306,6 +306,12 @@ export async function POST(
         body.message,
       );
 
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
+      if(!messageId)return NextResponse.json({error:"Identificador da mensagem obrigatório."},{status:400});
+      const {isDeletedOrPendingMessage}=await import("@/services/conversation-deletion.service");
+      const companyId=await getAuthenticatedCompanyId();
+      if(await isDeletedOrPendingMessage(companyId,instanceName,messageId))return NextResponse.json({error:"Esta mensagem foi excluída ou está separada para revisão administrativa."},{status:410});
+    }
     const cacheKey =
       messageId
         ? `${instanceName}:${messageId}:${body.convertToMp4 ? "mp4" : "original"}`
@@ -352,6 +358,10 @@ export async function POST(
       );
     }
 
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable() && messageId){
+      const {isDeletedOrPendingMessage}=await import("@/services/conversation-deletion.service");
+      if(await isDeletedOrPendingMessage(await getAuthenticatedCompanyId(),instanceName,messageId))return NextResponse.json({error:"Esta mensagem não está mais disponível no histórico normal."},{status:410});
+    }
     if (!result.success) {
       return NextResponse.json(
         {

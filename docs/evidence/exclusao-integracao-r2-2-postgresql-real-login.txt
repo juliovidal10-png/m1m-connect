@@ -1,0 +1,57 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | INTEGRACAO ISOLADA R2.2
+Base: 40ebcebb3cbfe7bcf3947e6ccceda991c163b806
+Candidato SHA256: 7edd9af261fe23174ab06cdce3812d9f536156d421147d9fe70ed31a045f0605
+SQL SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+Imagem PostgreSQL: sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+{
+  "operation": "CONVERSATION_DELETION_DATABASE",
+  "status": "PASSED",
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "repositorySha256": "f64fefb2a0f2460d9f49aaad06599c7a94dffaabadb951216ded11dfcf3f9039",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": false,
+  "browserReal": false,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado somente em banco novo isolado; hash registrado",
+    "Cancelamento persiste sem excluir mensagens",
+    "Exclusao persistente e idempotente; mensagem apos previa preservada",
+    "Contato, atendimento, agenda e financeiro preservados; FK de mensagem SetNull real",
+    "Exclusao nao alcanca outra empresa ou instancia",
+    "Historico conhecido nao volta ao banco nem a revisao",
+    "Evento incerto persistido e deduplicado, com whitelist e fora das mensagens normais",
+    "Revisao de outra empresa bloqueada no repositorio; nao e teste de autenticacao",
+    "Retomada transacional importa somente o evento escolhido e nao restaura historico",
+    "Descarte remove conteudo; repeticao nao recria pendencia",
+    "Falha no importador faz rollback e preserva pendencia",
+    "Duas sessoes PostgreSQL concorrentes: somente uma decisao vence",
+    "Alteracao depois da previa bloqueia exclusao",
+    "Grupo com atendimento HUMANO sem responsavel bloqueia exclusao"
+  ],
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit"
+}
+{
+  "operation": "DELETION_INTEGRATION_R2",
+  "status": "FAILED",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": false,
+  "browserReal": false,
+  "eventsSynthetic": true,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado em banco novo isolado"
+  ],
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "error": "{\"authenticated\":false,\"error\":\"E-mail ou senha inv├ílidos.\"}\n\n401 !== 200\n",
+  "serverErrorTail": "Ôû▓ Next.js 16.2.11 (webpack)\n- Local:         http://127.0.0.1:54482\n- Network:       http://127.0.0.1:54482\nÔ£ô Ready in 869ms\n\n GET /api/admin/session 200 in 310ms (next.js: 260ms, application-code: 49ms)\nPrisma client: t\nDelegates M1M: [\n  'm1MCompany',\n  'm1MCompanyProfile',\n  'm1MPaymentSettings',\n  'm1MSector',\n  'm1MSectorKeyword',\n  'm1MCompanySchedule',\n  'm1MSectorSchedule',\n  'm1MUser',\n  'm1MAccessToken',\n  'm1MSectorUser',\n  'm1MCustomer',\n  'm1MReminder',\n  'm1MAttendance',\n  'm1MAttendanceEvent',\n  'm1MMessage',\n  'm1MMessageFlag',\n  'm1MPaymentReceipt',\n  'm1MPaymentReceiptEvent',\n  'm1MSubscriptionEvent',\n  'm1MSubscriptionPayment',\n  'm1MLegalAcceptance',\n  'm1MConversationDeletion',\n  'm1MConversationDeletionMessageKey',\n  'm1MConversationDeletionReview'\n]\nERRO AUTH LOGIN: Error: E-mail ou senha inv├ílidos.\n    at Object.authenticate (src\\services\\auth\\auth.service.ts:61:13)\n    at async POST (src\\app\\api\\auth\\login\\route.ts:27:18)\n  59 |       !user.passwordHash\n  60 |     ) {\n> 61 |       throw new Error(\n     |             ^\n  62 |         \"E-mail ou senha inv├ílidos.\",\n  63 |       );\n  64 |     }\n",
+  "temporaryProcessesStopped": true,
+  "outboundSynthetic": 0
+}
+INTERROMPIDO: Falha na integracao; veja o TXT.
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.

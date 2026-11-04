@@ -153,6 +153,10 @@ export const authorizationService = {
       return false;
     }
 
+    if (permission === M1MUserPermission.DELETE_CONVERSATIONS) {
+      return user.permissions.includes(permission);
+    }
+
     if (
       user.isPrimary
     ) {

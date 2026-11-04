@@ -1,0 +1,42 @@
+﻿M1M | EXCLUSAO INDIVIDUAL E REVISAO | REVISAO VISUAL R4.2
+Base: 6934c47997d74bf8a755261e7af6ee06d5e84f46
+Candidato SHA256: ae5dc351b6af34af481d9158f4387f60a315f074fb5532aa1154c1e44455bace
+SQL original SHA256: 84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8
+SQL dois CHECKs SHA256: a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e
+SQL rollback SHA256: 0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385
+Dados sinteticos; provedor WhatsApp FAKE em loopback. Sem Evolution/WhatsApp reais.
+Sem alteracao de .env, banco compartilhado, commit, push, merge ou deploy.
+Navegador real isolado: chrome; controlador Playwright 1.56.1; sem baixar navegador.
+Prontidao TCP confirmada; segundo banco isolado criado.
+Imagem PostgreSQL: sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+R3.1 PostgreSQL/API e R2.6/R2.7 navegador anteriores reaproveitados, sem repetir bateria. Esta rodada: navegador R4, eventos sinteticos, nenhum WhatsApp real.
+{
+  "operation": "DURABLE_RECEIPT_BROWSER_R4",
+  "status": "PASSED",
+  "postgresServerReal": true,
+  "postgresEmbedded": false,
+  "authenticationReal": true,
+  "browserReal": true,
+  "eventsSynthetic": true,
+  "whatsappAccess": false,
+  "checks": [
+    "SQL exato aplicado em banco novo isolado",
+    "SQL previamente aprovado aplicado somente em banco novo isolado",
+    "Usuarios sinteticos ativos com email normalizado conforme login real",
+    "Admin global autentica sem sessao do cliente; revisao seleciona B e nao revela pendencia de A",
+    "Retorno real por clique ao gerenciamento da mesma empresa B",
+    "F5 e troca A/B preservam contexto e isolamento sem login de cliente ou envios"
+  ],
+  "sqlSha256": "84a4c724d0f7ef80f7b6fb82072c67657accce93f26337eb87eb0863a12ac0c8",
+  "extensionSqlSha256": "a93790c9c4481a1c1b3eb52f303c7e4c1e830baa3a745f046c647866cd7b476e",
+  "rollbackSqlSha256": "0b1c012b8cef7ef2b5b796b4d2db7ab73ee4fbdd9deccd0f93423f5f714fc385",
+  "databaseVersion": "PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "testedBase": "6934c47997d74bf8a755261e7af6ee06d5e84f46",
+  "round": "R4.2_GLOBAL_NAVIGATION_ONLY",
+  "reusedEvidence": "R4.1: motivo/F5, retomada seletiva, descarte/repeticao, historico excluido e permissoes aprovados; R3.1: banco/API/reinicio. Nao repetidos.",
+  "returnUrl": "/m1m-admin/companies/synthetic-B/manage",
+  "temporaryProcessesStopped": true,
+  "outboundSynthetic": 0
+}
+Container e armazenamento temporario removidos.
+Sem acesso a Evolution/WhatsApp reais; nenhum merge ou deploy.

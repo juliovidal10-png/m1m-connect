@@ -287,6 +287,14 @@ export async function GET(
       );
     }
 
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
+      const deletion=await import("@/services/conversation-deletion.service");
+      const scope=await deletion.canonicalDeletionScope({companyId,instanceName,remoteJid});
+      if(await deletion.deletionMarker(scope)){
+        const safe=await deletion.safeDeletedHistory(scope);
+        return NextResponse.json(safe.filter(isMediaMessage),{headers:{"Cache-Control":"no-store"}});
+      }
+    }
     const apiUrl =
       process.env
         .EVOLUTION_API_URL
