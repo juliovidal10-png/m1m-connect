@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deletionRequestOriginAllowed } from "@/services/conversation-deletion-origin";
 import { sessionService } from "@/services/auth/session.service";
 import { prisma } from "@/lib/prisma";
 import { authorizationService, AuthorizationError } from "@/services/auth/authorization.service";
@@ -53,8 +54,7 @@ export async function POST(request:NextRequest){
   try{
     const ctx=await context(request);
     if(!await deletionStorageAvailable())throw new ConversationDeletionError('FEATURE_DISABLED',503);
-    const origin=request.headers.get('origin');
-    if(origin&&origin!==request.nextUrl.origin)throw new AuthorizationError();
+    if(!deletionRequestOriginAllowed(request))throw new AuthorizationError();
     const body=await request.json().catch(()=>{throw new ConversationDeletionError('INVALID_BODY',400);});
     if(!body||typeof body!=='object'||Array.isArray(body))throw new ConversationDeletionError('INVALID_BODY',400);
     const action=body.action;
