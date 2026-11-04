@@ -483,7 +483,7 @@ async function postWithoutDeletionGuard(
         authenticatedUser.userId,
         messageAuthorName,
       );
-      if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+      if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
         const deletion=await import("@/services/conversation-deletion.service");
         const {conversationSyncService}=await import("@/services/conversation-sync.service");
         const normalized=conversationSyncService.normalizeMessage(evolutionData);
@@ -543,7 +543,7 @@ async function postWithoutDeletionGuard(
 
 
 export async function POST(request: NextRequest) {
-  if(process.env.M1M_CONVERSATION_DELETION_ENABLED!=="true")return postWithoutDeletionGuard(request);
+  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
   const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
   return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"remote",true);
 }

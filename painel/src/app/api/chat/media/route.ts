@@ -306,7 +306,7 @@ export async function POST(
         body.message,
       );
 
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
       if(!messageId)return NextResponse.json({error:"Identificador da mensagem obrigatório."},{status:400});
       const {isDeletedOrPendingMessage}=await import("@/services/conversation-deletion.service");
       const companyId=await getAuthenticatedCompanyId();
@@ -358,7 +358,7 @@ export async function POST(
       );
     }
 
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true" && messageId){
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable() && messageId){
       const {isDeletedOrPendingMessage}=await import("@/services/conversation-deletion.service");
       if(await isDeletedOrPendingMessage(await getAuthenticatedCompanyId(),instanceName,messageId))return NextResponse.json({error:"Esta mensagem não está mais disponível no histórico normal."},{status:410});
     }

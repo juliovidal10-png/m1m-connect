@@ -273,7 +273,7 @@ function isReceiptMediaType(
 
 export const incomingMessagePipelineService = {
   async process(rawMessage: unknown, instanceName: string, options?: PipelineOptions): Promise<{processed:boolean;action:string;[key:string]:unknown}> {
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED !== "true")return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
+    if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
     const message=conversationSyncService.normalizeMessage(rawMessage);
     if(!message)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
     const company=await companyRepository.findByWhatsappInstanceName(instanceName.trim());
@@ -281,6 +281,7 @@ export const incomingMessagePipelineService = {
     const access=await companyAccessService.checkCompanyAccess(company.id);
     if(!access.allowed)return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
     const deletion=await import("./conversation-deletion.service");
+    if(!await deletion.deletionProtectionRequired(company.id,instanceName.trim()))return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
     const scope=await deletion.canonicalDeletionScope({companyId:company.id,instanceName:instanceName.trim(),remoteJid:message.remoteJid});
     try{return await deletion.withDeletionConversation(scope,async()=>{
       if(options?.dryRun && await deletion.deletionMarker(scope))return {processed:false,action:"DELETION_REVIEW_REQUIRED_DRY_RUN"};

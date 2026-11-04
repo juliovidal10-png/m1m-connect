@@ -3,10 +3,10 @@ import { sessionService } from "@/services/auth/session.service";
 import { prisma } from "@/lib/prisma";
 import { authorizationService, AuthorizationError } from "@/services/auth/authorization.service";
 import { adminAuthService } from "@/services/admin/admin-auth.service";
-import { conversationDeletionEnabled, conversationDeletionRepository, resolveDeletionScope, listDeletionReviews, importReviewedMessage } from "@/services/conversation-deletion.service";
+import { newConversationDeletionAllowed, deletionStorageAvailable, deletionProtectionRequired, conversationDeletionRepository, resolveDeletionScope, listDeletionReviews, importReviewedMessage } from "@/services/conversation-deletion.service";
 import { ConversationDeletionError } from "@/services/conversation-deletion.repository";
 
-const messages:Record<string,string>={KNOWN_DELETED_HISTORY:'Este evento pertence ao histórico excluído e não pode ser retomado. Descarte-o da revisão.',NEW_MESSAGES_AFTER_PREVIEW:'Chegaram novas mensagens depois da prévia. Nada foi excluído. Gere uma nova prévia.',CONVERSATION_BUSY:'A conversa está sendo processada. Aguarde o término e tente novamente.',FINISH_HUMAN_ATTENDANCE_FIRST:'Finalize o atendimento humano antes de excluir ou retomar esta conversa.',MESSAGE_CHANGED_AFTER_PREVIEW:'A conversa mudou depois da prévia. Atualize a prévia antes de confirmar.',STALE_PREVIEW:'Esta prévia não pode mais ser usada. Gere uma nova prévia.',REVIEW_CONFLICT:'Este evento já foi revisado ou alterado. Atualize a lista.',STALE_DELETION:'A identidade ou exclusão deste evento precisa ser revalidada antes da retomada.',CONVERSATION_REQUIRES_BATCH_PROCESSING:'Esta conversa supera o limite de 5.000 mensagens desta etapa. Nenhum histórico foi apagado.',CONVERSATION_NOT_FOUND:'Conversa não encontrada nesta empresa.',NOT_FOUND:'Registro não encontrado nesta empresa.',INVALID_CONVERSATION:'Identificação da conversa inválida.'};
+const messages:Record<string,string>={NEW_DELETIONS_DISABLED:'Novas exclusões estão suspensas ou não foram habilitadas para esta empresa e instância. A proteção e a revisão existentes permanecem disponíveis.',KNOWN_DELETED_HISTORY:'Este evento pertence ao histórico excluído e não pode ser retomado. Descarte-o da revisão.',NEW_MESSAGES_AFTER_PREVIEW:'Chegaram novas mensagens depois da prévia. Nada foi excluído. Gere uma nova prévia.',CONVERSATION_BUSY:'A conversa está sendo processada. Aguarde o término e tente novamente.',FINISH_HUMAN_ATTENDANCE_FIRST:'Finalize o atendimento humano antes de excluir ou retomar esta conversa.',MESSAGE_CHANGED_AFTER_PREVIEW:'A conversa mudou depois da prévia. Atualize a prévia antes de confirmar.',STALE_PREVIEW:'Esta prévia não pode mais ser usada. Gere uma nova prévia.',REVIEW_CONFLICT:'Este evento já foi revisado ou alterado. Atualize a lista.',STALE_DELETION:'A identidade ou exclusão deste evento precisa ser revalidada antes da retomada.',CONVERSATION_REQUIRES_BATCH_PROCESSING:'Esta conversa supera o limite de 5.000 mensagens desta etapa. Nenhum histórico foi apagado.',CONVERSATION_NOT_FOUND:'Conversa não encontrada nesta empresa.',NOT_FOUND:'Registro não encontrado nesta empresa.',INVALID_CONVERSATION:'Identificação da conversa inválida.'};
 async function context(request:NextRequest){
   const selected=request.nextUrl.searchParams.get('companyId');
   let companyId:string,actor:{kind:'COMPANY_USER'|'PLATFORM_ADMIN';id:string},canDelete:boolean,canReview:boolean,userId:string|null;
@@ -34,10 +34,11 @@ function failure(error:unknown){
   return NextResponse.json({error:messages[code]??(status===403?'Você não possui autorização para esta ação.':'Não foi possível concluir a operação. Atualize e tente novamente.'),code},{status});
 }
 export async function GET(request:NextRequest){
-  if(!conversationDeletionEnabled())return NextResponse.json({enabled:false,canDelete:false,canReview:false});
   try{
+    if(!await deletionStorageAvailable())return NextResponse.json({enabled:false,canDelete:false,canReview:false});
     const ctx=await context(request);
-    if(!conversationDeletionEnabled())return NextResponse.json({enabled:false,canDelete:false,canReview:false});
+    if(!await deletionProtectionRequired(ctx.companyId,ctx.instanceName))return NextResponse.json({enabled:false,canDelete:false,canReview:false});
+    const newAllowed=await newConversationDeletionAllowed(ctx.companyId,ctx.instanceName);
     if(request.nextUrl.searchParams.get('reviews')==='1'){
       if(!ctx.canReview)throw new AuthorizationError();
       const offset=Number(request.nextUrl.searchParams.get('offset')??0);
@@ -45,13 +46,13 @@ export async function GET(request:NextRequest){
       return NextResponse.json(await listDeletionReviews(ctx.companyId,ctx.instanceName,offset),{headers:{'Cache-Control':'no-store'}});
     }
     const pendingCount=ctx.canReview?Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${ctx.companyId} AND "instanceName"=${ctx.instanceName} AND state='PENDING'`)[0].count):undefined;
-    return NextResponse.json({enabled:true,canDelete:ctx.canDelete,canReview:ctx.canReview,company:ctx.company.name,instanceName:ctx.instanceName,pendingCount},{headers:{'Cache-Control':'no-store'}});
+    return NextResponse.json({enabled:true,canDelete:ctx.canDelete&&newAllowed,canReview:ctx.canReview,company:ctx.company.name,instanceName:ctx.instanceName,pendingCount},{headers:{'Cache-Control':'no-store'}});
   }catch(error){return failure(error);}
 }
 export async function POST(request:NextRequest){
   try{
     const ctx=await context(request);
-    if(!conversationDeletionEnabled())throw new ConversationDeletionError('FEATURE_DISABLED',503);
+    if(!await deletionStorageAvailable())throw new ConversationDeletionError('FEATURE_DISABLED',503);
     const origin=request.headers.get('origin');
     if(origin&&origin!==request.nextUrl.origin)throw new AuthorizationError();
     const body=await request.json().catch(()=>{throw new ConversationDeletionError('INVALID_BODY',400);});
@@ -66,6 +67,7 @@ export async function POST(request:NextRequest){
       const target=body.targetRemoteJid?await resolveDeletionScope(ctx.companyId,ctx.instanceName,String(body.targetRemoteJid)):null;
       return NextResponse.json(await conversationDeletionRepository.decide(scope,body.reviewId,body.version,body.decision,ctx.actor,(db,event)=>importReviewedMessage(db,target?.scope??scope,event,ctx.actor),target?.scope));
     }
+    if(!await newConversationDeletionAllowed(ctx.companyId,ctx.instanceName))throw new ConversationDeletionError('NEW_DELETIONS_DISABLED',403);
     if(!ctx.canDelete)throw new AuthorizationError();
     if(typeof body.remoteJid!=='string')throw new ConversationDeletionError('INVALID_BODY',400);
     const resolved=await resolveDeletionScope(ctx.companyId,ctx.instanceName,body.remoteJid);

@@ -910,7 +910,7 @@ export const conversationSyncService = {
   },
 
   async syncConversation(remoteJid:string,instanceName:string,companyId:string):Promise<unknown[]> {
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED!=="true")return this.syncConversationWithoutDeletionGuard(remoteJid,instanceName,companyId);
+    if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return this.syncConversationWithoutDeletionGuard(remoteJid,instanceName,companyId);
     const deletion=await import("./conversation-deletion.service");
     const scope=await deletion.canonicalDeletionScope({companyId,instanceName,remoteJid});
     return deletion.withDeletionConversation(scope,()=>this.syncConversationWithoutDeletionGuard(scope.remoteJid,instanceName,companyId));
@@ -1049,7 +1049,7 @@ export const conversationSyncService = {
           secondMessage.sentAt.getTime(),
       );
 
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
       const deletion=await import("./conversation-deletion.service");
       const scope=await deletion.canonicalDeletionScope({companyId:resolvedCompanyId,instanceName,remoteJid:canonicalRemoteJid});
       if(await deletion.deletionMarker(scope)){
@@ -1411,7 +1411,7 @@ export const conversationSyncService = {
   },
 
   async syncIncomingMessage(rawMessage:unknown,instanceName:string,companyId:string):ReturnType<typeof messageService.registerMessage> {
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED!=="true")return this.syncIncomingMessageWithoutDeletionGuard(rawMessage,instanceName,companyId);
+    if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return this.syncIncomingMessageWithoutDeletionGuard(rawMessage,instanceName,companyId);
     const message=normalizeEvolutionMessage(rawMessage);
     if(!message)throw new Error("Mensagem inválida.");
     const deletion=await import("./conversation-deletion.service");

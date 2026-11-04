@@ -4,8 +4,24 @@ import { createConversationDeletionRepository, ConversationDeletionError, type D
 
 type Row = Record<string, unknown>;
 type Actor = {kind:"COMPANY_USER"|"PLATFORM_ADMIN";id:string};
-export function conversationDeletionEnabled() {
-  return process.env.M1M_CONVERSATION_DELETION_ENABLED === "true";
+import { configuredDeletionScope } from "./conversation-deletion-policy";
+// Never cache absence: schema/records can appear while a process remains alive.
+export async function deletionStorageAvailable(){
+  const rows=await prisma.$queryRaw<{operations:string|null;reviews:string|null;keys:string|null}[]>`SELECT to_regclass('public.m1m_conversation_deletions')::text AS operations,to_regclass('public.m1m_conversation_deletion_reviews')::text AS reviews,to_regclass('public.m1m_conversation_deletion_message_keys')::text AS keys`;
+  const row=rows[0];if(!row?.operations&&!row?.reviews&&!row?.keys)return false;
+  if(!row?.operations||!row?.reviews||!row?.keys)throw new ConversationDeletionError('DELETION_SCHEMA_INCOMPLETE',503);
+  return true;
+}
+export async function newConversationDeletionAllowed(companyId:string,instanceName?:string){
+  const company=await prisma.m1MCompany.findUnique({where:{id:companyId},select:{whatsappInstanceName:true}});
+  const current=company?.whatsappInstanceName?.trim();
+  return !!current&&(!instanceName||current===instanceName)&&configuredDeletionScope(companyId,current);
+}
+export async function deletionProtectionRequired(companyId:string,instanceName:string){
+  if(!await deletionStorageAvailable())return false;
+  if(await newConversationDeletionAllowed(companyId,instanceName))return true;
+  const rows=await prisma.$queryRaw<{needed:boolean}[]>`SELECT EXISTS(SELECT 1 FROM m1m_conversation_deletions WHERE "companyId"=${companyId} AND "instanceName"=${instanceName}) OR EXISTS(SELECT 1 FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName}) AS needed`;
+  return rows[0]?.needed===true;
 }
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool, type PoolClient } from "pg";
@@ -13,7 +29,6 @@ type WorkContext={client:PoolClient;scope:DeletionScope};
 const workContext=new AsyncLocalStorage<WorkContext>();
 let pool:Pool|undefined;
 function getPool(){
-  if(!conversationDeletionEnabled())throw new ConversationDeletionError('FEATURE_DISABLED',503);
   return pool??=new Pool({connectionString:process.env.DATABASE_URL,max:4,application_name:'m1m_conversation_deletion'});
 }
 const database = {
@@ -29,7 +44,7 @@ const database = {
   },
 };
 export async function withDeletionConversation<T>(scope:DeletionScope,work:()=>Promise<T>):Promise<T>{
-  if(!conversationDeletionEnabled())return work();
+  if(!await deletionProtectionRequired(scope.companyId,scope.instanceName))return work();
   const key=JSON.stringify([scope.companyId,scope.instanceName,scope.remoteJid]);
   const current=workContext.getStore();
   if(current){
@@ -44,6 +59,7 @@ export async function withDeletionConversation<T>(scope:DeletionScope,work:()=>P
   }finally{try{if(locked)await client.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}finally{client.release();}}
 }
 export async function canonicalDeletionScope(scope:DeletionScope):Promise<DeletionScope>{
+  if(!await deletionProtectionRequired(scope.companyId,scope.instanceName))return scope;
   const customer=await prisma.m1MCustomer.findFirst({where:{companyId:scope.companyId,remoteJid:scope.remoteJid},select:{remoteJid:true}});
   if(customer)return {...scope,remoteJid:customer.remoteJid};
   const message=await prisma.m1MMessage.findFirst({where:{companyId:scope.companyId,instanceName:scope.instanceName,remoteJid:scope.remoteJid},select:{customer:{select:{remoteJid:true}}}});
@@ -53,7 +69,7 @@ export async function canonicalDeletionScope(scope:DeletionScope):Promise<Deleti
   return rows[0]?{...scope,remoteJid:rows[0].remoteJid}:scope;
 }
 export async function deletionMarker(scope:DeletionScope){
-  if(!conversationDeletionEnabled())return null;
+  if(!await deletionProtectionRequired(scope.companyId,scope.instanceName))return null;
   const rows=await prisma.$queryRaw<Row[]>`SELECT id,state,aliases FROM m1m_conversation_deletions WHERE "companyId"=${scope.companyId}
     AND "instanceName"=${scope.instanceName} AND ${scope.remoteJid}=ANY(aliases)
     AND state IN ('DELETING','DELETED','RESUMED','FAILED') ORDER BY "previewAt" DESC,id DESC LIMIT 1`;
@@ -78,7 +94,7 @@ export async function persistConcurrentReceipt(scope:DeletionScope,message:Revie
   return conversationDeletionRepository.ingestConcurrent(scope,message.evolutionMessageId,deletionReviewPayload(message));
 }
 export async function interceptDeletedEvent(scope:DeletionScope,message:{evolutionMessageId:string;content?:string|null;type?:unknown;fromMe?:boolean;sentAt?:Date;authorName?:string|null;rawPayload?:unknown;mediaUrl?:string|null;mimeType?:string|null}){
-  if(!conversationDeletionEnabled())return {action:'NORMAL_FLOW'};
+  if(!await deletionProtectionRequired(scope.companyId,scope.instanceName))return {action:'NORMAL_FLOW'};
   const previous=await prisma.$queryRaw<Row[]>`SELECT state FROM m1m_conversation_deletion_reviews WHERE "companyId"=${scope.companyId}
     AND "instanceName"=${scope.instanceName} AND "evolutionMessageId"=${message.evolutionMessageId} LIMIT 1`;
   if(previous[0])return {action:previous[0].state==='DISCARDED'?'IGNORE_DISCARDED_EVENT':previous[0].state==='RESUMED'?'ALREADY_REVIEWED':'ADMIN_REVIEW'};
@@ -101,7 +117,7 @@ export async function safeDeletedHistory(scope:DeletionScope){
   return messages.reverse().map(m=>({...((m.rawPayload&&typeof m.rawPayload==='object'&&!Array.isArray(m.rawPayload))?m.rawPayload:{}),key:{id:m.evolutionMessageId,remoteJid:m.remoteJid,fromMe:m.fromMe},message:(m.rawPayload&&typeof m.rawPayload==='object'&&!Array.isArray(m.rawPayload)?(m.rawPayload as Row).message:null)??{conversation:m.content??''},messageTimestamp:Math.floor(m.sentAt.getTime()/1000),m1mAuthor:{type:m.authorType,id:m.authorId,name:m.authorName}}));
 }
 export async function deletionListSnapshot(companyId:string,instanceName:string){
-  if(!conversationDeletionEnabled())return [] as Row[];
+  if(!await deletionProtectionRequired(companyId,instanceName))return [] as Row[];
   return prisma.$queryRaw<Row[]>`SELECT DISTINCT ON (d."remoteJid") d."remoteJid",d.state,d.aliases,
     (SELECT jsonb_build_object('key',jsonb_build_object('id',m."evolutionMessageId",'remoteJid',m."remoteJid",'fromMe',m."fromMe"),
       'message',COALESCE(m."rawPayload"->'message',jsonb_build_object('conversation',m.content)),
@@ -158,7 +174,7 @@ export async function importReviewedMessage(db:DeletionConnection,scope:Deletion
 }
 
 export async function recordAuthenticatedSend(scopeInput:DeletionScope,id:string,input:{content?:string|null;type?:unknown;mediaUrl?:string|null;mimeType?:string|null;rawPayload?:unknown},userId:string,authorName:string){
-  if(!conversationDeletionEnabled())return;
+  if(!await deletionProtectionRequired(scopeInput.companyId,scopeInput.instanceName))return;
   const scope=await canonicalDeletionScope(scopeInput);
   const held=workContext.getStore();
   if(!held||held.scope.companyId!==scope.companyId||held.scope.instanceName!==scope.instanceName||held.scope.remoteJid!==scope.remoteJid)throw new ConversationDeletionError('SEND_GUARD_REQUIRED');
@@ -180,7 +196,7 @@ export async function recordAuthenticatedSend(scopeInput:DeletionScope,id:string
 }
 
 export async function isDeletedOrPendingMessage(companyId:string,instanceName:string,id:string){
-  if(!conversationDeletionEnabled())return false;
+  if(!await deletionProtectionRequired(companyId,instanceName))return false;
   const rows=await prisma.$queryRaw<Row[]>`SELECT 1 FROM m1m_conversation_deletion_message_keys k JOIN m1m_conversation_deletions d ON d.id=k."deletionId"
     WHERE k."companyId"=${companyId} AND k."instanceName"=${instanceName} AND k."evolutionMessageId"=${id}
       AND d.state IN ('DELETED','RESUMED','DELETING','FAILED')

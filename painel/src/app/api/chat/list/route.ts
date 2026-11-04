@@ -744,7 +744,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const deletionSnapshot=process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"
+    const deletionSnapshot=await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()
       ? await (await import("@/services/conversation-deletion.service")).deletionListSnapshot(companyId,instanceName) : [];
     const hiddenAfterDeletion=new Set(deletionSnapshot.filter(row=>row.state!=="RESUMED").flatMap(row=>row.aliases as string[]));
     function visible(items: EnrichedChat[], applyQueue = true): EnrichedChat[] {
@@ -783,7 +783,7 @@ export async function GET(request: Request) {
     if (wantsQueueCounts) {
       const rawChats = await getOperationalInventory(companyId, instanceName);
       const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
-      const pendingReviewCount=process.env.M1M_CONVERSATION_DELETION_ENABLED === "true" && (authenticatedUser.isPrimary || String(authenticatedUser.role)==="ADMIN")
+      const pendingReviewCount=await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable() && (authenticatedUser.isPrimary || String(authenticatedUser.role)==="ADMIN")
         ? Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName} AND state='PENDING'`)[0].count) : undefined;
       return NextResponse.json({
         pendingReviewCount,

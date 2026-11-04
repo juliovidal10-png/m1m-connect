@@ -287,7 +287,7 @@ export async function GET(
       );
     }
 
-    if(process.env.M1M_CONVERSATION_DELETION_ENABLED === "true"){
+    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
       const deletion=await import("@/services/conversation-deletion.service");
       const scope=await deletion.canonicalDeletionScope({companyId,instanceName,remoteJid});
       if(await deletion.deletionMarker(scope)){
