@@ -72,6 +72,15 @@ for (const queue of ['OPEN', 'WAITING', 'IN_SERVICE']) {
   assert.ok(!t.state.chats.some(c => c.crmCustomerId === assigned.customerId));
   assert.equal(t.state.selected.attendanceState, 'FINALIZADO', 'historico selecionado preservado');
 }
+// Encaminhamento confirmado limpa classificacao manual anterior antes da reconsulta.
+{
+ const t=setup(130,'OPEN');
+ t.context.chatsRef.current[120].attendanceManualWhatsApp=true;
+ t.context.selectedChat.attendanceManualWhatsApp=true;
+ await t.changed({...assigned,responsibleId:null,state:'HUMANO'});
+ assert.equal(t.state.selected.attendanceManualWhatsApp,false);
+ assert.ok(!t.state.chats.some(c=>c.crmCustomerId===assigned.customerId));
+}
 // Atualiza todos os itens carregados em paginas <=100; nenhum rabo antigo e preservado.
 {
   const t = setup(); const requests = [];
