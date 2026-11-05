@@ -1,6 +1,5 @@
 "use client";
 
-import DeleteConversationAction from "./DeleteConversationAction";
 import AttendanceActions, { type AttendanceAssignment } from "./AttendanceActions";
 
 import type {
@@ -105,7 +104,6 @@ export default function ChatConversationHeader({
   remoteJid,
   responsibleId,
   onAttendanceChanged,
-  onConversationDeleted,
   lastInteraction,
   isSearchOpen,
   searchQuery,
@@ -314,7 +312,6 @@ export default function ChatConversationHeader({
           </div>
 
           <div className="flex w-full min-w-0 max-w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
-            {remoteJid && onConversationDeleted && <DeleteConversationAction key={remoteJid} remoteJid={remoteJid} onDeleted={onConversationDeleted}/>}
             <AttendanceActions
               attendanceId={attendanceId}
               attendanceState={attendanceState}
