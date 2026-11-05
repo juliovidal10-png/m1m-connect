@@ -1,0 +1,45 @@
+name: Customer index isolated validation
+on:
+  pull_request:
+    paths:
+      - "tools/performance/candidate-latest-message-index*.sql"
+      - "painel/tests/regression/customer-latest-message-index-real.mjs"
+      - ".github/workflows/customer-index-isolated.yml"
+permissions:
+  contents: read
+jobs:
+  isolated-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: synthetic_customer
+          POSTGRES_PASSWORD: synthetic_customer_password
+          POSTGRES_DB: m1m_customer_index_isolated
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synthetic_customer -d m1m_customer_index_isolated"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DATABASE_URL: postgresql://synthetic_customer:synthetic_customer_password@127.0.0.1:5432/m1m_customer_index_isolated
+      M1M_CUSTOMER_INDEX_ISOLATED: "1"
+      M1M_TF3A_UNREAD_LEDGER_ENABLED: "false"
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: painel/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - name: Initialize fresh isolated database only
+        run: npx prisma db push
+      - run: npm install --no-save --package-lock=false --ignore-scripts esbuild@0.25.12
+      - run: node tests/regression/customer-latest-message-index-real.mjs
