@@ -23,7 +23,6 @@ const attendanceLabels: Record<
   string,
   string
 > = {
-  REOPENED_AFTER_REVIEW: "Conversa retomada por revisão administrativa",
   STARTED_BY_AI:
     "Atendimento iniciado pela IA",
   TRANSFERRED_TO_SECTOR:

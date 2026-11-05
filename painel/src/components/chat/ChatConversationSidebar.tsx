@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import type { ConversationQueue } from "@/lib/conversation-queue";
 export type ChatConversationSidebarItem = {
   key: string;
@@ -15,7 +14,6 @@ export type ChatConversationSidebarItem = {
 };
 
 type ChatConversationSidebarProps = {
-  administrativeReview?: ReactNode;
   activeQueue: ConversationQueue;
   onQueueChange: (queue: ConversationQueue) => void;
   queueCounts: { waiting: number; inService: number } | null;
@@ -31,7 +29,6 @@ type ChatConversationSidebarProps = {
 };
 
 export default function ChatConversationSidebar({
-  administrativeReview,
   activeQueue,
   onQueueChange,
   queueCounts,
@@ -103,7 +100,7 @@ export default function ChatConversationSidebar({
         <h2 className="text-[18px] font-bold text-[#171717]">
           Conversas
         </h2>
-        {administrativeReview}
+
           <div className="mt-4 flex flex-wrap gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"

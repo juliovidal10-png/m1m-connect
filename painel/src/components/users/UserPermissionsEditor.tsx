@@ -9,7 +9,6 @@ export type UserPermission =
   | "VIEW_RECEIPTS"
   | "DELETE_CUSTOMERS"
   | "DELETE_MESSAGES"
-  | "DELETE_CONVERSATIONS"
   | "MANAGE_USERS"
   | "MANAGE_SECTORS"
   | "MANAGE_HOURS"
@@ -199,9 +198,10 @@ export default function UserPermissionsEditor({
             </h3>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">
-              Este perfil mantém seus acessos operacionais de administrador.
-              A exclusão de conversas, quando disponível, depende da
-              concessão explícita apresentada separadamente.
+              Este usuário possui acesso total aos
+              recursos operacionais do M1M Connect.
+              As permissões individuais são
+              desnecessárias para este perfil.
             </p>
 
             <div className="mt-5 grid gap-3 md:grid-cols-3">

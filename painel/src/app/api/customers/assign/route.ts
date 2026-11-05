@@ -323,7 +323,7 @@ async function sendHumanIntroduction(input: {
   });
 }
 
-async function postWithoutDeletionGuard(
+export async function POST(
   request: NextRequest,
 ) {
   try {
@@ -455,9 +455,4 @@ async function postWithoutDeletionGuard(
       },
     );
   }
-}
-export async function POST(request: NextRequest) {
-  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
-  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
-  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"customer",false);
 }

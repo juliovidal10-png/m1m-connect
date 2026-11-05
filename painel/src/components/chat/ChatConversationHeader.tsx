@@ -20,7 +20,6 @@ type ChatConversationHeaderProps = {
   customerId?: string | null;
   remoteJid?: string | null;
   responsibleId?: string | null;
-  onConversationDeleted?: () => Promise<void> | void;
   onAttendanceChanged?: (assignment?: AttendanceAssignment) => Promise<void> | void;
   lastInteraction?: string | null;
   isSearchOpen: boolean;

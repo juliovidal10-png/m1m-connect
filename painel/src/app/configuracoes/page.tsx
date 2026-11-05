@@ -4,7 +4,6 @@ import { useState } from "react";
 
 import AutomaticMessagesSettings from "@/components/config/AutomaticMessagesSettings";
 import CompanySchedulesSettings from "@/components/config/CompanySchedulesSettings";
-import { ConversationReviewAccess } from "@/components/config/ConversationDeletionReview";
 import AgentInstructionsSettings from "@/components/config/AgentInstructionsSettings";
 import CompanySettings from "@/components/config/CompanySettings";
 import CompanyProfileSettings from "@/components/config/CompanyProfileSettings";
@@ -339,7 +338,6 @@ export default function ConfiguracoesPage() {
                     />
                   ))}
                 </div>
-                <ConversationReviewAccess/>
               </>
             ) : activeSection === "sectors" ? (
               <SectorsSettings

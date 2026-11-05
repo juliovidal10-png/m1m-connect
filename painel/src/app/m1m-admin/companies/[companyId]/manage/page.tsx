@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-import { ConversationReviewAccess } from "@/components/config/ConversationDeletionReview";
 import AgentInstructionsSettings from "@/components/config/AgentInstructionsSettings";
 import HumanAttendanceSettings from "@/components/config/HumanAttendanceSettings";
 import AutomaticMessagesSettings from "@/components/config/AutomaticMessagesSettings";
@@ -234,7 +233,6 @@ function ManageCompanyWorkspace({ companyId }: { companyId: string }) {
                 ))}
               </div>
 
-              <ConversationReviewAccess companyId={companyId}/>
               <p className="mt-5 break-all text-xs font-medium text-black/30">
                 Empresa ID: {companyId}
               </p>

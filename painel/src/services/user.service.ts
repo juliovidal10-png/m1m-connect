@@ -26,7 +26,6 @@ const clientPermissions =
     M1MUserPermission.VIEW_RECEIPTS,
     M1MUserPermission.DELETE_CUSTOMERS,
     M1MUserPermission.DELETE_MESSAGES,
-    M1MUserPermission.DELETE_CONVERSATIONS,
     M1MUserPermission.MANAGE_USERS,
     M1MUserPermission.MANAGE_SECTORS,
     M1MUserPermission.MANAGE_HOURS,
@@ -169,7 +168,6 @@ export const userService = {
           )
         : [];
 
-    if(permissions.includes(M1MUserPermission.DELETE_CONVERSATIONS)&&!await (await import("./conversation-deletion.service")).newConversationDeletionAllowed(normalizedCompanyId))throw new Error("A exclusão de conversas ainda não está disponível.");
     return userRepository.create({
       companyId:
         normalizedCompanyId,
@@ -190,7 +188,7 @@ export const userService = {
       permissions:
         input.useCustomPermissions
           ? permissions
-          : permissions.filter(permission=>permission===M1MUserPermission.DELETE_CONVERSATIONS),
+          : [],
       active:
         input.active ?? true,
     });
@@ -293,15 +291,14 @@ export const userService = {
       }
 
       data.useCustomPermissions = false;
-      data.permissions = (data.permissions??existingUser.permissions).filter(permission=>permission===M1MUserPermission.DELETE_CONVERSATIONS);
+      data.permissions = [];
     }
 
     if (
       data.useCustomPermissions === false
     ) {
-      data.permissions = (data.permissions??existingUser.permissions).filter(permission=>permission===M1MUserPermission.DELETE_CONVERSATIONS);
+      data.permissions = [];
     }
-    if(data.permissions?.includes(M1MUserPermission.DELETE_CONVERSATIONS)&&!existingUser.permissions.includes(M1MUserPermission.DELETE_CONVERSATIONS)&&!await (await import("./conversation-deletion.service")).newConversationDeletionAllowed(normalizedCompanyId))throw new Error("A exclusão de conversas ainda não está disponível.");
 
     return userRepository.update(
       normalizedCompanyId,

@@ -909,13 +909,7 @@ export const conversationSyncService = {
     );
   },
 
-  async syncConversation(remoteJid:string,instanceName:string,companyId:string):Promise<unknown[]> {
-    if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return this.syncConversationWithoutDeletionGuard(remoteJid,instanceName,companyId);
-    const deletion=await import("./conversation-deletion.service");
-    const scope=await deletion.canonicalDeletionScope({companyId,instanceName,remoteJid});
-    return deletion.withDeletionConversation(scope,()=>this.syncConversationWithoutDeletionGuard(scope.remoteJid,instanceName,companyId));
-  },
-  async syncConversationWithoutDeletionGuard(
+  async syncConversation(
     remoteJid: string,
     instanceName: string,
     companyId: string,
@@ -1049,14 +1043,6 @@ export const conversationSyncService = {
           secondMessage.sentAt.getTime(),
       );
 
-    if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
-      const deletion=await import("./conversation-deletion.service");
-      const scope=await deletion.canonicalDeletionScope({companyId:resolvedCompanyId,instanceName,remoteJid:canonicalRemoteJid});
-      if(await deletion.deletionMarker(scope)){
-        for(const message of normalizedMessages)await deletion.interceptDeletedEvent(scope,message);
-        return deletion.safeDeletedHistory(scope);
-      }
-    }
     const contactName =
       normalizedMessages.find(
         (message) =>
@@ -1410,19 +1396,7 @@ export const conversationSyncService = {
     return finalMessages;
   },
 
-  async syncIncomingMessage(rawMessage:unknown,instanceName:string,companyId:string):ReturnType<typeof messageService.registerMessage> {
-    if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return this.syncIncomingMessageWithoutDeletionGuard(rawMessage,instanceName,companyId);
-    const message=normalizeEvolutionMessage(rawMessage);
-    if(!message)throw new Error("Mensagem inválida.");
-    const deletion=await import("./conversation-deletion.service");
-    const scope=await deletion.canonicalDeletionScope({companyId,instanceName,remoteJid:message.remoteJid});
-    return deletion.withDeletionConversation(scope,async()=>{
-      const intercepted=await deletion.interceptDeletedEvent(scope,message);
-      if(intercepted.action!=="NORMAL_FLOW")throw new Error("Evento separado do fluxo normal: "+intercepted.action);
-      return this.syncIncomingMessageWithoutDeletionGuard(rawMessage,instanceName,companyId);
-    });
-  },
-  async syncIncomingMessageWithoutDeletionGuard(
+  async syncIncomingMessage(
     rawMessage: unknown,
     instanceName: string,
     companyId: string,

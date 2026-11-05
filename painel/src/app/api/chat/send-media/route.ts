@@ -78,7 +78,7 @@ function parseEvolutionResponse(
   }
 }
 
-async function postWithoutDeletionGuard(
+export async function POST(
   request: NextRequest,
 ) {
   try {
@@ -483,12 +483,6 @@ async function postWithoutDeletionGuard(
         authenticatedUser.userId,
         messageAuthorName,
       );
-      if(await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()){
-        const deletion=await import("@/services/conversation-deletion.service");
-        const {conversationSyncService}=await import("@/services/conversation-sync.service");
-        const normalized=conversationSyncService.normalizeMessage(evolutionData);
-        await deletion.recordAuthenticatedSend({companyId,instanceName,remoteJid},evolutionMessageId,normalized??{content:fileName,type:mediaType.toUpperCase()},authenticatedUser.userId,messageAuthorName);
-      }
       await humanTakeoverService.processAuthenticatedOutgoing({
         companyId,
         remoteJid,
@@ -541,9 +535,3 @@ async function postWithoutDeletionGuard(
 
 
 
-
-export async function POST(request: NextRequest) {
-  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
-  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
-  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"remote",true);
-}
