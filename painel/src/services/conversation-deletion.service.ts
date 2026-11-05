@@ -123,13 +123,18 @@ export async function safeDeletedHistory(scope:DeletionScope){
   return messages.reverse().map(m=>({...((m.rawPayload&&typeof m.rawPayload==='object'&&!Array.isArray(m.rawPayload))?m.rawPayload:{}),key:{id:m.evolutionMessageId,remoteJid:m.remoteJid,fromMe:m.fromMe},message:(m.rawPayload&&typeof m.rawPayload==='object'&&!Array.isArray(m.rawPayload)?(m.rawPayload as Row).message:null)??{conversation:m.content??''},messageTimestamp:Math.floor(m.sentAt.getTime()/1000),m1mAuthor:{type:m.authorType,id:m.authorId,name:m.authorName}}));
 }
 export async function deletionListSnapshot(companyId:string,instanceName:string){
-  if(!await deletionProtectionRequired(companyId,instanceName))return [] as Row[];
-  return prisma.$queryRaw<Row[]>`SELECT DISTINCT ON (d."remoteJid") d."remoteJid",d.state,d.aliases,
-    (SELECT jsonb_build_object('key',jsonb_build_object('id',m."evolutionMessageId",'remoteJid',m."remoteJid",'fromMe',m."fromMe"),
-      'message',COALESCE(m."rawPayload"->'message',jsonb_build_object('conversation',m.content)),
-      'messageTimestamp',extract(epoch from m."sentAt")) FROM m1m_messages m WHERE m."companyId"=d."companyId" AND m."instanceName"=d."instanceName" AND m."remoteJid"=ANY(d.aliases) ORDER BY m."sentAt" DESC,m.id DESC LIMIT 1) AS "lastMessage"
+  // The scoped snapshot itself detects active markers. No flag/company/review scan is needed.
+  // Keep checking storage on each request: absence must never become a cached bypass.
+  if(!await deletionStorageAvailable())return [] as Row[];
+  return prisma.$queryRaw<Row[]>`WITH latest AS MATERIALIZED (
+    SELECT DISTINCT ON (d."remoteJid") d."remoteJid",d.state,d.aliases,d."companyId",d."instanceName"
     FROM m1m_conversation_deletions d WHERE d."companyId"=${companyId} AND d."instanceName"=${instanceName} AND d.state IN ('DELETING','DELETED','RESUMED','FAILED')
-    ORDER BY d."remoteJid",d."previewAt" DESC,d.id DESC`;
+    ORDER BY d."remoteJid",d."previewAt" DESC,d.id DESC
+  ) SELECT d."remoteJid",d.state,d.aliases,
+    CASE WHEN d.state='RESUMED' THEN (SELECT jsonb_build_object('key',jsonb_build_object('id',m."evolutionMessageId",'remoteJid',m."remoteJid",'fromMe',m."fromMe"),
+      'message',COALESCE(m."rawPayload"->'message',jsonb_build_object('conversation',m.content)),
+      'messageTimestamp',extract(epoch from m."sentAt")) FROM m1m_messages m WHERE m."companyId"=d."companyId" AND m."instanceName"=d."instanceName" AND m."remoteJid"=ANY(d.aliases) ORDER BY m."sentAt" DESC,m.id DESC LIMIT 1) ELSE NULL END AS "lastMessage"
+    FROM latest d ORDER BY d."remoteJid"`;
 }
 export const conversationDeletionRepository=createConversationDeletionRepository(database);
 

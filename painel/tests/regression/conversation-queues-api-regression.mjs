@@ -38,6 +38,7 @@ const otherSector = add('HUMANO', {sector: 'B'});
 add('HUMANO', {responsible: 'other-user'});
 const otherCompany = add('HUMANO', {company: 'B'});
 const modules = {
+  '@/services/conversation-deletion.service': {deletionStorageAvailable: async () => false, deletionListSnapshot: async () => []},
   '@/lib/conversation-queue': queues,
   '@/generated/prisma/enums': {M1MUserPermission: {VIEW_ALL_CONVERSATIONS: 'VIEW_ALL_CONVERSATIONS'}},
   '@/lib/tenant': {getAuthenticatedCompanyId: async () => state.company},

@@ -53,14 +53,19 @@ await assert.rejects(()=>decisionRepo.decide(scope,'r1',1,'DISCARD',{kind:'COMPA
 // Native timestamp/fromMe validation and AsyncLocalStorage propagation use real service code.
 let captured;
 const client={query:async()=>({rows:[{locked:true}]}),release(){}};
+let snapshotReads=0;
 const prisma={m1MCompany:{findUnique:async()=>({whatsappInstanceName:scope.instanceName})},m1MCustomer:{findFirst:async()=>null},$queryRaw:async(parts)=>{
- const sql=parts.join('');if(sql.includes('to_regclass'))return [{operations:'d',reviews:'r',keys:'k'}];if(sql.includes('EXISTS'))return [{needed:true}];return [];
+ const sql=parts.join('');snapshotReads++;if(sql.includes('WITH latest AS MATERIALIZED'))return [{remoteJid:scope.remoteJid,state:'DELETED',aliases:[scope.remoteJid],lastMessage:null}];if(sql.includes('to_regclass'))return [{operations:'d',reviews:'r',keys:'k'}];if(sql.includes('EXISTS'))return [{needed:true}];return [];
 }};
 const service=compile('services/conversation-deletion.service.ts',{
  '@/lib/prisma':{prisma},'./conversation-deletion-policy':{configuredDeletionScope:()=>false},
  './conversation-deletion.repository':{createConversationDeletionRepository:()=>({ingestUncertain:async(...args)=>{captured=args[3];return {action:'NORMAL_FLOW'};}}),ConversationDeletionError:class extends Error{}},
  pg:{Pool:class{async connect(){return client;}}}
 });
+const beforeSnapshot=snapshotReads;
+const snapshot=await service.deletionListSnapshot(scope.companyId,scope.instanceName);
+assert.equal(snapshotReads-beforeSnapshot,2,'snapshot needs only storage check and scoped markers');
+assert.equal(snapshot[0].state,'DELETED');assert.equal(snapshot[0].lastMessage,null);
 const sec=Date.parse(payload.sentAt)/1000;
 for(const [raw,expected] of [[{key:{fromMe:false},messageTimestamp:sec},true],[{key:{fromMe:false}},false],[{key:{},messageTimestamp:sec},false],[{key:{fromMe:true},messageTimestamp:sec},false]]){
  captured=undefined;

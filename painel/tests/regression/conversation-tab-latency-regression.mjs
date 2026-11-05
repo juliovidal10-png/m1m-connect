@@ -32,6 +32,7 @@ for (const c of customers) c.attendances = attendances.filter(a => a.customerId 
 async function benchmark(text, label) {
   let chatCalls = 0, groupCalls = 0;
   const route = moduleTS(text, {
+    '@/services/conversation-deletion.service': {deletionStorageAvailable: async () => false, deletionListSnapshot: async () => []},
     '@/lib/conversation-queue': queue,
     '@/generated/prisma/enums': {M1MUserPermission: {VIEW_ALL_CONVERSATIONS: 'all'}},
     '@/lib/tenant': {getAuthenticatedCompanyId: async () => 'A'},

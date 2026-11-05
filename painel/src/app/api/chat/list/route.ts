@@ -622,7 +622,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "InstÃ¢ncia do WhatsApp nÃ£o configurada para esta empresa." }, { status: 400 });
     }
 
-    const [customers, activeAttendances] = await Promise.all([
+    // After authorization/scope resolution, overlap provider I/O with local reads.
+    // Capture rejection immediately so a DB failure cannot leave an unhandled promise.
+    const inventoryTask = queue || wantsQueueCounts || wantsWaitingCount
+      ? getOperationalInventory(companyId, instanceName).then(
+          chats => ({ chats }), error => ({ error }),
+        ) : null;
+    async function operationalChats(): Promise<EvolutionChat[]> {
+      const result = await inventoryTask;
+      if (!result) throw new Error("Operational inventory not requested");
+      if ("error" in result) throw result.error;
+      return result.chats;
+    }
+    const deletionService = await import("@/services/conversation-deletion.service");
+    const [customers, activeAttendances, deletionSnapshot] = await Promise.all([
       prisma.m1MCustomer.findMany({
         where: { companyId },
         include: {
@@ -643,6 +656,7 @@ export async function GET(request: Request) {
           },
         },
       }),
+      deletionService.deletionListSnapshot(companyId, instanceName),
     ]);
     perfLog("database", {
       customers: customers.length,
@@ -744,8 +758,6 @@ export async function GET(request: Request) {
       });
     }
 
-    const deletionSnapshot=await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable()
-      ? await (await import("@/services/conversation-deletion.service")).deletionListSnapshot(companyId,instanceName) : [];
     const hiddenAfterDeletion=new Set(deletionSnapshot.filter(row=>row.state!=="RESUMED").flatMap(row=>row.aliases as string[]));
     function visible(items: EnrichedChat[], applyQueue = true): EnrichedChat[] {
       return items.map(chat=>{
@@ -781,7 +793,7 @@ export async function GET(request: Request) {
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
     if (wantsQueueCounts) {
-      const rawChats = await getOperationalInventory(companyId, instanceName);
+      const rawChats = await operationalChats();
       const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
       const pendingReviewCount=await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable() && (authenticatedUser.isPrimary || String(authenticatedUser.role)==="ADMIN")
         ? Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName} AND state='PENDING'`)[0].count) : undefined;
@@ -802,7 +814,7 @@ export async function GET(request: Request) {
     if (wantsWaitingCount) {
       // Compartilha inventario e consultas em andamento com lista e contagens das abas.
       // Estado e permissoes continuam sendo recalculados nesta requisicao.
-      const rawChats = await getOperationalInventory(companyId, instanceName);
+      const rawChats = await operationalChats();
       const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
       const waitingCount = waitingChats.filter(
         (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
@@ -812,7 +824,7 @@ export async function GET(request: Request) {
     if (queue) {
       const inventoryStartedAt = Date.now();
       let rawChats: EvolutionChat[];
-      try { rawChats = await getOperationalInventory(companyId, instanceName); }
+      try { rawChats = await operationalChats(); }
       catch {
         if (request.signal.aborted) return new NextResponse(null, { status: 499 });
         return NextResponse.json({ error: "Nao foi possivel atualizar esta aba. Tente novamente." }, { status: 503 });
