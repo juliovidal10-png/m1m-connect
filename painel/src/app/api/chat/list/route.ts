@@ -738,7 +738,8 @@ export async function GET(request: Request) {
         }
         const officialName = normalizeText(customer.name);
         const displayName = groupSubject || officialName || normalizeText(chat.pushName);
-        const attendance = attendanceByCustomerId.get(customer.id) ?? customer.attendances[0];
+        const activeAttendance = attendanceByCustomerId.get(customer.id);
+        const attendance = activeAttendance ?? customer.attendances[0];
         return {
           ...chat,
           canonicalJid: getStableCanonicalJid(chat) || chat.canonicalJid || null,
@@ -749,7 +750,7 @@ export async function GET(request: Request) {
           attendanceSectorId: attendance?.sectorId ?? null,
           attendanceSectorName: attendance?.sector?.name ?? null,
           attendanceResponsibleId: attendance?.responsibleId ?? null,
-          attendanceManualWhatsApp: isManualWhatsAppTakeover(attendance && "events" in attendance ? attendance.events[0] : null),
+          attendanceManualWhatsApp: isManualWhatsAppTakeover(activeAttendance?.events?.[0]),
           crmCustomerId: customer.id,
           crmName: groupSubject || customer.name,
           crmPhone: customer.phone,
