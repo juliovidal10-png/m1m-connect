@@ -3,14 +3,10 @@ import Link from "next/link";
 import {useCallback,useEffect,useState} from "react";
 type Review={id:string;remoteJid:string;evolutionMessageId:string;reason:string;version:number;firstSeenAt:string;normalizedPayload:{text?:string;type?:string;fromMe?:boolean}|null};
 function endpoint(companyId?:string){return '/api/conversation-deletions'+(companyId?'?companyId='+encodeURIComponent(companyId):'');}
-export function ConversationReviewAccess({companyId,compact=false,pendingCount}:{companyId?:string;compact?:boolean;pendingCount?:number|null}){
- const [data,setData]=useState<{enabled:boolean;canReview:boolean;showReviewAccess?:boolean;pendingCount?:number}|null>(null);
- useEffect(()=>{const controller=new AbortController();fetch(endpoint(companyId),{signal:controller.signal,cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{if(!controller.signal.aborted)setData(v);}).catch(()=>{});return()=>controller.abort();},[companyId]);
- if(!data?.enabled||!data.canReview||data.showReviewAccess!==true)return null;
- const href=companyId?`/m1m-admin/companies/${encodeURIComponent(companyId)}/manage/revisao-conversas`:'/configuracoes/revisao-conversas';
- const pending=pendingCount??data.pendingCount;
- if(compact)return <Link href={href} className="mt-3 block text-xs font-semibold text-[#087B7B]">Revisar origem incerta{typeof pending==='number'?` (${pending})`:''}</Link>;
- return <section className="mt-6 rounded-2xl border border-black/10 bg-white p-5"><h2 className="font-bold">Opções avançadas</h2><Link href={href} className="mt-3 inline-block rounded-xl border px-4 py-2 text-sm text-[#087B7B]">Revisar eventos de origem incerta{typeof pending==='number'?` (${pending} pendentes)`:''}</Link></section>;
+// Access links are retired while this feature is suspended; durable protection is unchanged.
+export function ConversationReviewAccess(props:{companyId?:string;compact?:boolean;pendingCount?:number|null}){
+ void props;
+ return null;
 }
 export default function ConversationDeletionReview({companyId}:{companyId?:string}){
  const [items,setItems]=useState<Review[]>([]),[count,setCount]=useState<number|null>(null),[company,setCompany]=useState(''),[instance,setInstance]=useState(''),[offset,setOffset]=useState(0),[more,setMore]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[busy,setBusy]=useState(false),[target,setTarget]=useState(''),[decision,setDecision]=useState<{row:Review;action:'RESUME'|'DISCARD'}|null>(null);
