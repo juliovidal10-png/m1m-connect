@@ -4,9 +4,9 @@ import {useCallback,useEffect,useState} from "react";
 type Review={id:string;remoteJid:string;evolutionMessageId:string;reason:string;version:number;firstSeenAt:string;normalizedPayload:{text?:string;type?:string;fromMe?:boolean}|null};
 function endpoint(companyId?:string){return '/api/conversation-deletions'+(companyId?'?companyId='+encodeURIComponent(companyId):'');}
 export function ConversationReviewAccess({companyId,compact=false,pendingCount}:{companyId?:string;compact?:boolean;pendingCount?:number|null}){
- const [data,setData]=useState<{enabled:boolean;canReview:boolean;pendingCount?:number}|null>(null);
+ const [data,setData]=useState<{enabled:boolean;canReview:boolean;showReviewAccess?:boolean;pendingCount?:number}|null>(null);
  useEffect(()=>{const controller=new AbortController();fetch(endpoint(companyId),{signal:controller.signal,cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{if(!controller.signal.aborted)setData(v);}).catch(()=>{});return()=>controller.abort();},[companyId]);
- if(!data?.enabled||!data.canReview)return null;
+ if(!data?.enabled||!data.canReview||data.showReviewAccess!==true)return null;
  const href=companyId?`/m1m-admin/companies/${encodeURIComponent(companyId)}/manage/revisao-conversas`:'/configuracoes/revisao-conversas';
  const pending=pendingCount??data.pendingCount;
  if(compact)return <Link href={href} className="mt-3 block text-xs font-semibold text-[#087B7B]">Revisar origem incerta{typeof pending==='number'?` (${pending})`:''}</Link>;

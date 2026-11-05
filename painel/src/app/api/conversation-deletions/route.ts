@@ -47,7 +47,7 @@ export async function GET(request:NextRequest){
       return NextResponse.json(await listDeletionReviews(ctx.companyId,ctx.instanceName,offset),{headers:{'Cache-Control':'no-store'}});
     }
     const pendingCount=ctx.canReview?Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${ctx.companyId} AND "instanceName"=${ctx.instanceName} AND state='PENDING'`)[0].count):undefined;
-    return NextResponse.json({enabled:true,canDelete:ctx.canDelete&&newAllowed,canReview:ctx.canReview,company:ctx.company.name,instanceName:ctx.instanceName,pendingCount},{headers:{'Cache-Control':'no-store'}});
+    return NextResponse.json({enabled:true,canDelete:ctx.canDelete&&newAllowed,canReview:ctx.canReview,showReviewAccess:newAllowed,company:ctx.company.name,instanceName:ctx.instanceName,pendingCount},{headers:{'Cache-Control':'no-store'}});
   }catch(error){return failure(error);}
 }
 export async function POST(request:NextRequest){
