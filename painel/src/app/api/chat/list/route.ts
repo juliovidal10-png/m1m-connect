@@ -1,4 +1,4 @@
-import { getConversationQueue, isConversationQueue } from "@/lib/conversation-queue";
+import { getConversationQueue, isConversationQueue, isManualWhatsAppTakeover } from "@/lib/conversation-queue";
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
@@ -40,6 +40,7 @@ type EnrichedChat = EvolutionChat & {
   attendanceSectorId?: string | null;
   attendanceSectorName?: string | null;
   attendanceResponsibleId?: string | null;
+  attendanceManualWhatsApp?: boolean;
   crmCustomerId?: string | null;
   crmName?: string | null;
   crmPhone?: string | null;
@@ -654,6 +655,12 @@ export async function GET(request: Request) {
           sector: {
             select: { name: true },
           },
+          events: {
+            where: { type: { in: ["TAKEN_BY_HUMAN", "TRANSFERRED_TO_SECTOR"] } },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 1,
+            select: { type: true, metadata: true },
+          },
         },
       }),
       deletionService.deletionListSnapshot(companyId, instanceName),
@@ -742,6 +749,7 @@ export async function GET(request: Request) {
           attendanceSectorId: attendance?.sectorId ?? null,
           attendanceSectorName: attendance?.sector?.name ?? null,
           attendanceResponsibleId: attendance?.responsibleId ?? null,
+          attendanceManualWhatsApp: isManualWhatsAppTakeover(attendance && "events" in attendance ? attendance.events[0] : null),
           crmCustomerId: customer.id,
           crmName: groupSubject || customer.name,
           crmPhone: customer.phone,
@@ -817,7 +825,7 @@ export async function GET(request: Request) {
       const rawChats = await operationalChats();
       const waitingChats = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
       const waitingCount = waitingChats.filter(
-        (chat) => chat.attendanceState === "HUMANO" && !chat.attendanceResponsibleId,
+        (chat) => getConversationQueue(chat) === "WAITING",
       ).length;
       return NextResponse.json({ waitingCount });
     }

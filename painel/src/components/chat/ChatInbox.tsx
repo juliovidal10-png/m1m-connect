@@ -44,6 +44,7 @@ type Chat = {
   attendanceSectorId?: string | null;
   attendanceSectorName?: string | null;
   attendanceResponsibleId?: string | null;
+  attendanceManualWhatsApp?: boolean;
 
   crmCustomerId?: string | null;
   crmName?: string | null;
@@ -1421,6 +1422,7 @@ const loadContacts =
           crmCustomerId: assignment.customerId,
           attendanceId: assignment.id,
           attendanceState: assignment.state,
+          attendanceManualWhatsApp: false,
           attendanceResponsibleId: assignment.responsibleId,
           attendanceSectorId: assignment.sectorId,
           crmResponsibleId: assignment.responsibleId,

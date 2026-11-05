@@ -140,6 +140,27 @@ state.calls = [];
 assert.equal((await get('waitingCount=1')).waitingCount, afterNew.waiting + 1);
 assert.equal(state.calls.filter(c => c.url.includes('/group/')).length, 0);
 assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length, 1);
+// Pausa manual comprovada pelo audit fica em Abertas, sem alterar HUMANO/IA.
+const manualAttendance = state.attendances.find(a => a.customerId === newCustomer.id);
+const beforeManual = await get('queueCounts=1');
+manualAttendance.events = [{type:'TAKEN_BY_HUMAN', metadata:{source:'WHATSAPP_MANUAL_MESSAGE'}}];
+const manualOpen = await get('queue=OPEN&search=' + newCustomer.remoteJid);
+assert.equal(manualOpen.items.length,1);
+assert.equal(manualOpen.items[0].attendanceState,'HUMANO','classificacao nao reativa IA');
+assert.equal(manualOpen.items[0].attendanceManualWhatsApp,true);
+assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length,0);
+assert.equal((await get('queueCounts=1')).waiting,beforeManual.waiting-1);
+assert.equal((await get('waitingCount=1')).waitingCount,beforeManual.waiting-1);
+manualAttendance.responsibleId='user1';
+assert.equal((await get('queue=IN_SERVICE&search=' + newCustomer.remoteJid)).items.length,1);
+manualAttendance.responsibleId=null;
+manualAttendance.events=[{type:'TRANSFERRED_TO_SECTOR',metadata:{source:'AI_HANDOFF'}}];
+assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length,1);
+assert.equal((await get('queue=OPEN&search=' + newCustomer.remoteJid)).items.length,0);
+manualAttendance.events=[];
+assert.equal((await get('queue=WAITING&search=' + newCustomer.remoteJid)).items.length,1,'origem ausente continua conservadora');
+assert.equal((await get('queueCounts=1')).waiting,beforeManual.waiting);
+for(const event of [null,{}, {type:'TAKEN_BY_HUMAN',metadata:[]},{type:'TRANSFERRED_TO_SECTOR',metadata:{source:'WHATSAPP_MANUAL_MESSAGE'}}])assert.equal(queues.isManualWhatsAppTakeover(event),false);
 // Mais de um lote interno: nao truncar em 1.000 nem alterar a pagina de 100.
 for (let n = 0; n < 1000; n++) add('HUMANO');
 clockOffset += 61000; state.calls = [];
