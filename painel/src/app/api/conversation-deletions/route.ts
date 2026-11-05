@@ -59,13 +59,14 @@ export async function POST(request:NextRequest){
     if(!body||typeof body!=='object'||Array.isArray(body))throw new ConversationDeletionError('INVALID_BODY',400);
     const action=body.action;
     if(action==='review'){
+      if(body.continueConversation!==undefined&&typeof body.continueConversation!=='boolean')throw new ConversationDeletionError('INVALID_BODY',400);
       if(!ctx.canReview)throw new AuthorizationError();
       if(!['RESUME','DISCARD'].includes(body.decision)||typeof body.reviewId!=='string'||!Number.isSafeInteger(body.version))throw new ConversationDeletionError('INVALID_BODY',400);
       const rows=await prisma.$queryRaw<{remoteJid:string}[]>`SELECT "remoteJid" FROM m1m_conversation_deletion_reviews WHERE id=${body.reviewId} AND "companyId"=${ctx.companyId} AND "instanceName"=${ctx.instanceName}`;
       if(!rows[0])throw new ConversationDeletionError('NOT_FOUND',404);
       const scope={companyId:ctx.companyId,instanceName:ctx.instanceName,remoteJid:rows[0].remoteJid};
       const target=body.targetRemoteJid?await resolveDeletionScope(ctx.companyId,ctx.instanceName,String(body.targetRemoteJid)):null;
-      return NextResponse.json(await conversationDeletionRepository.decide(scope,body.reviewId,body.version,body.decision,ctx.actor,(db,event)=>importReviewedMessage(db,target?.scope??scope,event,ctx.actor),target?.scope));
+      return NextResponse.json(await conversationDeletionRepository.decide(scope,body.reviewId,body.version,body.decision,ctx.actor,(db,event)=>importReviewedMessage(db,target?.scope??scope,event,ctx.actor),target?.scope,body.continueConversation===true));
     }
     if(!await newConversationDeletionAllowed(ctx.companyId,ctx.instanceName))throw new ConversationDeletionError('NEW_DELETIONS_DISABLED',403);
     if(!ctx.canDelete)throw new AuthorizationError();

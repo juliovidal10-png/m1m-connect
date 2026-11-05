@@ -25,7 +25,7 @@ export async function deletionProtectionRequired(companyId:string,instanceName:s
 }
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool, type PoolClient } from "pg";
-type WorkContext={client:PoolClient;scope:DeletionScope};
+type WorkContext={client:PoolClient;scope:DeletionScope;liveReceipt?:{eventId:string;receivedAt:Date}};
 const workContext=new AsyncLocalStorage<WorkContext>();
 let pool:Pool|undefined;
 function getPool(){
@@ -43,7 +43,7 @@ const database = {
     }catch(error){await client.query('ROLLBACK');throw error;}finally{if(!held)client.release();}
   },
 };
-export async function withDeletionConversation<T>(scope:DeletionScope,work:()=>Promise<T>):Promise<T>{
+export async function withDeletionConversation<T>(scope:DeletionScope,work:()=>Promise<T>,liveReceipt?:{eventId:string;receivedAt:Date}):Promise<T>{
   if(!await deletionProtectionRequired(scope.companyId,scope.instanceName))return work();
   const key=JSON.stringify([scope.companyId,scope.instanceName,scope.remoteJid]);
   const current=workContext.getStore();
@@ -55,7 +55,7 @@ export async function withDeletionConversation<T>(scope:DeletionScope,work:()=>P
   try{
     locked=(await client.query('SELECT pg_try_advisory_lock(hashtextextended($1,0)) AS locked',[key])).rows[0].locked;
     if(!locked)throw new ConversationDeletionError('CONVERSATION_BUSY');
-    return await workContext.run({client,scope},work);
+    return await workContext.run({client,scope,liveReceipt},work);
   }finally{try{if(locked)await client.query('SELECT pg_advisory_unlock(hashtextextended($1,0))',[key]);}finally{client.release();}}
 }
 export async function canonicalDeletionScope(scope:DeletionScope):Promise<DeletionScope>{
@@ -110,7 +110,13 @@ export async function interceptDeletedEvent(scope:DeletionScope,message:{evoluti
       AND state IN ('DELETED','RESUMED','DELETING','FAILED') LIMIT 1`;
     if(possible.length)return conversationDeletionRepository.ingestUnresolved(scope,message.evolutionMessageId,payload);
   }
-  return conversationDeletionRepository.ingestUncertain(scope,message.evolutionMessageId,payload);
+  const raw=message.rawPayload&&typeof message.rawPayload==='object'?message.rawPayload as Row:{};
+  const stamp=raw.messageTimestamp;
+  const seconds=(typeof stamp==='number'||(typeof stamp==='string'&&/^\d+$/.test(stamp)))?Number(stamp):NaN;
+  // Missing/invalid provider dates must not inherit the normalizer's current-time fallback.
+  const rawKey=raw.key&&typeof raw.key==='object'?raw.key as Row:{};
+  const dated=rawKey.fromMe===false&&Number.isFinite(seconds)&&seconds>0&&message.sentAt?.getTime()===seconds*1000;
+  return conversationDeletionRepository.ingestUncertain(scope,message.evolutionMessageId,payload,dated?workContext.getStore()?.liveReceipt:undefined);
 }
 export async function safeDeletedHistory(scope:DeletionScope){
   const messages=await prisma.m1MMessage.findMany({where:{companyId:scope.companyId,instanceName:scope.instanceName,remoteJid:scope.remoteJid},orderBy:{sentAt:'desc'},take:100});
@@ -157,13 +163,20 @@ export async function importReviewedMessage(db:DeletionConnection,scope:Deletion
   const customer=(await db.query(`SELECT id FROM m1m_customers WHERE "companyId"=$1 AND "remoteJid"=$2 FOR UPDATE`,[scope.companyId,scope.remoteJid])).rows[0];
   if(!customer)throw new ConversationDeletionError("CONTACT_IDENTITY_REQUIRED");
   const existing=(await db.query(`SELECT "customerId" FROM m1m_messages WHERE "companyId"=$1 AND "instanceName"=$2 AND "evolutionMessageId"=$3`,[scope.companyId,scope.instanceName,event.evolutionMessageId])).rows[0];
-  if(existing){if(existing.customerId!==customer.id)throw new ConversationDeletionError('REVIEW_EVENT_SCOPE_CONFLICT');return;}
+  if(existing){
+    if(existing.customerId!==customer.id)throw new ConversationDeletionError('REVIEW_EVENT_SCOPE_CONFLICT');
+    if(event.continuationRequested!==true)return;
+    // Continuation still needs its audit checkpoint even when this event was stored already.
+  }
   const active=(await db.query(`SELECT id,state FROM m1m_attendances WHERE "companyId"=$1 AND "customerId"=$2 AND state IN ('IA','HUMANO') ORDER BY "startedAt" DESC LIMIT 1 FOR UPDATE`,[scope.companyId,customer.id])).rows[0];
   if(active?.state==='HUMANO')throw new ConversationDeletionError("FINISH_HUMAN_ATTENDANCE_FIRST");
   const attendanceId=active?.id??randomUUID();
   if(!active)await db.query(`INSERT INTO m1m_attendances(id,"companyId","customerId",state,"updatedAt") VALUES($1,$2,$3,'IA',CURRENT_TIMESTAMP AT TIME ZONE 'UTC')`,[attendanceId,scope.companyId,customer.id]);
   await db.query(`INSERT INTO m1m_attendance_events(id,"attendanceId",type,"actorType","actorId",metadata)
-    VALUES($1,$2,'REOPENED_AFTER_REVIEW',$3,$4,$5::jsonb)`,[randomUUID(),attendanceId,actor.kind==='COMPANY_USER'?'USER':'SYSTEM',actor.kind==='COMPANY_USER'?actor.id:null,JSON.stringify({source:'ADMIN_ACCEPTED_UNCERTAIN',reviewerId:actor.id,reviewerKind:actor.kind,evolutionMessageId:event.evolutionMessageId,originalRemoteJid:event.originalRemoteJid??scope.remoteJid})]);
+    VALUES($1,$2,'REOPENED_AFTER_REVIEW',$3,$4,$5::jsonb || CASE WHEN $6::boolean THEN
+      jsonb_build_object('continuation',jsonb_build_object('enabled',true,'deletionId',$7::text,'reviewId',$8::text,
+        'cutoffUTC',to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))
+      ELSE '{}'::jsonb END)`,[randomUUID(),attendanceId,actor.kind==='COMPANY_USER'?'USER':'SYSTEM',actor.kind==='COMPANY_USER'?actor.id:null,JSON.stringify({source:'ADMIN_ACCEPTED_UNCERTAIN',instanceName:scope.instanceName,reviewerId:actor.id,reviewerKind:actor.kind,evolutionMessageId:event.evolutionMessageId,originalRemoteJid:event.originalRemoteJid??scope.remoteJid}),event.continuationRequested===true,event.continuationDeletionId??null,event.reviewId??null]);
   const fromMe=event.fromMe===true,text=typeof event.text==='string'?event.text:null;
   const sentAt=typeof event.sentAt==='string' && !Number.isNaN(Date.parse(event.sentAt))?new Date(event.sentAt):new Date();
   const raw={key:{id:event.evolutionMessageId,remoteJid:scope.remoteJid,fromMe},message:event.message??{conversation:text??'Evento de origem incerta aceito para revisão.'},messageTimestamp:Math.floor(sentAt.getTime()/1000),m1mOrigin:'ADMIN_ACCEPTED_UNCERTAIN'};

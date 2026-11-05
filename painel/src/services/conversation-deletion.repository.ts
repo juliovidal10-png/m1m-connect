@@ -12,6 +12,13 @@ type Actor = { kind: "COMPANY_USER" | "PLATFORM_ADMIN"; id: string };
 export class ConversationDeletionError extends Error {
   constructor(public code: string, public status = 409) { super(code); }
 }
+// This is an explicit operator policy, not proof that a provider event is live.
+export function continuationEventAllowed(checkpoint: unknown, payload: Row, receivedAt: Date): boolean {
+  if (typeof checkpoint !== 'string' || typeof payload.sentAt !== 'string' || payload.fromMe !== false) return false;
+  const cutoff = Date.parse(checkpoint), sent = Date.parse(payload.sentAt), received = receivedAt.getTime();
+  return Number.isFinite(cutoff) && Number.isFinite(sent) && Number.isFinite(received)
+    && sent > cutoff && sent <= received && received >= cutoff;
+}
 const MAX_MANIFEST = 5000;
 function nonempty(value: string) {
   if (!value?.trim()) throw new ConversationDeletionError("INVALID_SCOPE", 400);
@@ -108,7 +115,7 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
         return {alreadyCompleted:false,deletedMessageCount:removed.rowCount??0};
       });
     },
-    async ingestUncertain(scopeInput: DeletionScope, eventId: string, payload: Row) {
+    async ingestUncertain(scopeInput: DeletionScope, eventId: string, payload: Row, liveReceipt?: {eventId:string;receivedAt:Date}) {
       const scope=normalizeScope(scopeInput);nonempty(eventId);
       // Whitelist normalizada; nunca persistir rawPayload/apikey/headers.
       const normalized=Object.fromEntries(["text","type","fromMe","sentAt","authorName","message","mediaUrl","mimeType"].filter(k=>Object.hasOwn(payload,k)).map(k=>[k,payload[k]]));
@@ -121,6 +128,21 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
         const old=await db.query(`SELECT 1 FROM m1m_conversation_deletion_message_keys k JOIN m1m_conversation_deletions d ON d.id=k."deletionId"
           WHERE k."companyId"=$1 AND k."instanceName"=$2 AND k."evolutionMessageId"=$3 AND d.state IN ('DELETING','DELETED','RESUMED','FAILED') LIMIT 1`,[scope.companyId,scope.instanceName,eventId]);
         if(old.rows.length) return {action:'IGNORE_KNOWN_HISTORY'};
+        if(row.state==='RESUMED') {
+          const checkpoint=(await db.query(`SELECT e.metadata#>>'{continuation,cutoffUTC}' AS cutoff
+            FROM m1m_attendance_events e JOIN m1m_attendances a ON a.id=e."attendanceId"
+            WHERE a."companyId"=$1 AND e.metadata->>'instanceName'=$2
+            AND e.metadata#>>'{continuation,deletionId}'=$3 AND e.type='REOPENED_AFTER_REVIEW'
+            AND e.metadata->>'source'='ADMIN_ACCEPTED_UNCERTAIN' AND e.metadata#>>'{continuation,enabled}'='true'
+            ORDER BY e.metadata#>>'{continuation,cutoffUTC}' DESC,e.id DESC LIMIT 1`,[scope.companyId,scope.instanceName,row.id])).rows[0]?.cutoff;
+          if(liveReceipt?.eventId===eventId && continuationEventAllowed(checkpoint,payload,liveReceipt.receivedAt))return {action:'NORMAL_FLOW'};
+          // A stored event passed the guard previously; replay must not create a new review.
+          if(typeof checkpoint==='string' && Number.isFinite(Date.parse(checkpoint))) {
+            const stored=(await db.query(`SELECT "sentAt","fromMe" FROM m1m_messages WHERE "companyId"=$1 AND "instanceName"=$2
+              AND "evolutionMessageId"=$3 AND "remoteJid"=ANY($4::text[]) LIMIT 1`,[scope.companyId,scope.instanceName,eventId,row.aliases])).rows[0];
+            if(stored && continuationEventAllowed(checkpoint,{sentAt:new Date(stored.sentAt as string).toISOString(),fromMe:stored.fromMe},new Date()))return {action:'NORMAL_FLOW'};
+          }
+        }
         const review=(await db.query(`INSERT INTO m1m_conversation_deletion_reviews
           (id,"deletionId","companyId","instanceName","remoteJid","evolutionMessageId",reason,"normalizedPayload")
           VALUES($1,$2,$3,$4,$5,$6,'UNCERTAIN_ORIGIN',$7::jsonb)
@@ -158,7 +180,7 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
       });
     },
     async decide(scopeInput: DeletionScope, reviewId: string, expectedVersion: number, decision: "RESUME"|"DISCARD", actor: Actor,
-      importSelected?: (db: DeletionConnection, event: Row) => Promise<void>, target?: DeletionScope) {
+      importSelected?: (db: DeletionConnection, event: Row) => Promise<void>, target?: DeletionScope, continueConversation=false) {
       const scope=normalizeScope(scopeInput);nonempty(actor.id);
       return database.transaction(async db=>{
         if(target&&(target.companyId!==scope.companyId||target.instanceName!==scope.instanceName))throw new ConversationDeletionError('INVALID_REVIEW_TARGET',403);
@@ -168,6 +190,7 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
         if(!row) throw new ConversationDeletionError('NOT_FOUND',404);
         if(row.state!=='PENDING' || row.version!==expectedVersion) throw new ConversationDeletionError('REVIEW_CONFLICT');
         if(!['RESUME','DISCARD'].includes(decision)) throw new ConversationDeletionError('INVALID_DECISION',400);
+        if(continueConversation && decision!=='RESUME')throw new ConversationDeletionError('INVALID_DECISION',400);
         const destination=target??scope;
         if(target&&(row.deletionId||(row.reason==='CONCURRENT_RECEIPT'&&!scope.remoteJid.endsWith('@lid'))))throw new ConversationDeletionError('REVIEW_TARGET_NOT_UNRESOLVED');
         let destinationDeletion=row.deletionId;
@@ -179,10 +202,11 @@ export function createConversationDeletionRepository(database: DeletionDatabase)
           const known=await db.query(`SELECT 1 FROM m1m_conversation_deletion_message_keys k JOIN m1m_conversation_deletions d ON d.id=k."deletionId"
             WHERE k."companyId"=$1 AND k."instanceName"=$2 AND k."evolutionMessageId"=$3 AND d.state IN ('DELETING','DELETED','RESUMED','FAILED') LIMIT 1`,[scope.companyId,scope.instanceName,row.evolutionMessageId]);
           if(known.rows.length)throw new ConversationDeletionError('KNOWN_DELETED_HISTORY');
+          if(continueConversation&&!latest)throw new ConversationDeletionError('CONTINUATION_REQUIRES_DELETION');
           if(!importSelected) throw new ConversationDeletionError('IMPORT_HANDLER_REQUIRED',500);
           // Callback transacional: somente este evento, nunca pipeline automatico.
           destinationDeletion=latest?.id??null;
-          await importSelected(db,{...row.normalizedPayload as Row,evolutionMessageId:row.evolutionMessageId,originalRemoteJid:row.remoteJid,origin:'ADMIN_ACCEPTED_UNCERTAIN'});
+          await importSelected(db,{...row.normalizedPayload as Row,evolutionMessageId:row.evolutionMessageId,originalRemoteJid:row.remoteJid,origin:'ADMIN_ACCEPTED_UNCERTAIN',continuationRequested:continueConversation,reviewId,continuationDeletionId:destinationDeletion});
           if(destinationDeletion)await db.query(`UPDATE m1m_conversation_deletions SET state='RESUMED',version=version+1 WHERE id=$1`,[destinationDeletion]);
         }
         await db.query(`UPDATE m1m_conversation_deletion_reviews SET state=$2,"remoteJid"=$5,"deletionId"=$6,"normalizedPayload"=NULL,"reviewedAt"=CURRENT_TIMESTAMP AT TIME ZONE 'UTC',
