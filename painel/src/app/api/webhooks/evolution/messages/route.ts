@@ -277,6 +277,7 @@ export async function POST(
         instanceName,
         {
           dryRun,
+          authenticatedWebhook: true,
         },
       );
 

@@ -64,6 +64,7 @@ import {
 } from "@/services/sector-availability.service";
 
 type PipelineOptions = {
+  authenticatedWebhook?: boolean;
   dryRun?: boolean;
   receiptOnly?: boolean;
 };
@@ -288,7 +289,7 @@ export const incomingMessagePipelineService = {
       const intercepted=await deletion.interceptDeletedEvent(scope,message);
       if(intercepted.action!=="NORMAL_FLOW")return {processed:false,action:intercepted.action};
       return this.processWithoutDeletionGuard(rawMessage,instanceName,options);
-    });}catch(error){
+    },options?.authenticatedWebhook&&!options?.dryRun?{eventId:message.evolutionMessageId,receivedAt:new Date()}:undefined);}catch(error){
       if(!options?.dryRun&&deletion.isConversationBusy(error)){
         const durable=await deletion.persistConcurrentReceipt(scope,message);
         return {processed:false,action:durable.action};
