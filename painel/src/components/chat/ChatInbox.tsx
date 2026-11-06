@@ -534,40 +534,6 @@ function buildContactsMap(contacts: Contact[]) {
   return contactsMap;
 }
 
-function findContact(
-  chat: Chat,
-  contactsMap: Map<string, Contact>,
-) {
-  const possibleJids = [
-    chat.canonicalJid,
-    chat.remoteJid,
-    chat.lastMessage?.key?.remoteJid,
-    chat.lastMessage?.key?.remoteJidAlt,
-  ].filter(
-    (jid): jid is string =>
-      typeof jid === "string" &&
-      jid.length > 0,
-  );
-
-  for (const jid of possibleJids) {
-    const exactContact =
-      contactsMap.get(jid);
-
-    if (exactContact) {
-      return exactContact;
-    }
-
-    const cleanContact =
-      contactsMap.get(cleanJid(jid));
-
-    if (cleanContact) {
-      return cleanContact;
-    }
-  }
-
-  return null;
-}
-
 function getChatName(
   chat: Chat,
   contactsMap: Map<string, Contact>,
@@ -668,16 +634,14 @@ function getChatProfilePicture(
   chat: Chat,
   contactsMap: Map<string, Contact>,
 ) {
-  const contact = findContact(
-    chat,
-    contactsMap,
-  );
+  const identities = isGroupChat(chat)
+    ? [chat.remoteJid]
+    : [chat.canonicalJid, chat.remoteJid, chat.lastMessage?.key?.remoteJid, chat.lastMessage?.key?.remoteJidAlt];
+  const contactPicture = identities
+    .map((jid) => jid ? contactsMap.get(jid)?.profilePicUrl : null)
+    .find(Boolean);
 
-  return (
-    contact?.profilePicUrl ||
-    chat.profilePicUrl ||
-    null
-  );
+  return contactPicture || chat.profilePicUrl || null;
 }
 
 function getRecipient(chat: Chat) {
@@ -688,10 +652,22 @@ function getRecipient(chat: Chat) {
 }
 
 function getCustomerPhone(chat: Chat) {
-  return cleanJid(
-    chat.canonicalJid ||
-      getCanonicalJid(chat),
+  if (isGroupChat(chat)) return "";
+
+  const identities = [
+    chat.canonicalJid,
+    chat.remoteJid,
+    chat.lastMessage?.key?.remoteJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+  ];
+  const phoneJid = identities.find((jid) => /^\d+@s\.whatsapp\.net$/.test(jid || ""));
+  if (phoneJid) return cleanJid(phoneJid);
+
+  const crmPhone = chat.crmPhone?.replace(/\D/g, "") || "";
+  const matchesInternalId = identities.some(
+    (jid) => jid?.endsWith("@lid") && cleanJid(jid) === crmPhone,
   );
+  return !matchesInternalId && /^\d{8,15}$/.test(crmPhone) ? crmPhone : "";
 }
 
 function formatTime(
