@@ -1549,52 +1549,58 @@ const loadContacts =
         setErrorMessage("");
       }
 
-      if (preview) {
+      const previewResult = preview ? (async () => {
         const recentJid = getCanonicalJid(chat) || requestedChatJid;
-        void (async () => {
-          try {
-            const response = await fetch(
-              `/api/chat/recent-messages?remoteJid=${encodeURIComponent(recentJid)}`,
-              { cache: "no-store", signal: preview.signal },
-            );
-            if (!response.ok) return;
-            const records = await response.json();
-            if (
-              preview.signal.aborted ||
-              requestId !== messagesRequestIdRef.current ||
-              activeChatJidRef.current !== requestedChatJid ||
-              !Array.isArray(records) ||
-              records.length === 0
-            ) return;
+        try {
+          const response = await fetch(
+            `/api/chat/recent-messages?remoteJid=${encodeURIComponent(recentJid)}`,
+            { cache: "no-store", signal: preview.signal },
+          );
+          if (!response.ok) return false;
+          const records = await response.json();
+          if (
+            preview.signal.aborted ||
+            requestId !== messagesRequestIdRef.current ||
+            activeChatJidRef.current !== requestedChatJid ||
+            !Array.isArray(records) ||
+            records.length === 0
+          ) return false;
 
-            showRecords(records);
-            setIsLoadingMessages(false);
-          } catch {
-            // A abertura continua pelo histórico completo.
-          }
-        })();
-      }
+          showRecords(records);
+          setIsLoadingMessages(false);
+          return true;
+        } catch {
+          return false;
+        }
+      })() : null;
 
       try {
-        const response = await fetch(
-          `/api/chat/messages?remoteJid=${encodeURIComponent(
-            chat.remoteJid,
-          )}`,
-          {
-            cache: "no-store",
-          },
+        const fetchHistory = () => fetch(
+          `/api/chat/messages?remoteJid=${encodeURIComponent(requestedChatJid)}`,
+          { cache: "no-store" },
         );
 
-        const data =
-          await response.json();
-        preview?.abort();
+        let response = await fetchHistory();
+        let data = await response.json();
+        if (requestId !== messagesRequestIdRef.current) return;
 
-        if (
-          requestId !==
-            messagesRequestIdRef.current
-        ) {
-          return;
+        if (response.status === 409 && data?.code === "CONVERSATION_BUSY") {
+          if (!showLoading) return;
+
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+          if (requestId !== messagesRequestIdRef.current) return;
+
+          response = await fetchHistory();
+          data = await response.json();
+          if (requestId !== messagesRequestIdRef.current) return;
+
+          if (response.status === 409 && data?.code === "CONVERSATION_BUSY") {
+            if (await previewResult) return;
+            if (requestId !== messagesRequestIdRef.current) return;
+          }
         }
+
+        preview?.abort();
 
         if (!response.ok) {
           throw new Error(
