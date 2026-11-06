@@ -1471,19 +1471,20 @@ export const conversationSyncService = {
       });
     }
 
+    const isGroup = message.remoteJid.endsWith("@g.us");
     const customer =
       await customerRepository.upsert({
         companyId: resolvedCompanyId,
         remoteJid:
           canonicalCustomerRemoteJid,
-        name: message.fromMe
+        name: isGroup || message.fromMe
           ? null
           : message.pushName,
         phone: extractPhone(
           canonicalCustomerRemoteJid,
         ),
       });
-    const attendance =
+    const attendance = isGroup ? null :
       await attendanceService.getOpenAttendanceByCustomer(
         resolvedCompanyId,
         customer.id,
