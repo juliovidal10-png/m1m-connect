@@ -34,6 +34,7 @@ type Chat = {
   id: string | null;
   remoteJid: string;
   canonicalJid?: string;
+  groupSubject?: string | null;
   pushName: string | null;
   profilePicUrl: string | null;
   updatedAt: string;
@@ -366,6 +367,10 @@ function isValidName(name?: string | null) {
 }
 
 function getNameCandidate(chat: Chat) {
+  if (isGroupChat(chat)) {
+    return [chat.groupSubject, chat.pushName].find(isValidName)?.trim() || null;
+  }
+
   const crmName = chat.crmName?.trim();
   const chatName = chat.pushName?.trim();
   const messageName =
@@ -568,40 +573,33 @@ function getChatName(
   contactsMap: Map<string, Contact>,
 ) {
   if (isGroupChat(chat)) {
-    const groupName = chat.pushName?.trim();
+    const subject = chat.groupSubject?.trim();
+    if (isValidName(subject)) return subject as string;
 
-    return (
-      groupName ||
-      cleanJid(chat.remoteJid)
-    );
+    const groupContact = contactsMap.get(chat.remoteJid)?.pushName?.trim();
+    if (isValidName(groupContact)) return groupContact as string;
+
+    return getNameCandidate(chat) || "Grupo";
   }
 
-  const crmName =
-    chat.crmName?.trim();
+  const crmName = chat.crmName?.trim();
+  if (isValidName(crmName)) return crmName as string;
 
-  if (isValidName(crmName)) {
-    return crmName as string;
-  }
+  const identities = [
+    chat.canonicalJid,
+    chat.remoteJid,
+    chat.lastMessage?.key?.remoteJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+  ];
+  const contacts = identities.flatMap((jid) => {
+    const contact = jid ? contactsMap.get(jid) : undefined;
+    return contact && isValidName(contact.pushName) ? [contact] : [];
+  });
+  const contact = contacts.find((item) => item.isSaved) || contacts[0];
+  const phoneJid = identities.find((jid) => /^\d+@s\.whatsapp\.net$/.test(jid || ""));
 
-  const contact = findContact(
-    chat,
-    contactsMap,
-  );
-
-  const contactName =
-    contact?.pushName?.trim();
-
-  if (isValidName(contactName)) {
-    return contactName as string;
-  }
-
-  return (
-    getNameCandidate(chat) ||
-    cleanJid(
-      chat.canonicalJid ||
-        chat.remoteJid,
-    )
-  );
+  return contact?.pushName?.trim() || getNameCandidate(chat) ||
+    (phoneJid ? cleanJid(phoneJid) : "Contato");
 }
 
 function getGroupParticipantJids(message: Message): string[] {
