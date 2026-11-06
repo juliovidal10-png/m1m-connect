@@ -33,6 +33,8 @@ function setup(length = 130, queue = 'WAITING') {
     selectedChat: state.selected,
     getCanonicalJid: chat => chat.canonicalJid || chat.remoteJid,
     getConversationQueue, URLSearchParams, AbortController,
+    activeChatJidRef: {current: null},
+    findChatByRequestedJid: (items, jid) => items.find(chat => chat.remoteJid === jid),
     attendanceRevisionRef: {current: 0},
     listScopeRef: {current: {queue, search: '', revision: 0}},
     chatsRef: {current: state.chats},
@@ -232,3 +234,25 @@ for (const change of ['assignment', 'queue', 'search']) {
   for (const [i, queue] of ['OPEN','WAITING','IN_SERVICE'].entries()) {buttons[i].props.onClick(); assert.equal(selectedQueue, queue);}
 }
 console.log('PASS frontend: filas exclusivas apos acoes; repeticao; item 121 e refresh paginado; concorrencia; troca fila/busca; totais atrasados; Assumir/Transferir/Finalizar sem reload; Sidebar React SSR. Sem navegador/banco reais.');
+
+{
+  const {state, context} = setup(0, 'OPEN');
+  const before = {...item(120), attendanceState: 'IA'};
+  const after = {...before, attendanceState: 'HUMANO', attendanceSectorName: 'Financeiro'};
+  state.selected = before;
+  context.chatsRef.current = [before];
+  context.activeChatJidRef.current = before.remoteJid;
+  const requests = [];
+  context.fetch = async url => {
+    requests.push(url);
+    return {ok: true, json: async () => ({items: url.includes('queue=') ? [] : [after]})};
+  };
+  const load = run(variable('loadChats', true), context);
+  await load(false, 'refresh');
+  assert.equal(state.chats.length, 0);
+  assert.equal(state.selected.attendanceState, 'HUMANO');
+  assert.equal(state.selected.attendanceSectorName, 'Financeiro');
+  assert.equal(requests.length, 2);
+  await load(false, 'refresh');
+  assert.equal(requests.length, 3, 'não repete busca por conversa ausente');
+}
