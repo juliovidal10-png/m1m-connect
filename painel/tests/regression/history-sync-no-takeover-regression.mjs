@@ -183,3 +183,27 @@ for(const routePath of ['app/api/chat/send/route.ts','app/api/chat/send-media/ro
  }
 }
 console.log('PASS: sync real sem takeover em particulares/grupos e 4 estados; idempotencia/fora de ordem; historico/autoria preservados; autoria tardia sem reabertura; escopo empresa/instancia; servicos reais de assumir/transferir/handoff/takeover preservados. Banco/Evolution simulados; nao e E2E nem banco real.');
+
+{
+  const callbacks = [];
+  let reconciliationRuns = 0;
+  const history = [{key: {id: 'first'}}];
+  const route = load('app/api/chat/messages/route.ts', {
+    'next/server': {...runtimeRequire('next/server'), after: callback => callbacks.push(callback)},
+    '@/services/auth/authorization.service': {authorizationService: {getCurrentUser: async () => ({companyId: 'synthetic-A'})}},
+    '@/repositories/company.repository': {companyRepository: {findById: async () => ({whatsappInstanceName: 'instance-A'})}},
+    '@/services/conversation-sync.service': {conversationSyncService: {syncConversation: async () => history}},
+    '@/services/message-reconciliation.service': {messageReconciliationService: {reconcileReceiptMediaForConversation: async (...args) => {
+      assert.deepEqual(args, ['synthetic-A', 'instance-A', '123@lid']);
+      reconciliationRuns++;
+      throw Error('falha simulada de conciliação');
+    }}},
+  });
+  const response = await route.GET({nextUrl: new URL('http://test/api/chat/messages?remoteJid=123@lid')});
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), history);
+  assert.equal(reconciliationRuns, 0);
+  assert.equal(callbacks.length, 1);
+  await callbacks[0]();
+  assert.equal(reconciliationRuns, 1);
+}
