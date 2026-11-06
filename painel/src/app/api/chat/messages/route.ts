@@ -17,6 +17,8 @@ import {
   messageReconciliationService,
 } from "@/services/message-reconciliation.service";
 
+import { isConversationBusy } from "@/services/conversation-deletion.service";
+
 function getErrorMessage(
   error: unknown,
   fallbackMessage: string,
@@ -121,6 +123,13 @@ export async function GET(
       messages,
     );
   } catch (error) {
+    if (isConversationBusy(error)) {
+      return NextResponse.json(
+        { code: "CONVERSATION_BUSY", error: "A conversa está sendo atualizada. Tente novamente em instantes." },
+        { status: 409 },
+      );
+    }
+
     console.error(
       "ERRO CHAT MESSAGES GET:",
       error,
