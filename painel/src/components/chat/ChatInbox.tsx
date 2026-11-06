@@ -604,6 +604,20 @@ function getChatName(
   );
 }
 
+function getIncomingMessageAuthor(
+  message: Message,
+  chat: Chat,
+  contactsMap: Map<string, Contact>,
+) {
+  const pushName = message.pushName?.trim();
+  if (pushName && isValidName(pushName)) return pushName;
+
+  if (isGroupChat(chat)) return "Participante";
+
+  const contactName = getChatName(chat, contactsMap);
+  return isValidName(contactName) ? contactName : "Contato";
+}
+
 function getChatProfilePicture(
   chat: Chat,
   contactsMap: Map<string, Contact>,
@@ -4466,15 +4480,11 @@ const loadContacts =
                               </p>
                             )}
 
-                          {!isFromMe &&
-                            !isGroupedWithPrevious &&
-                            message.pushName && (
-                              <p className="mb-1 text-xs font-semibold text-[#087B7B]">
-                                {
-                                  message.pushName
-                                }
-                              </p>
-                            )}
+                          {!isFromMe && !isGroupedWithPrevious && (
+                            <p className="mb-1 text-xs font-semibold text-[#087B7B]">
+                              {getIncomingMessageAuthor(message, selectedChat, contactsMap)}
+                            </p>
+                          )}
 
                           <MessageRenderer
                             message={
@@ -4629,11 +4639,7 @@ const loadContacts =
                       Respondendo a{" "}
                       {replyMessage.key.fromMe
                         ? "Você"
-                        : replyMessage.pushName?.trim() ||
-                          getChatName(
-                            selectedChat,
-                            contactsMap,
-                          )}
+                        : getIncomingMessageAuthor(replyMessage, selectedChat, contactsMap)}
                     </p>
 
                     <p className="mt-1 line-clamp-2 text-sm leading-5 text-black/55">
