@@ -1815,16 +1815,19 @@ const menuAlreadyShownInCurrentCycle =
         };
       }
 
-      // TF1A_CASA_CRIADOR_2026: setor ja selecionado => transferencia humana real.
-      // Sem mensagem de sucesso antes da persistencia. Nao afeta outros tenants.
+      const isCasaCriador = companyId === "cmu1vaw9x00c01qpj0ci9hgre";
+      const isNumericMenuChoice =
+        normalizedMessage.type === M1MMessageType.TEXT &&
+        router.sectorSelectionSource === "NUMBER";
+
       if (
-        companyId === "cmu1vaw9x00c01qpj0ci9hgre" &&
+        (isCasaCriador || isNumericMenuChoice) &&
         router.sectorSelectionSource && router.sectorId && router.sectorName &&
         router.state === "IA"
       ) {
         const handoffText = `Encaminhei seu atendimento ao ${router.sectorName}. Nossa equipe vai continuar por aqui.`;
         if (options?.dryRun) {
-          return { processed: true, action: "CASA_CRIADOR_HANDOFF_SIMULATED" as const,
+          return { processed: true, action: isCasaCriador ? "CASA_CRIADOR_HANDOFF_SIMULATED" : "NUMERIC_MENU_HANDOFF_SIMULATED",
             messageId: storedMessage.id, router, simulatedMessage: handoffText };
         }
         const handed = await attendanceService.requestHumanAttendanceByAI({
@@ -1833,14 +1836,14 @@ const menuAlreadyShownInCurrentCycle =
           context: normalizedMessage.content?.trim() || null,
         });
         if (handed.state !== "HUMANO" || handed.sectorId !== router.sectorId || handed.responsibleId) {
-          throw new Error("TF1A: transferencia humana nao confirmada");
+          throw new Error("Transferência humana pelo menu não confirmada.");
         }
         await automaticMessageService.sendText({
           companyId, customerId: storedMessage.customerId, attendanceId: router.attendanceId,
           instanceName: normalizedInstanceName, remoteJid: normalizedMessage.remoteJid,
           text: handoffText, sourceMessageId: storedMessage.id,
         });
-        return { processed: true, action: "CASA_CRIADOR_HANDOFF_SENT" as const,
+        return { processed: true, action: isCasaCriador ? "CASA_CRIADOR_HANDOFF_SENT" : "NUMERIC_MENU_HANDOFF_SENT",
           messageId: storedMessage.id, router };
       }      if (
         router.sectorSelectionSource &&

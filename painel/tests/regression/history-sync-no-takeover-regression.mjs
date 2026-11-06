@@ -207,3 +207,73 @@ console.log('PASS: sync real sem takeover em particulares/grupos e 4 estados; id
   await callbacks[0]();
   assert.equal(reconciliationRuns, 1);
 }
+
+{
+  const sectors = ['Comercial', 'Financeiro', 'Criação', 'Suporte'].map((name, index) => ({
+    id: String(index + 1), name, description: null,
+  }));
+  const menu = load('core/router/sector-menu.service.ts', {}).sectorMenuService;
+  const identification = load('core/router/sector-identification.service.ts', {});
+  const source = fs.readFileSync(new URL('services/incoming-message-pipeline.service.ts', root), 'utf8');
+  const ast = ts.createSourceFile('pipeline.ts', source, ts.ScriptTarget.Latest, true);
+  const statements = [];
+  function findMenuBranch(node) {
+    if (ts.isVariableStatement(node) && ['isCasaCriador', 'isNumericMenuChoice'].includes(
+      node.declarationList.declarations[0]?.name.getText(ast),
+    )) statements.push(node.getText(ast));
+    if (ts.isIfStatement(node) && node.expression.getText(ast).includes('isCasaCriador || isNumericMenuChoice')) {
+      statements.push(node.getText(ast));
+    }
+    ts.forEachChild(node, findMenuBranch);
+  }
+  findMenuBranch(ast);
+  assert.equal(statements.length, 3);
+  const handoff = ts.transpileModule('(async () => {' + statements.join('\n') + '})()', {
+    compilerOptions: {target: ts.ScriptTarget.ES2020},
+  }).outputText;
+
+  for (const [index, sector] of sectors.entries()) {
+    const companyId = 'synthetic-A';
+    const written = `Quero falar com o ${sector.name}`;
+    const attendance = {id: 'a', number: 1, state: 'IA', sectorId: null, responsibleId: null};
+    const routerService = load('core/router/router.service.ts', {
+      '@/core/router/sector-identification.service': identification,
+      '@/core/router/intent-interpreter.service': {intentInterpreterService: {interpret: async () => ({matched: false})}},
+      '@/core/router/semantic-sector-interpreter.service': {semanticSectorInterpreterService: {
+        interpret: async ({message}) => ({matched: message === written, sectorId: sector.id, candidateSectorIds: []}),
+      }},
+      '@/services/attendance.service': {attendanceService: {
+        getOpenAttendanceByCustomer: async () => attendance,
+        transferAttendanceToSector: async input => ({...attendance, sectorId: input.sectorId}),
+      }},
+      '@/services/sector.service': {sectorService: {listActiveSectors: async id => {
+        assert.equal(id, companyId);
+        return sectors;
+      }}},
+      '@/services/message.service': {messageService: {listMessagesByAttendance: async () => []}},
+    }).routerService;
+    assert.ok(menu.buildMessage(sectors).includes(`${index + 1} • ${sector.name}`));
+    for (const messageContent of [String(index + 1), written]) {
+      const numeric = messageContent !== written;
+      const router = await routerService.execute({companyId, customerId: 'c', messageContent});
+      assert.equal(router.sectorId, sector.id);
+      assert.equal(router.sectorSelectionSource, numeric ? 'NUMBER' : undefined);
+      const calls = [];
+      const result = await vm.runInNewContext(handoff, {
+        companyId, router, options: {}, M1MMessageType: {TEXT: 'TEXT'},
+        normalizedMessage: {type: 'TEXT', content: messageContent, remoteJid: 'test'},
+        normalizedInstanceName: 'instance-A', storedMessage: {id: 'm', customerId: 'c'},
+        attendanceService: {requestHumanAttendanceByAI: async input => {
+          assert.equal(input.companyId, companyId);
+          assert.equal(input.sectorId, sector.id);
+          calls.push('persist');
+          return {...attendance, state: 'HUMANO', sectorId: sector.id};
+        }},
+        automaticMessageService: {sendText: async () => calls.push('send')},
+      });
+      assert.equal(result?.action, numeric ? 'NUMERIC_MENU_HANDOFF_SENT' : undefined);
+      assert.deepEqual(calls, numeric ? ['persist', 'send'] : []);
+    }
+  }
+  console.log('PASS: opções 1–4 seguem o menu e transferem antes da confirmação; pedido escrito mantém o fluxo.');
+}
