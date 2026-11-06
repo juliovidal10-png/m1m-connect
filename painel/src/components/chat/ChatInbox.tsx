@@ -604,16 +604,64 @@ function getChatName(
   );
 }
 
+function getGroupParticipantJids(message: Message): string[] {
+  const { key } = message;
+  const alternate = "participantAlt" in key ? key.participantAlt : undefined;
+  return [key.participant, alternate].filter(
+    (jid): jid is string =>
+      typeof jid === "string" && /^\d+@(?:lid|s\.whatsapp\.net)$/.test(jid),
+  );
+}
+
+function buildGroupParticipantNames(messages: Message[]) {
+  const names = new Map<string, string | null>();
+
+  for (const message of messages) {
+    const { key } = message;
+    const name = message.pushName?.trim();
+    if (key.fromMe || !key.remoteJid?.endsWith("@g.us") || !name || !isValidName(name)) continue;
+
+    for (const jid of getGroupParticipantJids(message)) {
+      const identity = `${key.remoteJid}:${jid}`;
+      const previous = names.get(identity);
+      names.set(identity, previous === undefined || previous === name ? name : null);
+    }
+  }
+
+  return names;
+}
+
 function getIncomingMessageAuthor(
   message: Message,
   chat: Chat,
   contactsMap: Map<string, Contact>,
+  groupParticipantNames: Map<string, string | null>,
 ) {
   const pushName = message.pushName?.trim();
+
+  if (isGroupChat(chat)) {
+    const participantJids = getGroupParticipantJids(message);
+    const savedNames = new Set<string>();
+    const knownNames = new Set<string>();
+
+    for (const jid of participantJids) {
+      const contact = contactsMap.get(jid);
+      const contactName = contact?.pushName?.trim();
+      if (contact?.isSaved && contactName && isValidName(contactName)) {
+        savedNames.add(contactName);
+      }
+
+      const historyName = groupParticipantNames.get(`${message.key.remoteJid}:${jid}`);
+      if (historyName) knownNames.add(historyName);
+    }
+
+    if (savedNames.size === 1) return [...savedNames][0];
+    if (pushName && isValidName(pushName)) return pushName;
+    if (savedNames.size === 0 && knownNames.size === 1) return [...knownNames][0];
+    return "Participante";
+  }
+
   if (pushName && isValidName(pushName)) return pushName;
-
-  if (isGroupChat(chat)) return "Participante";
-
   const contactName = getChatName(chat, contactsMap);
   return isValidName(contactName) ? contactName : "Contato";
 }
@@ -1216,6 +1264,8 @@ const loadContacts =
         );
       }
     }, []);
+
+  const groupParticipantNames = useMemo(() => buildGroupParticipantNames(messages), [messages]);
 
   const reactionData =
     useMemo(() => {
@@ -4269,6 +4319,11 @@ const loadContacts =
                           previousMessage.key
                             .fromMe ===
                             message.key.fromMe &&
+                          (isFromMe ||
+                            !isGroupChat(selectedChat) ||
+                            getGroupParticipantJids(message).some((jid) =>
+                              getGroupParticipantJids(previousMessage).includes(jid),
+                            )) &&
                           isSameConversationDay(
                             previousMessage
                               .messageTimestamp,
@@ -4482,7 +4537,7 @@ const loadContacts =
 
                           {!isFromMe && !isGroupedWithPrevious && (
                             <p className="mb-1 text-xs font-semibold text-[#087B7B]">
-                              {getIncomingMessageAuthor(message, selectedChat, contactsMap)}
+                              {getIncomingMessageAuthor(message, selectedChat, contactsMap, groupParticipantNames)}
                             </p>
                           )}
 
@@ -4639,7 +4694,7 @@ const loadContacts =
                       Respondendo a{" "}
                       {replyMessage.key.fromMe
                         ? "Você"
-                        : getIncomingMessageAuthor(replyMessage, selectedChat, contactsMap)}
+                        : getIncomingMessageAuthor(replyMessage, selectedChat, contactsMap, groupParticipantNames)}
                     </p>
 
                     <p className="mt-1 line-clamp-2 text-sm leading-5 text-black/55">
