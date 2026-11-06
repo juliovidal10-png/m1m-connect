@@ -2269,16 +2269,21 @@ const loadContacts =
   const selectedChatRemoteJid =
     selectedChat?.remoteJid ?? null;
 
+  const selectedChatHistoryJid =
+    selectedChat ? getCanonicalJid(selectedChat) : null;
+
   const refreshOpenChatMessages =
     useCallback(async () => {
-      if (!selectedChatRemoteJid) {
+      if (!selectedChatRemoteJid || !selectedChatHistoryJid) {
         return;
       }
+
+      const requestId = messagesRequestIdRef.current;
 
       try {
         const response = await fetch(
           `/api/chat/recent-messages?remoteJid=${encodeURIComponent(
-            selectedChatRemoteJid,
+            selectedChatHistoryJid,
           )}`,
           {
             cache: "no-store",
@@ -2292,7 +2297,11 @@ const loadContacts =
         const data =
           await response.json();
 
-        if (!Array.isArray(data)) {
+        if (
+          activeChatJidRef.current !== selectedChatRemoteJid ||
+          messagesRequestIdRef.current !== requestId ||
+          !Array.isArray(data)
+        ) {
           return;
         }
 
@@ -2361,7 +2370,7 @@ const loadContacts =
          * na abertura da conversa.
          */
       }
-    }, [selectedChatRemoteJid]);
+    }, [selectedChatRemoteJid, selectedChatHistoryJid]);
 
   useAutoRefresh({
     callback:
