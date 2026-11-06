@@ -1305,7 +1305,54 @@ const loadContacts =
       }
     }, []);
 
-  const groupParticipantNames = useMemo(() => buildGroupParticipantNames(messages), [messages]);
+  const openGroupJid = selectedChat && isGroupChat(selectedChat) ? selectedChat.remoteJid : null;
+  const [groupDirectory, setGroupDirectory] = useState<{
+    jid: string;
+    members: { jids: string[]; names: string[] }[];
+  } | null>(null);
+
+  useEffect(() => {
+    if (!openGroupJid) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/chat/group-participants?groupJid=${encodeURIComponent(openGroupJid)}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        if (!response.ok) return;
+        const members = await response.json();
+        if (!controller.signal.aborted && Array.isArray(members)) {
+          setGroupDirectory({ jid: openGroupJid, members });
+        }
+      } catch {
+        // A agenda e o histórico local continuam disponíveis.
+      }
+    })();
+    return () => controller.abort();
+  }, [openGroupJid]);
+
+  const groupParticipantNames = useMemo(() => {
+    const names = buildGroupParticipantNames(messages);
+    if (!groupDirectory || groupDirectory.jid !== openGroupJid) return names;
+
+    const directoryNames = new Map<string, string | null>();
+    for (const member of groupDirectory.members) {
+      const savedName = member.jids
+        .map((jid) => contactsMap.get(jid))
+        .find((contact) => contact?.isSaved && isValidName(contact.pushName))?.pushName;
+      const name = (savedName || member.names.find(isValidName))?.trim();
+      if (!name) continue;
+      for (const jid of member.jids) {
+        const previous = directoryNames.get(jid);
+        directoryNames.set(jid, previous === undefined || previous === name ? name : null);
+      }
+    }
+    for (const [jid, name] of directoryNames) {
+      if (name) names.set(`${openGroupJid}:${jid}`, name);
+    }
+    return names;
+  }, [messages, groupDirectory, openGroupJid, contactsMap]);
 
   const reactionData =
     useMemo(() => {
