@@ -1376,6 +1376,10 @@ const loadContacts =
         } while (mode === "refresh" && hasMore && items.length < wanted);
         const nextItems = mergeDuplicateChats(mode === "append" ? [...chatsRef.current, ...items] : items)
           .filter((chat) => getConversationQueue(chat) === scope.queue);
+        const selectedJid = activeChatJidRef.current;
+        const previousSelection = selectedJid
+          ? findChatByRequestedJid(chatsRef.current, selectedJid)
+          : undefined;
         chatsRef.current = nextItems;
         setChats(nextItems);
         setHasMoreChats(hasMore);
@@ -1385,6 +1389,30 @@ const loadContacts =
           if (!current) return null;
           return nextItems.find((chat) => getCanonicalJid(chat) === getCanonicalJid(current)) ?? current;
         });
+
+        // Uma conversa encaminhada sai da fila visível, mas pode continuar aberta.
+        if (mode === "refresh" && previousSelection && selectedJid &&
+            !findChatByRequestedJid(nextItems, selectedJid)) {
+          try {
+            const response = await fetch(
+              `/api/chat/list?search=${encodeURIComponent(selectedJid)}`,
+              { cache: "no-store", signal: controller.signal },
+            );
+            if (response.ok) {
+              const data = await response.json();
+              const updated = Array.isArray(data?.items)
+                ? findChatByRequestedJid(data.items, selectedJid)
+                : null;
+              if (updated && isCurrent()) {
+                setSelectedChat((current) =>
+                  current?.remoteJid === selectedJid ? updated : current,
+                );
+              }
+            }
+          } catch {
+            // A lista já foi atualizada e a conversa continua disponível na tela.
+          }
+        }
       } catch (error) {
         if (isCurrent() && !controller.signal.aborted) {
           setChatListError(error instanceof Error ? error.message : "Erro ao carregar conversas.");
