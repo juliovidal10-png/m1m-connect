@@ -1458,43 +1458,7 @@ const loadContacts =
       const requestedChatJid =
         chat.remoteJid;
 
-      if (showLoading) {
-        setIsLoadingMessages(true);
-        setErrorMessage("");
-      }
-
-      try {
-        const response = await fetch(
-          `/api/chat/messages?remoteJid=${encodeURIComponent(
-            chat.remoteJid,
-          )}`,
-          {
-            cache: "no-store",
-          },
-        );
-
-        const data =
-          await response.json();
-
-        if (
-          requestId !==
-            messagesRequestIdRef.current
-        ) {
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data.error ||
-              "Erro ao carregar mensagens.",
-          );
-        }
-
-        const records: Message[] =
-          Array.isArray(data)
-            ? data
-            : [];
-
+      const showRecords = (records: Message[]) => {
         const orderedMessages = [
           ...records,
         ].sort(
@@ -1548,6 +1512,74 @@ const loadContacts =
             ];
           },
         );
+      };
+
+      const preview = showLoading ? new AbortController() : null;
+      if (showLoading) {
+        setIsLoadingMessages(true);
+        setErrorMessage("");
+      }
+
+      if (preview) {
+        const recentJid = getCanonicalJid(chat) || requestedChatJid;
+        void (async () => {
+          try {
+            const response = await fetch(
+              `/api/chat/recent-messages?remoteJid=${encodeURIComponent(recentJid)}`,
+              { cache: "no-store", signal: preview.signal },
+            );
+            if (!response.ok) return;
+            const records = await response.json();
+            if (
+              preview.signal.aborted ||
+              requestId !== messagesRequestIdRef.current ||
+              activeChatJidRef.current !== requestedChatJid ||
+              !Array.isArray(records) ||
+              records.length === 0
+            ) return;
+
+            showRecords(records);
+            setIsLoadingMessages(false);
+          } catch {
+            // A abertura continua pelo histórico completo.
+          }
+        })();
+      }
+
+      try {
+        const response = await fetch(
+          `/api/chat/messages?remoteJid=${encodeURIComponent(
+            chat.remoteJid,
+          )}`,
+          {
+            cache: "no-store",
+          },
+        );
+
+        const data =
+          await response.json();
+        preview?.abort();
+
+        if (
+          requestId !==
+            messagesRequestIdRef.current
+        ) {
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "Erro ao carregar mensagens.",
+          );
+        }
+
+        const records: Message[] =
+          Array.isArray(data)
+            ? data
+            : [];
+
+        showRecords(records);
         // TF3: a leitura e solicitada com IDs concretos recebidos da conversa.
         // O contador agregado serve somente como indicio de pendencia, nunca
         // como fonte exclusiva da identidade/quantidade de mensagens.
@@ -1717,6 +1749,7 @@ const loadContacts =
           );
         }
       } finally {
+        preview?.abort();
         if (
           showLoading &&
           requestId ===
