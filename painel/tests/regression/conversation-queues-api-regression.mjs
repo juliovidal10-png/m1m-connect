@@ -80,9 +80,9 @@ assert.equal(result.status, 200); assert.equal(result.items.length, 30); assert.
 assert.ok(result.items.every(c => queues.getConversationQueue(c) === 'OPEN'));
 assert.equal(state.calls.filter(c => c.url.includes('/chat/')).length, 1, 'inventario frio deve ser compartilhado, sem varredura por fila');
 result = await get('queue=OPEN&limit=30&offset=30');
-assert.equal(result.items.length, 6); assert.equal(result.hasMore, false);
+assert.equal(result.items.length, 7); assert.equal(result.hasMore, false);
 assert.ok(result.items.some(c => c.remoteJid === group.remoteJid));
-assert.ok(!result.items.some(c => c.remoteJid === finished.remoteJid));
+assert.equal((await get('queue=OPEN&search=' + finished.remoteJid)).items.length, 1);
 result = await get('queue=WAITING&search=cliente&offset=100&limit=10');
 assert.equal(result.items.length, 10); assert.equal(result.hasMore, true);
 assert.ok(result.items.every(c => queues.getConversationQueue(c) === 'WAITING'));
@@ -115,8 +115,18 @@ assert.equal((await get('waitingCount=1')).waitingCount, 126);
 assigned.responsibleId = null; assigned.sectorId = 'B';
 assert.equal((await get('waitingCount=1')).waitingCount, 127);
 assert.equal((await get('queue=WAITING&search=' + open.remoteJid)).items.length, 1);
-assigned.state = 'FINALIZADO';
-for (const queue of ['OPEN','WAITING','IN_SERVICE']) assert.equal((await get(`queue=${queue}&search=${open.remoteJid}`)).items.length, 0);
+for (const responsibleId of [null, 'user1']) {
+  assigned.state = 'HUMANO';
+  assigned.responsibleId = responsibleId;
+  const activeQueue = responsibleId ? 'IN_SERVICE' : 'WAITING';
+  assert.equal((await get(`queue=${activeQueue}&search=${open.remoteJid}`)).items.length, 1);
+  assigned.state = 'FINALIZADO';
+  assigned.responsibleId = null;
+  assert.equal((await get('queue=OPEN&search=' + open.remoteJid)).items.length, 1);
+  for (const queue of ['WAITING', 'IN_SERVICE']) {
+    assert.equal((await get(`queue=${queue}&search=${open.remoteJid}`)).items.length, 0);
+  }
+}
 result = await get('search=' + open.remoteJid); assert.equal(result.items[0].attendanceState, 'FINALIZADO', 'acesso direto existente preservado');
 state.attendances.push({...assigned, id: 'reopened', state: 'IA', startedAt: 10000});
 assert.equal((await get('queue=OPEN&search=' + open.remoteJid)).items.length, 1);
