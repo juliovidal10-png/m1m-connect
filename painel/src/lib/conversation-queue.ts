@@ -19,7 +19,7 @@ export function getConversationQueue(chat: OperationalConversation): Conversatio
     if (chat.attendanceResponsibleId) return "IN_SERVICE";
     return chat.attendanceManualWhatsApp === true ? "OPEN" : "WAITING";
   }
-  if (chat.attendanceState == null || chat.attendanceState === "IA") return "OPEN";
+  if (chat.attendanceState == null || chat.attendanceState === "IA" || chat.attendanceState === "FINALIZADO") return "OPEN";
   return null;
 }
 
