@@ -1,4 +1,5 @@
 import {
+  after,
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -87,32 +88,34 @@ export async function GET(
         companyId,
       );
 
-    try {
-      const reconciliation =
-        await messageReconciliationService
-          .reconcileReceiptMediaForConversation(
-            companyId,
-            instanceName,
-            remoteJid,
-          );
+    after(async () => {
+      try {
+        const reconciliation =
+          await messageReconciliationService
+            .reconcileReceiptMediaForConversation(
+              companyId,
+              instanceName,
+              remoteJid,
+            );
 
-      if (
-        reconciliation.candidates > 0
-      ) {
-        console.log(
-          "[M1M RECONCILIACAO] Conversa verificada:",
-          {
-            remoteJid,
-            ...reconciliation,
-          },
+        if (
+          reconciliation.candidates > 0
+        ) {
+          console.log(
+            "[M1M RECONCILIACAO] Conversa verificada:",
+            {
+              remoteJid,
+              ...reconciliation,
+            },
+          );
+        }
+      } catch (reconciliationError) {
+        console.warn(
+          "[M1M RECONCILIACAO] Falha nao bloqueante:",
+          reconciliationError,
         );
       }
-    } catch (reconciliationError) {
-      console.warn(
-        "[M1M RECONCILIACAO] Falha nao bloqueante:",
-        reconciliationError,
-      );
-    }
+    });
 
     return NextResponse.json(
       messages,
