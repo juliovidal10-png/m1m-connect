@@ -571,10 +571,13 @@ function getChatName(
 function getGroupParticipantJids(message: Message): string[] {
   const { key } = message;
   const alternate = "participantAlt" in key ? key.participantAlt : undefined;
-  return [key.participant, alternate].filter(
-    (jid): jid is string =>
-      typeof jid === "string" && /^\d+@(?:lid|s\.whatsapp\.net)$/.test(jid),
-  );
+  const participant = "participant" in message ? message.participant : undefined;
+
+  return [key.participant, alternate, participant].flatMap((jid) => {
+    if (typeof jid !== "string") return [];
+    const match = /^(\d+)(?::\d+)?@(lid|s\.whatsapp\.net)$/.exec(jid.trim());
+    return match ? [`${match[1]}@${match[2]}`] : [];
+  });
 }
 
 function buildGroupParticipantNames(messages: Message[]) {
@@ -617,15 +620,22 @@ function groupConversationPhotos(messages: Message[], reactions: Map<string, str
     const albumId = getPhotoAlbumId(first);
     const start = getMessageDate(first.messageTimestamp).getTime();
     const group = first.key.remoteJid?.endsWith("@g.us");
-    const participantJids = group && !first.key.fromMe ? getGroupParticipantJids(first) : [];
+    let participantJids = group && !first.key.fromMe ? getGroupParticipantJids(first) : [];
     const album = [first];
 
     for (let nextIndex = index + 1; nextIndex < messages.length; nextIndex++) {
       const next = messages[nextIndex];
       if (!canGroup(next) || next.key.fromMe !== first.key.fromMe ||
           next.key.remoteJid !== first.key.remoteJid) break;
-      if (group && !first.key.fromMe &&
-          !getGroupParticipantJids(next).some((jid) => participantJids.includes(jid))) break;
+      if (group && !first.key.fromMe) {
+        const nextJids = getGroupParticipantJids(next);
+        if (participantJids.length && nextJids.length) {
+          if (!nextJids.some((jid) => participantJids.includes(jid))) break;
+        } else if (!albumId) {
+          break;
+        }
+        if (!participantJids.length) participantJids = nextJids;
+      }
       if (first.key.fromMe && (first.m1mAuthor?.type !== next.m1mAuthor?.type ||
           first.m1mAuthor?.id !== next.m1mAuthor?.id ||
           first.m1mAuthor?.name !== next.m1mAuthor?.name)) break;
@@ -659,13 +669,15 @@ function getIncomingMessageAuthor(
   if (isGroupChat(chat)) {
     const participantJids = getGroupParticipantJids(message);
     const savedNames = new Set<string>();
+    const directoryNames = new Set<string>();
     const knownNames = new Set<string>();
 
     for (const jid of participantJids) {
       const contact = contactsMap.get(jid);
       const contactName = contact?.pushName?.trim();
-      if (contact?.isSaved && contactName && isValidName(contactName)) {
-        savedNames.add(contactName);
+      if (contactName && isValidName(contactName)) {
+        directoryNames.add(contactName);
+        if (contact?.isSaved) savedNames.add(contactName);
       }
 
       const historyName = groupParticipantNames.get(`${message.key.remoteJid}:${jid}`);
@@ -674,7 +686,8 @@ function getIncomingMessageAuthor(
 
     if (savedNames.size === 1) return [...savedNames][0];
     if (pushName && isValidName(pushName)) return pushName;
-    if (savedNames.size === 0 && knownNames.size === 1) return [...knownNames][0];
+    if (directoryNames.size === 1) return [...directoryNames][0];
+    if (directoryNames.size === 0 && knownNames.size === 1) return [...knownNames][0];
     return "Participante";
   }
 
@@ -4501,7 +4514,11 @@ const loadContacts =
                             <div className={`w-[22rem] max-w-[88%] rounded-[18px] border border-black/5 p-1.5 shadow-sm ${isFromMe ? "bg-[#f5f6f7]" : "bg-white"}`}>
                               {(!isFromMe || messageAuthorLabel) && (
                                 <p className="mb-1 px-1 text-xs font-semibold text-[#087B7B]">
-                                  {isFromMe ? messageAuthorLabel : getIncomingMessageAuthor(message, selectedChat, contactsMap, groupParticipantNames)}
+                                  {isFromMe ? messageAuthorLabel : (
+                                    album.map((photo) => getIncomingMessageAuthor(photo, selectedChat, contactsMap, groupParticipantNames))
+                                      .find((name) => name !== "Participante" && name !== "Contato") ||
+                                    getIncomingMessageAuthor(message, selectedChat, contactsMap, groupParticipantNames)
+                                  )}
                                 </p>
                               )}
                               <div className="grid grid-cols-2 gap-1">
