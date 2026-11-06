@@ -22,12 +22,16 @@ export async function guardDeletionMutation(request:Request,worker:()=>Promise<N
     }
     if(!jid)return worker();
     const scope=await canonicalDeletionScope({companyId:user.companyId,instanceName:company.whatsappInstanceName.trim(),remoteJid:jid});
-    return withDeletionConversation(scope,async()=>{
+    return await withDeletionConversation(scope,async()=>{
       const marker=await deletionMarker(scope);
       if(marker&&marker.state!=='RESUMED'&&(!authenticatedSend||marker.state!=='DELETED'))throw new ConversationDeletionError('CONVERSATION_DELETED',410);
       return worker();
     });
   }catch(error){
+    if(error instanceof ConversationDeletionError&&error.code==='CONVERSATION_BUSY'){
+      return NextResponse.json({code:'CONVERSATION_BUSY',error:'A conversa está sendo atualizada. Tente novamente em instantes.'},{status:409});
+    }
+    if(!(error instanceof ConversationDeletionError)) console.error("ERRO CONVERSATION MUTATION GUARD:",error);
     return NextResponse.json({error:error instanceof ConversationDeletionError&&error.code==='CONVERSATION_DELETED'?'Esta conversa foi excluída. Use a revisão administrativa para retomar um evento.':'A conversa está em processamento ou não pode ser alterada. Atualize e tente novamente.'},{status:error instanceof ConversationDeletionError?error.status:409});
   }
 }
