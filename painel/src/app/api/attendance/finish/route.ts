@@ -139,10 +139,20 @@ async function postWithoutDeletionGuard(
   }
 }
 
-
-
 export async function POST(request: NextRequest) {
-  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
-  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
-  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"attendance",false);
+  try {
+    const { deletionStorageAvailable } = await import("@/services/conversation-deletion.service");
+    if (!await deletionStorageAvailable()) {
+      return await postWithoutDeletionGuard(request);
+    }
+
+    const { guardDeletionMutation } = await import("@/services/conversation-deletion-route-guard");
+    return await guardDeletionMutation(request, () => postWithoutDeletionGuard(request), "attendance", false);
+  } catch (error) {
+    console.error("ERRO ATTENDANCE FINISH GUARD:", error);
+    return NextResponse.json(
+      { error: "Não foi possível confirmar a finalização. Confira o estado da conversa antes de tentar novamente." },
+      { status: 500 },
+    );
+  }
 }

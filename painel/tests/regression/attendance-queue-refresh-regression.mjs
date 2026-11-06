@@ -134,14 +134,36 @@ for (const change of ['assignment', 'queue', 'search']) {
   for (const [name, path] of [['assume','/api/customers/assign'], ['transferTo','/api/attendance/transfer'], ['finish','/api/attendance/finish']]) {
     const fn = find(ast, n => ts.isFunctionDeclaration(n) && n.name?.text === name).getText(ast);
     let received;
+    const attendance = name === "finish" ? {...assigned, state: "FINALIZADO"} : assigned;
     await run(`(${fn})`, {
       customerId: 'c120', remoteJid: '120@s.whatsapp.net', attendanceId: 'a120', busy: false,
       setBusy() {}, setError() {}, setOpen() {},
       window: {confirm: () => true, location: {reload: () => {throw Error('nao deve recarregar');}}},
-      fetch: async url => {assert.equal(url, path); return {ok: true, json: async () => ({attendance: assigned})};},
+      fetch: async url => {assert.equal(url, path); return {ok: true, json: async () => ({attendance})};},
       onChanged: async data => {received = data;},
     })({id: 'B'});
-    assert.equal(received, assigned);
+    assert.equal(received, attendance);
+  }
+
+  const finish = find(ast, n => ts.isFunctionDeclaration(n) && n.name?.text === 'finish').getText(ast);
+  for (const status of [200, 502]) {
+    let message = '';
+    let refreshes = 0;
+    let posts = 0;
+    await run(`(${finish})`, {
+      attendanceId: 'a120', busy: false,
+      setBusy() {}, setError(value) { message = value; },
+      window: {confirm: () => true},
+      fetch: async () => {
+        posts++;
+        return new Response(null, {status});
+      },
+      onChanged: async data => { assert.equal(data, undefined); refreshes++; },
+    })();
+    assert.equal(posts, 1);
+    assert.equal(refreshes, status === 200 ? 1 : 0);
+    assert.match(message, /finalização/);
+    assert.doesNotMatch(message, /JSON/);
   }
   const quick = fs.readFileSync(new URL('ChatCustomerQuickPanel.tsx', root), 'utf8');
   assert.ok(quick.includes('await onAssigned(data.attendance)'));
