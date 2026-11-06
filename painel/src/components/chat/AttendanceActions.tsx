@@ -275,13 +275,19 @@ export default function AttendanceActions({
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
-          data?.error ||
-            "Não foi possível finalizar o atendimento.",
+          typeof data?.error === "string" && data.error
+            ? data.error
+            : `Não foi possível confirmar a finalização (HTTP ${response.status}). Confira o estado da conversa antes de tentar novamente.`,
         );
+      }
+
+      if (data?.attendance?.id !== attendanceId || data.attendance.state !== "FINALIZADO") {
+        if (onChanged) await onChanged();
+        throw new Error("O servidor não confirmou a finalização. Confira o estado da conversa antes de tentar novamente.");
       }
 
       if (onChanged) await onChanged(data.attendance);
