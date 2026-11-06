@@ -315,11 +315,13 @@ export const incomingMessagePipelineService = {
       };
     }
 
-    if (
-      isUnsupportedConversation(
-        normalizedMessage.remoteJid,
-      )
-    ) {
+    const storeGroupHistory =
+      normalizedMessage.remoteJid.endsWith("@g.us") &&
+      options?.authenticatedWebhook === true &&
+      !options.dryRun &&
+      !options.receiptOnly;
+
+    if (!storeGroupHistory && isUnsupportedConversation(normalizedMessage.remoteJid)) {
       return {
         processed: false,
         action:
@@ -400,6 +402,11 @@ export const incomingMessagePipelineService = {
         accessReason:
           companyAccess.reason,
       };
+    }
+
+    if (storeGroupHistory) {
+      await conversationSyncService.syncIncomingMessage(rawMessage, normalizedInstanceName, companyId);
+      return { processed: true, action: "GROUP_HISTORY_STORED" as const };
     }
 
     if (normalizedMessage.fromMe) {
