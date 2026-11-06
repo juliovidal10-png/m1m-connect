@@ -261,7 +261,7 @@ export default function AttendanceActions({
     setError("");
 
     try {
-      const response = await fetch(
+      const requestFinish = () => fetch(
         "/api/attendance/finish",
         {
           method: "POST",
@@ -275,7 +275,15 @@ export default function AttendanceActions({
         },
       );
 
-      const data = await response.json().catch(() => null);
+      let response = await requestFinish();
+      let data = await response.json().catch(() => null);
+
+      // Este conflito é retornado antes de executar a finalização.
+      if (response.status === 409 && data?.code === "CONVERSATION_BUSY") {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+        response = await requestFinish();
+        data = await response.json().catch(() => null);
+      }
 
       if (!response.ok) {
         throw new Error(
