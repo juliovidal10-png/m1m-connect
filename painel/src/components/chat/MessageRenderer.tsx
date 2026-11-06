@@ -62,6 +62,12 @@ export type ChatMessage = {
   contextInfo?: ChatMessageContextInfo;
   message?: {
     conversation?: string;
+    messageContextInfo?: {
+      messageAssociation?: {
+        associationType?: number | string;
+        parentMessageKey?: { id?: string };
+      };
+    };
 
     extendedTextMessage?: {
       text?: string;
@@ -138,6 +144,8 @@ export type ChatMessage = {
 type MessageRendererProps = {
   message: ChatMessage;
   galleryMessages?: ChatMessage[];
+  albumThumbnail?: boolean;
+  additionalPhotos?: number;
   onForward?: (
     message: ChatMessage,
   ) => void;
@@ -952,6 +960,8 @@ function TextMessage({
 function LoadedImageMessage({
   message,
   galleryMessages = [],
+  albumThumbnail = false,
+  additionalPhotos = 0,
   onForward,
 }: MessageRendererProps) {
   const [isViewerOpen, setIsViewerOpen] =
@@ -979,7 +989,7 @@ function LoadedImageMessage({
 
   if (loading) {
     return (
-      <div className="flex min-h-40 w-72 animate-pulse items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center text-xs text-black/45">
+      <div className={albumThumbnail ? "aspect-square w-full animate-pulse rounded-xl bg-black/5" : "flex min-h-40 w-72 animate-pulse items-center justify-center rounded-2xl border border-black/5 bg-white px-4 text-center text-xs text-black/45"}>
         Carregando imagem...
       </div>
     );
@@ -987,7 +997,7 @@ function LoadedImageMessage({
 
   if (error || !media?.base64) {
     return (
-      <div className="flex min-h-32 w-72 flex-col items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center">
+      <div className={albumThumbnail ? "flex aspect-square w-full flex-col items-center justify-center rounded-xl bg-black/5 px-2 text-center" : "flex min-h-32 w-72 flex-col items-center justify-center rounded-2xl border border-black/5 bg-white px-4 text-center"}>
         <span className="text-2xl">
           📷
         </span>
@@ -1016,7 +1026,7 @@ function LoadedImageMessage({
     <>
       <div
         className={
-          isVertical
+          albumThumbnail ? "w-full" : isVertical
             ? "w-[22rem] max-w-[72vw]"
             : "w-[26rem] max-w-[72vw]"
         }
@@ -1027,7 +1037,7 @@ function LoadedImageMessage({
             setIsViewerOpen(true)
           }
           title="Clique para ampliar"
-          className="group relative block w-full cursor-zoom-in overflow-hidden rounded-[18px] border border-black/5 bg-white text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+          className={`relative block w-full cursor-zoom-in overflow-hidden border border-black/5 bg-white text-left ${albumThumbnail ? "aspect-square rounded-xl" : "rounded-[18px] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"}`}
         >
           <img
             src={imageSource}
@@ -1038,12 +1048,17 @@ function LoadedImageMessage({
             height={
               imageHeight || undefined
             }
-            className={`w-full bg-black/[0.035] object-contain transition duration-300 group-hover:scale-[1.01] group-hover:brightness-[0.98] ${
+            className={albumThumbnail ? "h-full w-full object-cover" : `w-full bg-black/[0.035] object-contain transition duration-300 group-hover:scale-[1.01] group-hover:brightness-[0.98] ${
               isVertical
                 ? "max-h-[590px]"
                 : "max-h-[460px]"
             }`}
           />
+          {additionalPhotos > 0 && (
+            <span className="absolute inset-0 grid place-items-center bg-black/55 text-2xl font-semibold text-white">
+              +{additionalPhotos}
+            </span>
+          )}
         </button>
 
         {caption && (
@@ -1074,6 +1089,8 @@ function LoadedImageMessage({
 function ImageMessage({
   message,
   galleryMessages = [],
+  albumThumbnail = false,
+  additionalPhotos = 0,
   onForward,
 }: MessageRendererProps) {
   const {
@@ -1085,7 +1102,7 @@ function ImageMessage({
     return (
       <div
         ref={elementRef}
-        className="flex min-h-40 w-72 items-center justify-center rounded-2xl border border-black/5 bg-white shadow-sm px-4 text-center text-xs text-black/45"
+        className={albumThumbnail ? "aspect-square w-full rounded-xl bg-black/5" : "flex min-h-40 w-72 items-center justify-center rounded-2xl border border-black/5 bg-white px-4 text-center text-xs text-black/45"}
       >
         A imagem será carregada ao aparecer na tela.
       </div>
@@ -1098,6 +1115,8 @@ function ImageMessage({
       galleryMessages={
         galleryMessages
       }
+      albumThumbnail={albumThumbnail}
+      additionalPhotos={additionalPhotos}
       onForward={onForward}
     />
   );
@@ -1733,6 +1752,8 @@ function DocumentMessage({
 export default function MessageRenderer({
   message,
   galleryMessages = [],
+  albumThumbnail = false,
+  additionalPhotos = 0,
   onForward,
   onQuotedMessageClick,
 }: MessageRendererProps) {
@@ -1747,6 +1768,8 @@ export default function MessageRenderer({
         galleryMessages={
           galleryMessages
         }
+        albumThumbnail={albumThumbnail}
+        additionalPhotos={additionalPhotos}
         onForward={onForward}
       />
     );
