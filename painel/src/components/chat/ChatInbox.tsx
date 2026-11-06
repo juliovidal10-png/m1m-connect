@@ -1512,6 +1512,7 @@ const loadContacts =
             ];
           },
         );
+        return orderedMessages;
       };
 
       const preview = showLoading ? new AbortController() : null;
@@ -1579,7 +1580,7 @@ const loadContacts =
             ? data
             : [];
 
-        showRecords(records);
+        const orderedMessages = showRecords(records);
         // TF3: a leitura e solicitada com IDs concretos recebidos da conversa.
         // O contador agregado serve somente como indicio de pendencia, nunca
         // como fonte exclusiva da identidade/quantidade de mensagens.
