@@ -595,6 +595,59 @@ function buildGroupParticipantNames(messages: Message[]) {
   return names;
 }
 
+function getPhotoAlbumId(message: Message) {
+  const association = message.message?.messageContextInfo?.messageAssociation;
+  return association?.associationType === 1 || association?.associationType === "MEDIA_ALBUM"
+    ? association.parentMessageKey?.id || null
+    : null;
+}
+
+function groupConversationPhotos(messages: Message[], reactions: Map<string, string[]>) {
+  const albums = new Map<number, Message[] | null>();
+
+  const canGroup = (message: Message) =>
+    message.messageType === "imageMessage" &&
+    Boolean(message.message?.imageMessage) &&
+    !message.contextInfo?.stanzaId &&
+    !reactions.get(message.key.id || message.id)?.length;
+
+  for (let index = 0; index < messages.length; index++) {
+    const first = messages[index];
+    if (!canGroup(first)) continue;
+    const albumId = getPhotoAlbumId(first);
+    const start = getMessageDate(first.messageTimestamp).getTime();
+    const group = first.key.remoteJid?.endsWith("@g.us");
+    const participantJids = group && !first.key.fromMe ? getGroupParticipantJids(first) : [];
+    const album = [first];
+
+    for (let nextIndex = index + 1; nextIndex < messages.length; nextIndex++) {
+      const next = messages[nextIndex];
+      if (!canGroup(next) || next.key.fromMe !== first.key.fromMe ||
+          next.key.remoteJid !== first.key.remoteJid) break;
+      if (group && !first.key.fromMe &&
+          !getGroupParticipantJids(next).some((jid) => participantJids.includes(jid))) break;
+      if (first.key.fromMe && (first.m1mAuthor?.type !== next.m1mAuthor?.type ||
+          first.m1mAuthor?.id !== next.m1mAuthor?.id ||
+          first.m1mAuthor?.name !== next.m1mAuthor?.name)) break;
+
+      const elapsed = getMessageDate(next.messageTimestamp).getTime() - start;
+      if (!Number.isFinite(elapsed) || elapsed < 0 ||
+          !isSameConversationDay(first.messageTimestamp, next.messageTimestamp) ||
+          getPhotoAlbumId(next) !== albumId || (!albumId && elapsed > 10_000)) break;
+
+      album.push(next);
+    }
+
+    if (album.length > 1) {
+      albums.set(index, album);
+      for (let offset = 1; offset < album.length; offset++) albums.set(index + offset, null);
+      index += album.length - 1;
+    }
+  }
+
+  return albums;
+}
+
 function getIncomingMessageAuthor(
   message: Message,
   chat: Chat,
@@ -1299,6 +1352,12 @@ const loadContacts =
         reactionsByMessageId,
       };
     }, [messages]);
+
+  const photoAlbums = useMemo(
+    () => groupConversationPhotos(reactionData.visibleMessages, reactionData.reactionsByMessageId),
+    [reactionData],
+  );
+  const [expandedPhotoAlbum, setExpandedPhotoAlbum] = useState<string | null>(null);
 
   const conversationSearchMatches =
     useMemo(() => {
@@ -4249,6 +4308,8 @@ const loadContacts =
                   .visibleMessages
                   .map(
                   (message, messageIndex) => {
+                    const album = isConversationSearchOpen ? undefined : photoAlbums.get(messageIndex);
+                    if (album === null) return null;
                     const isFromMe =
                       message.key
                         .fromMe;
@@ -4426,6 +4487,65 @@ const loadContacts =
                           </div>
                         )}
 
+                        {album ? (
+                          <div
+                            className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}
+                            ref={(element) => {
+                              for (const photo of album) {
+                                const id = photo.key.id || photo.id;
+                                if (element) messageElementRefs.current.set(id, element);
+                                else messageElementRefs.current.delete(id);
+                              }
+                            }}
+                          >
+                            <div className={`w-[22rem] max-w-[88%] rounded-[18px] border border-black/5 p-1.5 shadow-sm ${isFromMe ? "bg-[#f5f6f7]" : "bg-white"}`}>
+                              {(!isFromMe || messageAuthorLabel) && (
+                                <p className="mb-1 px-1 text-xs font-semibold text-[#087B7B]">
+                                  {isFromMe ? messageAuthorLabel : getIncomingMessageAuthor(message, selectedChat, contactsMap, groupParticipantNames)}
+                                </p>
+                              )}
+                              <div className="grid grid-cols-2 gap-1">
+                                {(expandedPhotoAlbum === messageId ? album : album.slice(0, 4)).map((photo, index) => (
+                                  <div key={photo.key.id || photo.id} className="group relative min-w-0">
+                                    <MessageRenderer
+                                      message={photo}
+                                      galleryMessages={album}
+                                      albumThumbnail
+                                      additionalPhotos={expandedPhotoAlbum !== messageId && index === 3 ? album.length - 4 : 0}
+                                      onForward={handleForwardMessage}
+                                    />
+                                    <div className="absolute right-1 top-1 z-10 rounded-full bg-white/95 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+                                      <MessageContextMenu
+                                        message={photo}
+                                        text={getMessageText(photo)}
+                                        side="right"
+                                        onDeleted={handleMessageDeleted}
+                                        onEdited={handleMessageEdited}
+                                        onNotice={showActionNotice}
+                                        onReply={handleReplyMessage}
+                                        onForward={handleForwardMessage}
+                                        onReact={handleReactMessage}
+                                        onOpenReactionPicker={openReactionEmojiPicker}
+                                      />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-1 flex items-center justify-end gap-3 px-1 text-[10px] text-black/45">
+                                {album.length > 4 && (
+                                  <button
+                                    type="button"
+                                    className="mr-auto font-semibold text-[#087B7B]"
+                                    onClick={() => setExpandedPhotoAlbum(expandedPhotoAlbum === messageId ? null : messageId)}
+                                  >
+                                    {expandedPhotoAlbum === messageId ? "Recolher fotos" : `Mostrar todas as ${album.length} fotos`}
+                                  </button>
+                                )}
+                                {formatTime(album[album.length - 1].messageTimestamp)}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
                         <div
                           ref={(element) => {
                           if (element) {
@@ -4623,6 +4743,7 @@ const loadContacts =
                           </div>
                         )}
                         </div>
+                        )}
                       </div>
                     );
                   },
