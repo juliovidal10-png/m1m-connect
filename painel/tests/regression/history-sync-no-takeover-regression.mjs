@@ -14,6 +14,8 @@ function load(path, deps, globals={}) {
   vm.runInNewContext(js,{module,exports:module.exports,require:name=>{
     if(name==='@/generated/prisma/enums')return enums;
     if(name in deps)return deps[name];
+    // Este cenário simula instalações sem as tabelas de exclusão.
+    if(name==='@/services/conversation-deletion.service')return {deletionStorageAvailable:async()=>false};
     if(name==='next/server')return runtimeRequire(name);
     throw Error('Dependencia inesperada: '+name);
   },console:{log(){},info(){},warn(){},error(){}},Date,Map,Set,Buffer,File,process:{env:{EVOLUTION_API_URL:"http://synthetic-evolution",EVOLUTION_API_KEY:"synthetic-key"}},...globals});
