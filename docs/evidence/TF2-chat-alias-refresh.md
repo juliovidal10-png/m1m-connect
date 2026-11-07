@@ -40,3 +40,15 @@ Limites: amostra de 100 registros por LID, no máximo quatro novas consultas por
 Validação local: regressões de histórico e integração com consolidação real da API, IDs repetidos, vínculo inverso, ausência, conflitos, filtro indevido, falha de provedor, limite de consultas, cache e isolamento; regressões API/interface e TypeScript passaram.
 
 Pendências: deploy manual e validação em produção. LIDs sem vínculo confirmado permanecem abertos na TF2. Não iniciar TF3.
+
+## Limpeza específica solicitada pelo proprietário
+
+Após deploy 2700be0, proprietário confirmou melhora da lista e pediu retirar somente linhas anônimas com a saudação histórica. Diagnóstico inicial selecionou 87 linhas por falta de identificação, com saída limitada a 50; não constitui autorização/evidência para apagar 87 cadastros.
+
+Consulta somente leitura completa do lote de 29/10 retornou 30 cadastros: 16 com exatamente uma mensagem de saída (saudação), zero entradas, sem outras instâncias, sem atendimento ativo ou agenda; 14 têm histórico real e são preservados. IDs, JIDs e horários dos 16 estão no manifesto versionado src/lib/legacy-greeting-manifest.ts. Um dos IDs do lote tem alias posteriormente resolvido; uma identidade confirmada prevalece e impede ocultação.
+
+Alteração: exclusão reversível apenas da lista principal, restrita a empresa-teste / M1MTesteIA e ao manifesto fechado. Sem DELETE, UPDATE, migração, união de cadastros ou alteração no provedor. Consulta revalida cadastro, contagem total de mensagens em todas as instâncias, saudação/direção/tipo/horário exatos, agenda, financeiro, atendimento ativo e dados comerciais. Mensagem e timestamp da Evolution devem corresponder à única mensagem armazenada; chat com ID do provedor ou identificação confirmada não é ocultado. Busca e histórico direto preservados; qualquer nova atividade/dados/vínculo desfaz a ocultação. Outros 14 cadastros com histórico e demais itens dos 87 não são incluídos.
+
+Validação local: regressão dos 16 snapshots, outras empresas/instâncias, dependências, atendimento, busca, nova mensagem/identificação e não mutação; regressões anteriores da TF2 e TypeScript passaram.
+
+Pendência: deploy manual e confirmação em produção da limpeza autorizada. TF2 permanece ativa até essa validação. Próxima tarefa após conclusão: TF3.
