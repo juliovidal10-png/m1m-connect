@@ -411,9 +411,37 @@ function getUpdatedTime(chat: Chat) {
 
 function mergeDuplicateChats(items: Chat[]) {
   const chatsMap = new Map<string, Chat>();
+  const lidPhones = new Map<string, string>();
+  const conflictingLids = new Set<string>();
+
+  // Resolva o vinculo em todo o lote antes de mesclar paginas ou snapshots.
+  // Uma linha antiga pode conter apenas o LID que uma atualizacao ja resolveu.
+  for (const chat of items) {
+    if (isGroupChat(chat)) continue;
+    const identities = [
+      chat.remoteJid,
+      chat.canonicalJid,
+      chat.lastMessage?.key?.remoteJid,
+      chat.lastMessage?.key?.remoteJidAlt,
+    ].filter((jid): jid is string => Boolean(jid));
+    const phones = new Set(identities.filter((jid) => /^\d+@s\.whatsapp\.net$/.test(jid)));
+    if (phones.size !== 1) continue;
+    const phone = [...phones][0];
+    for (const lid of identities.filter((jid) => /^\d+@lid$/.test(jid))) {
+      if (conflictingLids.has(lid)) continue;
+      const previousPhone = lidPhones.get(lid);
+      if (previousPhone && previousPhone !== phone) {
+        conflictingLids.add(lid);
+        lidPhones.delete(lid);
+      } else {
+        lidPhones.set(lid, phone);
+      }
+    }
+  }
 
   for (const chat of items) {
-    const canonicalJid = getCanonicalJid(chat);
+    const originalCanonicalJid = getCanonicalJid(chat);
+    const canonicalJid = lidPhones.get(originalCanonicalJid) || originalCanonicalJid;
     /*
        * Regra de unicidade da lista:
        * - conversa individual: uma identidade WhatsApp canonica = uma linha;
