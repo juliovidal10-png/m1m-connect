@@ -908,7 +908,7 @@ export const openAIProviderService = {
       reasoning: {
         effort: "low",
       },
-      max_output_tokens: 320,
+      max_output_tokens: 1024,
       text: {
         format: {
           type: "json_schema",
@@ -942,10 +942,25 @@ export const openAIProviderService = {
     });
 
     const rawText = response.output_text?.trim();
-    if (!rawText) {
-      throw new Error(
-        "A OpenAI nao retornou a classificacao conversacional.",
-      );
+    if (!rawText || response.status === "incomplete") {
+      console.warn("[M1M AI] Classificacao conversacional indisponivel; seguindo o fluxo normal.", {
+        responseId: response.id,
+        model: response.model,
+        status: response.status,
+        reason: response.incomplete_details?.reason ?? "empty_output",
+        outputTokens: response.usage?.output_tokens ?? null,
+        reasoningTokens: response.usage?.output_tokens_details?.reasoning_tokens ?? null,
+      });
+
+      // Esta classificacao e auxiliar. Sem resultado completo, o roteamento
+      // normal decide a resposta, sem encerrar ou assumir uma intencao social.
+      return {
+        intent: "OTHER",
+        replyText: null,
+        canHandleWithoutHistory: false,
+        responseId: response.id,
+        model: response.model,
+      };
     }
 
     let parsed: unknown;

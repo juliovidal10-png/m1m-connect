@@ -7,10 +7,16 @@ const ts = require("typescript");
 const source = fs.readFileSync("src/core/ai/openai-provider.service.ts", "utf8");
 let responseBody;
 let lastRequest;
+let responseOverride;
+let apiError;
+let calls = 0;
 class FakeOpenAI {
   constructor() {
     this.responses = { create: async (request) => {
       lastRequest = request;
+      calls++;
+      if (apiError) throw apiError;
+      if (responseOverride) return responseOverride;
       return { id: "test-response", model: "test-model", output_text: JSON.stringify(responseBody) };
     }};
   }
@@ -51,4 +57,24 @@ await check("outra intencao mantem fluxo normal",{intent:"OTHER",replyText:"",so
 responseBody = social("Por nada!", "INVALID");
 await assert.rejects(() => provider.classifyConversationIntent({currentMessage:"teste"}), /invalida/);
 console.log("PASSOU: tom invalido rejeitado");
+for (const response of [
+  { status: "completed", output_text: "" },
+  { status: "incomplete", output_text: "", incomplete_details: { reason: "max_output_tokens" } },
+  { status: "incomplete", output_text: '{"intent":"SOCIAL"', incomplete_details: { reason: "max_output_tokens" } },
+]) {
+  responseOverride = { id: "empty-response", model: "test-model", ...response };
+  const previousCalls = calls;
+  const result = await provider.classifyConversationIntent({ currentMessage: "Bom dia" });
+  assert.equal(result.intent, "OTHER");
+  assert.equal(result.replyText, null);
+  assert.equal(result.canHandleWithoutHistory, false);
+  assert.equal(result.responseId, "empty-response");
+  assert.equal(calls, previousCalls + 1, "Nao repetir chamadas para uma classificacao auxiliar");
+  assert.equal(lastRequest.max_output_tokens, 1024);
+}
+responseOverride = undefined;
+apiError = new Error("synthetic authentication error");
+await assert.rejects(() => provider.classifyConversationIntent({ currentMessage: "teste" }),
+  /synthetic authentication error/);
+console.log("PASSOU: saida vazia ou incompleta segue fluxo normal; erros da API continuam visiveis");
 console.log("Testes de montagem passaram. Comportamento do modelo real ainda precisa de validacao funcional.");
