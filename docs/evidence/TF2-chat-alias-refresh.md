@@ -14,3 +14,15 @@ Pendência: deploy manual do painel pelo proprietário e validação em produç�
 
 Próxima tarefa após concluir TF2: TF3 — telefone dos contatos.
 Próxima TF: [adicionar quando surgir]
+
+## Continuação — API e alcance geral
+
+Deploy 4914c41 confirmado pelo Coolify; proprietário informa duplicidades persistentes. Inventário Evolution completo: 591 chats, 157 pares explicitamente vinculados, zero JIDs exatos repetidos, zero vínculos contraditórios; amostra de 20 pares consolidada localmente de 40 para 20 linhas. Isso não comprovou a resolução em produção.
+
+Resposta autenticada do painel: 410 linhas, dez grupos por semelhança de nome (seleção para inspeção, não prova de identidade). Growtalks, CM Automóveis e Castrillon têm telefone canônico idêntico e cadastros CRM divergentes. getEnrichedChatKey usa crmCustomerId e mantém essas linhas separadas antes da paginação.
+
+Correção local: usar identidade WhatsApp canônica na chave da lista, como a interface, sem modificar registros CRM. Regressão falha no código publicado (2 linhas em vez de 1) e passa na versão corrigida; TypeScript e regressão da interface passam. Pronto para integração; deploy manual e validação em produção pendentes.
+
+Distinções preservadas: canais Pinterest têm IDs newsletter diferentes; jotta importados contém um grupo e um contato individual. Sem autorização/evidência para excluir ou unir essas entidades.
+
+Pendência: consultas ao histórico do painel e às chaves lid-mapping recíprocas da instância não confirmaram vínculos para os cinco LIDs sem alternativo investigados. Essas identidades permanecem separadas; a ausência de confirmação não prova pessoas distintas. Integrar a correção comprovada da API e validar em produção; TF2 permanece aberta, TF3 não iniciada.
