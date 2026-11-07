@@ -2,61 +2,53 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-function load(path, require = () => { throw Error('Unexpected dependency'); }) {
-  const scope = { exports: {}, require, Date };
-  vm.runInNewContext(ts.transpileModule(fs.readFileSync(path, 'utf8'), {
-    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
-  }).outputText, scope);
-  return scope.exports;
-}
-const manifest = load('src/lib/legacy-greeting-manifest.ts');
-const { createLegacyGreetingListFilter, legacyGreetingCustomerIds } = load(
-  'src/lib/legacy-greeting-list-filter.ts', name => {
-    assert.equal(name, './legacy-greeting-manifest'); return manifest;
-  },
-);
+const source = fs.readFileSync('src/lib/legacy-greeting-list-filter.ts', 'utf8');
+const scope = { exports: {}, Date };
+vm.runInNewContext(ts.transpileModule(source, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+}).outputText, scope);
+const { createLegacyGreetingListFilter, legacyGreetingScope, legacyGreetingPrefix } = scope.exports;
 const company = 'empresa-teste', instance = 'M1MTesteIA';
-const snapshot = (entry, index = 0) => ({
-  id: entry.customerId, companyId: company, remoteJid: entry.remoteJid,
-  name: null, phone: null, nameManuallySet: false, company: null, city: null,
-  observations: null, responsibleId: null, responsible: null,
-  _count: { messages: 1, reminders: 0, paymentReceipts: 0 }, attendances: [],
+const row = {
+  id: 'any-customer-not-in-the-old-manifest', companyId: company,
+  remoteJid: '100000000001@lid', name: null, phone: null, attendances: [],
   messages: [{ companyId: company, instanceName: instance, fromMe: true, type: 'TEXT',
-    content: 'Olá! Meu nome é Júlio Vidal e vou continuar seu atendimento por aqui. Como posso te ajudar?',
-    evolutionMessageId: `synthetic-${index}`, sentAt: new Date(entry.sentAt) }],
-});
-const records = manifest.legacyGreetingManifest.map(snapshot);
-const chat = row => ({ id: null, remoteJid: row.remoteJid, canonicalJid: row.remoteJid,
+    content: legacyGreetingPrefix + ' Como posso te ajudar?',
+    evolutionMessageId: 'greeting-id', sentAt: new Date('2026-10-29T21:57:00Z') }],
+  historicalMessages: 43, historicalIncoming: 32,
+};
+const base = { id: 'provider-id-is-allowed', remoteJid: row.remoteJid, canonicalJid: row.remoteJid,
   crmCustomerId: row.id, crmName: null, pushName: null, crmPhone: null,
   updatedAt: row.messages[0].sentAt.toISOString(), attendanceState: 'FINALIZADO',
-  lastMessage: { key: { id: row.messages[0].evolutionMessageId, fromMe: true, remoteJid: row.remoteJid } },
-});
-const hide = createLegacyGreetingListFilter(company, instance, records);
-assert.equal(records.length, 16, 'Reviewed cohort is fixed');
-assert.ok(records.every(row => hide(chat(row))), 'All sixteen reviewed greeting-only snapshots match');
-assert.equal(legacyGreetingCustomerIds('another-company', instance).length, 0);
-assert.equal(legacyGreetingCustomerIds(company, 'another-instance').length, 0);
-assert.equal(createLegacyGreetingListFilter('another-company', instance, records)(chat(records[0])), false);
-assert.equal(hide(chat(records[0]), 'busca'), false, 'Search remains available');
-const row = records[0], base = chat(row);
+  lastMessage: { key: { id: 'greeting-id', fromMe: true, remoteJid: row.remoteJid } },
+};
+const hide = createLegacyGreetingListFilter(company, instance, [row]);
+assert.equal(hide(base), true, 'Any matching anonymous old greeting is hidden, even with real older history');
+assert.equal(hide({ ...base, attendanceState: 'IA' }), true, 'Stale OPEN IA conversation is eligible');
+assert.equal(legacyGreetingScope('another-company', instance), false);
+assert.equal(legacyGreetingScope(company, 'another-instance'), false);
+assert.equal(createLegacyGreetingListFilter('another-company', instance, [row])(base), false);
+assert.equal(hide(base, 'search'), false, 'Search remains available');
 for (const changed of [
   { ...base, remoteJid: '123@g.us' }, { ...base, crmCustomerId: 'other' },
-  { ...base, id: 'provider-chat-id' }, { ...base, pushName: 'Cliente identificado' },
+  { ...base, pushName: 'Juju Humildemente' }, { ...base, crmName: 'Cliente identificado' },
   { ...base, crmPhone: '551100000001' }, { ...base, canonicalJid: '551100000001@s.whatsapp.net' },
   { ...base, attendanceState: 'HUMANO' }, { ...base, updatedAt: '2026-11-07T22:30:00Z' },
   { ...base, lastMessage: { key: { ...base.lastMessage.key, id: 'new-message' } } },
   { ...base, lastMessage: { key: { ...base.lastMessage.key, fromMe: false } } },
-]) assert.equal(hide(changed), false, 'New activity, identity or active attendance restores the row');
+]) assert.equal(hide(changed), false, 'New activity, name, phone or human attendance restores the row');
 for (const changed of [
-  { ...row, _count: { ...row._count, messages: 2 } },
-  { ...row, _count: { ...row._count, reminders: 1 } },
-  { ...row, _count: { ...row._count, paymentReceipts: 1 } },
-  { ...row, attendances: [{ id: 'active' }] }, { ...row, nameManuallySet: true },
-  { ...row, observations: 'Cadastro comercial' }, { ...row, companyId: 'other' },
+  { ...row, attendances: [{ id: 'human-attendance' }] }, { ...row, name: 'Identified person' },
+  { ...row, companyId: 'other' }, { ...row, phone: '551100000001' },
   { ...row, messages: [{ ...row.messages[0], fromMe: false }] },
   { ...row, messages: [{ ...row.messages[0], instanceName: 'other' }] },
-  { ...row, messages: [{ ...row.messages[0], content: 'Mensagem real' }] },
-]) assert.equal(createLegacyGreetingListFilter(company, instance, [changed])(base), false,
-  'Customer dependencies or different history must preserve the row');
-assert.equal(row._count.messages, 1, 'Records are never mutated');
-console.log('TF2 CLEANUP PASS: fixed cohort, tenant isolation, dependencies, new activity and search preservation.');
+  { ...row, messages: [{ ...row.messages[0], content: 'New real message' }] },
+  { ...row, messages: [{ ...row.messages[0], sentAt: new Date('2026-11-07T22:30:00Z') }] },
+]) assert.equal(createLegacyGreetingListFilter(company, instance, [changed])(base), false);
+// No 16/30/50-item cap: an unbounded reviewed class, not a whitelist of IDs.
+const many = Array.from({ length: 100 }, (_, i) => ({ ...row, id: `c-${i}`, remoteJid: `${100000000010 + i}@lid` }));
+const manyFilter = createLegacyGreetingListFilter(company, instance, many);
+assert.equal(many.filter(c => manyFilter({ ...base, remoteJid: c.remoteJid, canonicalJid: c.remoteJid,
+  crmCustomerId: c.id, lastMessage: { key: { ...base.lastMessage.key, remoteJid: c.remoteJid } } })).length, 100);
+assert.equal(row.historicalMessages, 43, 'Older history is never modified');
+console.log('TF2 CLEANUP PASS: full anonymous greeting cohort, older history preserved, new activity, names, scope and search.');
