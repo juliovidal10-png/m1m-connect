@@ -10,6 +10,8 @@ import {
 import {
   incomingMessagePipelineService,
 } from "@/services/incoming-message-pipeline.service";
+import { companyRepository } from "@/repositories/company.repository";
+import { conversationSyncService } from "@/services/conversation-sync.service";
 
 type UnknownRecord =
   Record<string, unknown>;
@@ -181,6 +183,26 @@ export async function POST(
       getText(body.event)
         .toUpperCase()
         .replaceAll(".", "_");
+
+    if (eventName === "MESSAGES_SET") {
+      const instanceName = getText(body.instance) || getText(body.instanceName);
+      if (!instanceName || !Array.isArray(body.data)) {
+        return NextResponse.json({ received: false, action: "INVALID_HISTORY_BATCH" }, { status: 400 });
+      }
+
+      const company = await companyRepository.findByWhatsappInstanceName(instanceName);
+      if (!company) {
+        return NextResponse.json({ received: false, action: "HISTORY_INSTANCE_NOT_FOUND" }, { status: 404 });
+      }
+      if (request.headers.get("x-m1m-dry-run") === "true") {
+        return NextResponse.json({ received: true, dryRun: true, action: "HISTORY_DRY_RUN" });
+      }
+
+      const accepted = await conversationSyncService.importHistoryBatch(
+        body.data, instanceName, company.id,
+      );
+      return NextResponse.json({ received: true, action: "HISTORY_BATCH_PROCESSED", accepted });
+    }
 
     if (
       eventName &&

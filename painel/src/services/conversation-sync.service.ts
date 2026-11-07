@@ -1422,10 +1422,61 @@ export const conversationSyncService = {
       return this.syncIncomingMessageWithoutDeletionGuard(rawMessage,instanceName,companyId);
     });
   },
+  async importHistoryBatch(
+    records: unknown[],
+    instanceName: string,
+    companyId: string,
+  ) {
+    const deletion = await import("./conversation-deletion.service");
+    const guardAvailable = await deletion.deletionStorageAvailable();
+    let accepted = 0;
+
+    for (const record of records) {
+      const timestamp = getRecord(record)?.messageTimestamp;
+      if (
+        (typeof timestamp !== "number" && typeof timestamp !== "string") ||
+        !Number.isSafeInteger(Number(timestamp)) ||
+        Number(timestamp) <= 0 ||
+        Number(timestamp) > 8_640_000_000_000_000
+      ) {
+        continue;
+      }
+      const message = normalizeEvolutionMessage(record);
+      if (!message || !/@(?:s\.whatsapp\.net|lid|g\.us)$/.test(message.remoteJid)) {
+        continue;
+      }
+
+      const persist = () => this.syncIncomingMessageWithoutDeletionGuard(
+        record, instanceName, companyId, { historical: true },
+      );
+
+      if (guardAvailable) {
+        const scope = await deletion.canonicalDeletionScope({
+          companyId,
+          instanceName,
+          remoteJid: message.remoteJid,
+        });
+        await deletion.withDeletionConversation(scope, async () => {
+          const decision = await deletion.interceptDeletedEvent(scope, message);
+          if (decision.action === "NORMAL_FLOW") {
+            await persist();
+            accepted++;
+          }
+        });
+      } else {
+        await persist();
+        accepted++;
+      }
+    }
+
+    return accepted;
+  },
+
   async syncIncomingMessageWithoutDeletionGuard(
     rawMessage: unknown,
     instanceName: string,
     companyId: string,
+    { historical = false } = {},
   ) {
     const message =
       normalizeEvolutionMessage(rawMessage);
@@ -1484,7 +1535,7 @@ export const conversationSyncService = {
           canonicalCustomerRemoteJid,
         ),
       });
-    const attendance = isGroup ? null :
+    const attendance = isGroup || historical ? null :
       await attendanceService.getOpenAttendanceByCustomer(
         resolvedCompanyId,
         customer.id,
@@ -1529,6 +1580,7 @@ export const conversationSyncService = {
       mimeType: message.mimeType,
       rawPayload: message.rawPayload,
       sentAt: message.sentAt,
+      processedAt: historical ? new Date() : undefined,
     });
   },
 };
