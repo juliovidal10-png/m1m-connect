@@ -1,27 +1,21 @@
-import { legacyGreetingManifest } from './legacy-greeting-manifest';
-
+export const legacyGreetingPrefix = 'Olá! Meu nome é Júlio Vidal e vou continuar seu atendimento por aqui.';
+export const legacyGreetingStart = new Date('2026-10-29T00:00:00Z');
+export const legacyGreetingEnd = new Date('2026-10-30T00:00:00Z');
 export function legacyGreetingScope(companyId: string, instanceName: string) {
   return companyId === 'empresa-teste' && instanceName === 'M1MTesteIA';
 }
-export function legacyGreetingCustomerIds(companyId: string, instanceName: string): string[] {
-  return legacyGreetingScope(companyId, instanceName) ? legacyGreetingManifest.map(row => row.customerId) : [];
-}
 type CustomerSnapshot = {
-  id: string; companyId: string; remoteJid: string; name: string | null;
-  phone: string | null; nameManuallySet: boolean;
-  company: string | null; city: string | null; observations: string | null;
-  responsibleId: string | null; responsible: string | null;
-  _count: { messages: number; reminders: number; paymentReceipts: number };
+  id: string; companyId: string; remoteJid: string; name: string | null; phone: string | null;
   attendances: { id: string }[];
   messages: { companyId: string; instanceName: string | null; fromMe: boolean;
     type: string; content: string | null; sentAt: Date; evolutionMessageId: string | null }[];
 };
 type ChatSnapshot = {
-  id?: unknown; remoteJid?: string | null; canonicalJid?: string | null;
+  remoteJid?: string | null; canonicalJid?: string | null;
   crmCustomerId?: string | null; crmName?: string | null; pushName?: string | null;
   crmPhone?: string | null; updatedAt?: unknown;
   attendanceState?: string | null; attendanceResponsibleId?: string | null;
-  lastMessage?: { key?: { id?: string; fromMe?: boolean | null;
+  lastMessage?: { pushName?: string | null; key?: { id?: string; fromMe?: boolean | null;
     remoteJid?: string | null; remoteJidAlt?: string | null } | null } | null;
 };
 function anonymous(value: string | null | undefined) {
@@ -35,26 +29,26 @@ export function createLegacyGreetingListFilter(
   const eligible = new Map<string, { customerId: string; messageId: string; sentAt: number }>();
   if (legacyGreetingScope(companyId, instanceName)) {
     for (const row of records) {
-      const manifest = legacyGreetingManifest.find(item => item.customerId === row.id && item.remoteJid === row.remoteJid);
-      if (!manifest || row.companyId !== companyId || row.nameManuallySet || !anonymous(row.name) || row.phone?.trim()) continue;
-      if ([row.company, row.city, row.observations, row.responsibleId, row.responsible].some(value => value?.trim())) continue;
-      if (row._count.messages !== 1 || row.messages.length !== 1 || row._count.reminders || row._count.paymentReceipts || row.attendances.length) continue;
+      if (row.companyId !== companyId || !/^\d+@lid$/.test(row.remoteJid) ||
+          !anonymous(row.name) || row.phone?.trim() || row.attendances.length || !row.messages.length) continue;
+      // Older conversation history is intentionally preserved and no longer
+      // prevents this owner-requested list cleanup. Only the latest activity matters.
       const message = row.messages[0];
+      const sentAt = message.sentAt.getTime();
       if (message.companyId !== companyId || message.instanceName !== instanceName || !message.fromMe || message.type !== 'TEXT' ||
-          !message.evolutionMessageId || !message.content?.startsWith('Olá! Meu nome é Júlio Vidal e vou continuar seu atendimento por aqui.') ||
-          message.sentAt.getTime() !== Date.parse(manifest.sentAt)) continue;
-      eligible.set(row.remoteJid, { customerId: row.id, messageId: message.evolutionMessageId, sentAt: message.sentAt.getTime() });
+          !message.evolutionMessageId || !message.content?.startsWith(legacyGreetingPrefix) ||
+          !(sentAt >= legacyGreetingStart.getTime() && sentAt < legacyGreetingEnd.getTime())) continue;
+      eligible.set(row.remoteJid, { customerId: row.id, messageId: message.evolutionMessageId, sentAt });
     }
   }
-  // This is a reversible list-only exclusion. Search and direct history remain
-  // available. Any new stored message, provider activity or confirmed identity
-  // invalidates it. No customer, attendance, message or related record is deleted.
+  // Reversible OPEN-list cleanup, not deletion. Search and direct history remain
+  // available. New activity or a confirmed name/phone restores the conversation.
   return (chat: ChatSnapshot, search = '') => {
     if (search.trim()) return false;
     const item = eligible.get(chat.remoteJid || '');
-    if (!item || chat.crmCustomerId !== item.customerId || chat.id != null || chat.crmPhone?.trim() ||
-        !anonymous(chat.crmName) || !anonymous(chat.pushName) || chat.attendanceResponsibleId ||
-        (chat.attendanceState != null && chat.attendanceState !== 'FINALIZADO')) return false;
+    if (!item || chat.crmCustomerId !== item.customerId || chat.crmPhone?.trim() ||
+        !anonymous(chat.crmName) || !anonymous(chat.pushName) || !anonymous(chat.lastMessage?.pushName) ||
+        chat.attendanceResponsibleId || (chat.attendanceState != null && !['FINALIZADO', 'IA'].includes(chat.attendanceState))) return false;
     const key = chat.lastMessage?.key;
     if (key?.id !== item.messageId || key.fromMe !== true) return false;
     if ([chat.canonicalJid, key.remoteJid, key.remoteJidAlt].some(jid => jid && jid !== chat.remoteJid)) return false;

@@ -4,7 +4,7 @@ import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { resolveChatHistoryIdentities } from "@/lib/chat-history-identity";
-import { createLegacyGreetingListFilter, legacyGreetingCustomerIds } from "@/lib/legacy-greeting-list-filter";
+import { createLegacyGreetingListFilter, legacyGreetingScope, legacyGreetingStart, legacyGreetingEnd, legacyGreetingPrefix } from "@/lib/legacy-greeting-list-filter";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -630,7 +630,6 @@ export async function GET(request: Request) {
       return result.chats;
     }
     const deletionService = await import("@/services/conversation-deletion.service");
-    const legacyGreetingIds = legacyGreetingCustomerIds(companyId, instanceName);
     const [customers, activeAttendances, deletionSnapshot, legacyGreetingCustomers] = await Promise.all([
       prisma.m1MCustomer.findMany({
         where: { companyId },
@@ -659,14 +658,15 @@ export async function GET(request: Request) {
         },
       }),
       deletionService.deletionListSnapshot(companyId, instanceName),
-      legacyGreetingIds.length ? prisma.m1MCustomer.findMany({
-        where: { companyId, id: { in: legacyGreetingIds } },
+      legacyGreetingScope(companyId, instanceName) ? prisma.m1MCustomer.findMany({
+        where: { companyId, remoteJid: { endsWith: "@lid" }, messages: { some: {
+          companyId, instanceName, fromMe: true, type: "TEXT", content: { startsWith: legacyGreetingPrefix },
+          sentAt: { gte: legacyGreetingStart, lt: legacyGreetingEnd },
+        } } },
         select: {
-          id: true, companyId: true, remoteJid: true, name: true, phone: true, nameManuallySet: true,
-          company: true, city: true, observations: true, responsibleId: true, responsible: true,
-          _count: { select: { messages: true, reminders: true, paymentReceipts: true } },
-          attendances: { where: { state: { in: ["IA", "HUMANO"] } }, take: 1, select: { id: true } },
-          messages: { take: 2, select: { companyId: true, instanceName: true, fromMe: true,
+          id: true, companyId: true, remoteJid: true, name: true, phone: true,
+          attendances: { where: { state: "HUMANO" }, take: 1, select: { id: true } },
+          messages: { orderBy: [{ sentAt: "desc" }, { id: "desc" }], take: 1, select: { companyId: true, instanceName: true, fromMe: true,
             type: true, content: true, sentAt: true, evolutionMessageId: true } },
         },
       }) : Promise.resolve([]),

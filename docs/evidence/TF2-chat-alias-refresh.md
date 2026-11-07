@@ -52,3 +52,13 @@ Alteração: exclusão reversível apenas da lista principal, restrita a empresa
 Validação local: regressão dos 16 snapshots, outras empresas/instâncias, dependências, atendimento, busca, nova mensagem/identificação e não mutação; regressões anteriores da TF2 e TypeScript passaram.
 
 Pendência: deploy manual e confirmação em produção da limpeza autorizada. TF2 permanece ativa até essa validação. Próxima tarefa após conclusão: TF3.
+
+## Ampliação expressamente solicitada pelo proprietário
+
+O proprietário esclareceu que deseja retirar de Abertas todas as linhas anônimas cuja última atividade é a saudação do lote antigo, inclusive quando há histórico anterior. Não deseja excluir contatos ou mensagens; novas atividades devem fazer a conversa reaparecer. Autorização limitada à sua empresa; sem investigar ou alterar outras empresas.
+
+A restrição anterior aos 16 IDs e à existência de uma única mensagem foi retirada. Manifesto removido. A consulta agora seleciona o lote conhecido de 29/10 na empresa-teste / M1MTesteIA e confere a última mensagem armazenada de cada cadastro (ordem sentAt/id decrescente), em vez de exigir ausência de histórico. Sem limite artificial de IDs. Regra requer LID sem identificação, sem telefone confirmado, última saudação enviada naquele dia e mesma última mensagem/horário no provedor. Histórico anterior, agenda e financeiro permanecem integralmente preservados e não impedem a limpeza visual solicitada.
+
+Contatos com nome real, telefone confirmado, atendimento humano ou atividade diferente/nova ficam visíveis. Busca e histórico direto continuam acessíveis; nenhuma alteração em banco ou Evolution. A regra não é aplicada em outras empresas/instâncias. O lote é fixado no dia já evidenciado; não arquiva automaticamente futuras saudações de outras datas.
+
+Validação: teste de 100 cadastros sintéticos, incluindo um com 43 mensagens históricas/32 entradas, confirma ausência do antigo teto e preservação dos dados; proteções para nomes reais, vínculo confirmado, novo evento, atendimento humano, busca e escopo. Regressões TF2 anteriores e TypeScript passaram. Deploy manual/validação em produção pendentes; TF2 ainda ativa. Próxima tarefa após confirmação: TF3.
