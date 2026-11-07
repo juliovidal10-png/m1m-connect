@@ -177,9 +177,10 @@ async function requestMedia(
 }
 
 export default function useMediaLoader(
-  messageId: string,
-  message: unknown,
+  recordId: string | undefined,
+  message: { key?: { id?: string } } | null | undefined,
 ) {
+  const messageId = recordId || message?.key?.id || "";
   const cached = messageId
     ? mediaCache.get(messageId)
     : undefined;
