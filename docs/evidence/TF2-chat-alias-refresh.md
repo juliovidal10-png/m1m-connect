@@ -26,3 +26,17 @@ Correção local: usar identidade WhatsApp canônica na chave da lista, como a i
 Distinções preservadas: canais Pinterest têm IDs newsletter diferentes; jotta importados contém um grupo e um contato individual. Sem autorização/evidência para excluir ou unir essas entidades.
 
 Pendência: consultas ao histórico do painel e às chaves lid-mapping recíprocas da instância não confirmaram vínculos para os cinco LIDs sem alternativo investigados. Essas identidades permanecem separadas; a ausência de confirmação não prova pessoas distintas. Integrar a correção comprovada da API e validar em produção; TF2 permanece aberta, TF3 não iniciada.
+
+## Continuação — vínculo histórico da Evolution
+
+Produção confirmou commit 8aae90e. A nova resposta tem sete grupos por semelhança de nome; os três pares antes explicitamente ligados com cadastros CRM divergentes não aparecem mais nessa seleção. Não confundir comparação por nome com prova de duplicidade.
+
+Consulta findMessages da Evolution confirmou vínculo LID/telefone para Tiago. O segundo LID Imed aponta para telefone diferente do primeiro; sem evidência para uni-los. A consulta diagnóstica foi incompleta por repetição de IDs WhatsApp; isso não invalida os pares explícitos observados, nem comprova ausência de outros vínculos.
+
+Alteração: resolver identidade individual usando pares explícitos do histórico Evolution antes do enriquecimento/consolidação da API. Nenhum nome, número presumido ou ID de CRM é usado para inferir correspondência. Inspecionar todas as linhas retornadas, mesmo com key.id repetido. Preservar grupos/canais, conflitos e dados persistidos.
+
+Limites: amostra de 100 registros por LID, no máximo quatro novas consultas por chamada, timeout de 2,5s em paralelo, cache limitado a 2.000 entradas e separado por servidor/empresa/instância/LID; positivo por cinco minutos, ausência por um minuto, falha por 15s. Ausência em amostra não prova pessoas distintas. Links confirmados não são descartados por falha temporária ou ausência em amostra posterior; conflitos observados não são usados. Descoberta progride em atualizações subsequentes. Não é uma varredura histórica completa.
+
+Validação local: regressões de histórico e integração com consolidação real da API, IDs repetidos, vínculo inverso, ausência, conflitos, filtro indevido, falha de provedor, limite de consultas, cache e isolamento; regressões API/interface e TypeScript passaram.
+
+Pendências: deploy manual e validação em produção. LIDs sem vínculo confirmado permanecem abertos na TF2. Não iniciar TF3.
