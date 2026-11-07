@@ -3,6 +3,7 @@ import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
+import { resolveChatHistoryIdentities } from "@/lib/chat-history-identity";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -679,7 +680,13 @@ export async function GET(request: Request) {
       if (customerPhone) customerMap.set(customerPhone, customer);
     }
 
+    let historyDiscoveryStarted = false;
     async function enrich(rawChats: EvolutionChat[], resolveSubjects = true): Promise<EnrichedChat[]> {
+      const allowDiscovery = !historyDiscoveryStarted;
+      historyDiscoveryStarted = true;
+      const identityChats = await resolveChatHistoryIdentities(rawChats, {
+        companyId, instanceName: instanceName!, apiUrl: API_URL || "", apiKey: API_KEY || "", allowDiscovery,
+      });
       const groupJids: string[] = Array.from(
         new Set(
           rawChats
@@ -693,7 +700,7 @@ export async function GET(request: Request) {
       const groupSubjectMap = new Map<string, string>();
       for (const [groupJid, subject] of groupSubjectEntries) if (subject) groupSubjectMap.set(groupJid, subject);
 
-      return rawChats.map((chat) => {
+      return identityChats.map((chat) => {
         const identities = getChatIdentities(chat);
         const primaryRemoteJid = getPrimaryRemoteJid(chat);
         const groupSubject = groupSubjectMap.get(primaryRemoteJid) || null;
