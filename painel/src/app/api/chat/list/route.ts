@@ -158,17 +158,9 @@ function getEnrichedChatKey(chat: EnrichedChat) {
     return `jid:${primaryRemoteJid}`;
   }
 
-  /*
-   * Para conversas individuais, o cliente CRM e a identidade mais estavel
-   * quando LID e JID oficial representam a mesma pessoa.
-   *
-   * Se houver associacoes CRM divergentes, elas permanecem separadas aqui:
-   * corrigir cadastro historico e uma etapa distinta e nao deve ser mascarada.
-   */
-  if (chat.crmCustomerId) {
-    return `crm:${chat.crmCustomerId}`;
-  }
-
+  // A lista representa conversas WhatsApp, nao cadastros CRM. Um vinculo
+  // explicito LID/telefone deve produzir uma linha antes da paginacao,
+  // mesmo quando ha dois cadastros associados. Nenhum cadastro e alterado.
   const canonicalJid = getStableCanonicalJid(chat);
 
   return canonicalJid ? `jid:${canonicalJid}` : "";
