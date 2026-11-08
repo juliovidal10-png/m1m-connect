@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { confirmedCustomerPhone, formatConfirmedPhone } from "@/lib/customer-display-identity";
 
 export type CustomerData = {
   companyId: string;
@@ -165,65 +166,14 @@ function extractIdentifier(
   );
 }
 
-function formatBrazilianPhone(
-  value?: string | null,
-) {
-  const digits =
-    value?.replace(/\D/g, "") ||
-    "";
-
-  const normalizedDigits =
-    digits.startsWith("55") &&
-    digits.length >= 12
-      ? digits.slice(2)
-      : digits;
-
-  if (normalizedDigits.length === 11) {
-    return `(${normalizedDigits.slice(
-      0,
-      2,
-    )}) ${normalizedDigits.slice(
-      2,
-      7,
-    )}-${normalizedDigits.slice(7)}`;
-  }
-
-  if (normalizedDigits.length === 10) {
-    return `(${normalizedDigits.slice(
-      0,
-      2,
-    )}) ${normalizedDigits.slice(
-      2,
-      6,
-    )}-${normalizedDigits.slice(6)}`;
-  }
-
-  return value?.trim() || null;
-}
-
-function getAlternativeRemoteJid(
-  rawPayload: unknown,
-) {
-  if (!isRecord(rawPayload)) {
-    return null;
-  }
-
-  const key = isRecord(
-    rawPayload.key,
-  )
-    ? rawPayload.key
-    : null;
-
-  if (
-    key &&
-    typeof key.remoteJidAlt ===
-      "string"
-  ) {
-    return normalizeOptionalText(
-      key.remoteJidAlt,
-    );
-  }
-
+function getAlternativeRemoteJid(rawPayload: unknown, remoteJid: string) {
+  if (!isRecord(rawPayload) || !isRecord(rawPayload.key)) return null;
+  const key = rawPayload.key;
+  const primary = typeof key.remoteJid === "string" ? key.remoteJid.trim().toLowerCase() : "";
+  const alternate = typeof key.remoteJidAlt === "string" ? key.remoteJidAlt.trim().toLowerCase() : "";
+  const requested = remoteJid.trim().toLowerCase();
+  if (primary === requested) return alternate || null;
+  if (alternate === requested) return primary || null;
   return null;
 }
 
@@ -248,6 +198,7 @@ function buildDisplayData(customer: {
   const alternativeRemoteJid =
     getAlternativeRemoteJid(
       latestMessage?.rawPayload,
+      customer.remoteJid,
     );
 
   const isGroup =
@@ -265,29 +216,9 @@ function buildDisplayData(customer: {
       customer.remoteJid,
     );
 
-  const alternativeIdentifier =
-    alternativeRemoteJid
-      ? extractIdentifier(
-          alternativeRemoteJid,
-        )
-      : "";
-
-  const phoneSource =
-    normalizeOptionalText(
-      customer.phone,
-    ) ||
-    (!isGroup &&
-    alternativeIdentifier
-      ? alternativeIdentifier
-      : null) ||
-    (!isGroup && !isLid
-      ? remoteIdentifier
-      : null);
-
-  const displayPhone =
-    formatBrazilianPhone(
-      phoneSource,
-    );
+  const displayPhone = formatConfirmedPhone(confirmedCustomerPhone({
+    remoteJid: customer.remoteJid, phone: customer.phone, alternativeRemoteJid,
+  }));
 
   const trustedSavedName =
     isUsefulName(customer.name)

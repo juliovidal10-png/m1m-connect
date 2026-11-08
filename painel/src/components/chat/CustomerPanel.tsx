@@ -349,6 +349,9 @@ export default function CustomerPanel({
   ]);
 
   const {
+    displayCustomerName,
+    displayCustomerPhone,
+    displayCustomerPhoto,
     customerId,
     customerCode,
     setCustomerCode,
@@ -618,12 +621,12 @@ export default function CustomerPanel({
           <div className="flex-1 overflow-y-auto">
             <div className="border-b border-black/5 bg-[#f7f7f8] p-5">
               <CustomerHeader
-                avatar={profilePicUrl}
-                name={customerName || name}
+                avatar={displayCustomerPhoto || profilePicUrl}
+                name={displayCustomerName || customerName || name}
                 customerCode={
                   customerCode
                 }
-                phone={phone}
+                phone={displayCustomerPhone === undefined ? phone : displayCustomerPhone || ""}
                 company={company}
                 city={city}
                 responsible={responsible}
@@ -715,7 +718,7 @@ export default function CustomerPanel({
                   city={city}
                   responsible={responsible}
                   responsibleId={responsibleId}
-                  phone={phone}
+                  phone={displayCustomerPhone === undefined ? phone : displayCustomerPhone || ""}
                   attendanceStatus={
                     attendanceStatus === "HUMANO"
                       ? "HUMANO"
