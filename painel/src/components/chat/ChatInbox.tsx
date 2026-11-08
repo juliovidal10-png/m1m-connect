@@ -203,6 +203,8 @@ function getLastMessagePreview(chat: Chat) {
     return message.imageMessage.caption;
   }
 
+  if (chat.lastMessage?.messageType === "stickerMessage") return "Figurinha";
+
   if (chat.lastMessage?.messageType === "imageMessage") {
     return "Imagem";
   }
@@ -251,6 +253,8 @@ function getMessageText(message: Message) {
   if (message.message?.imageMessage?.caption) {
     return message.message.imageMessage.caption;
   }
+
+  if (message.messageType === "stickerMessage") return "Figurinha";
 
   if (message.messageType === "imageMessage") {
     return "📷 Imagem";
@@ -4487,6 +4491,7 @@ const loadContacts =
                       );
 
                     const isMediaMessage =
+                      message.messageType === "stickerMessage" ||
                       message.messageType ===
                         "imageMessage" ||
                       message.messageType ===

@@ -31,6 +31,8 @@ function getLastMessage(chat: Chat) {
     return message.imageMessage.caption;
   }
 
+  if (chat.lastMessage?.messageType === "stickerMessage") return "Figurinha";
+
   if (chat.lastMessage?.messageType === "imageMessage") {
     return "Imagem";
   }

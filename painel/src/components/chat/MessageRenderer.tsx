@@ -11,6 +11,7 @@ import ImageViewer from "./ImageViewer";
 import ConversationMediaViewer from "./ConversationMediaViewer";
 
 type ChatMessageQuotedMessage = {
+  stickerMessage?: { caption?: string };
   conversation?: string;
   extendedTextMessage?: {
     text?: string;
@@ -91,6 +92,14 @@ export type ChatMessage = {
       mimetype?: string;
       width?: number;
       height?: number;
+    };
+
+    stickerMessage?: {
+      mimetype?: string;
+      url?: string;
+      caption?: string;
+      isAnimated?: boolean;
+      isLottie?: boolean;
     };
 
     audioMessage?: {
@@ -249,6 +258,8 @@ function getQuotedPreview(
   if (text) {
     return text;
   }
+
+  if (quoted.stickerMessage) return quoted.stickerMessage.caption?.trim() || "Figurinha";
 
   if (quoted.imageMessage) {
     return "📷 Imagem";
@@ -1749,6 +1760,36 @@ function DocumentMessage({
   );
 }
 
+function StickerMessage({ message }: { message: ChatMessage }) {
+  const { media, loading, error } = useMediaLoader(message.id, message);
+  const [failed, setFailed] = useState(false);
+  const mime = (media?.mimetype || message.message?.stickerMessage?.mimetype || '').split(';')[0].trim().toLowerCase();
+  // WebP (including animation), PNG, JPEG and GIF render natively; never inject SVG/HTML or Lottie.
+  const supported = !message.message?.stickerMessage?.isLottie &&
+    ['image/webp', 'image/png', 'image/jpeg', 'image/gif'].includes(mime);
+  const source = media?.base64 ? `data:${mime};base64,${media.base64}` : '';
+  useEffect(() => { setFailed(false); }, [source]);
+  const caption = message.message?.stickerMessage?.caption?.trim() ||
+    message.message?.conversation?.trim() || message.message?.extendedTextMessage?.text?.trim() || '';
+  return (
+    <div className="max-w-[72vw]">
+      {loading ? (
+        <div role="status" className="flex h-44 w-44 items-center justify-center text-xs text-black/50">Carregando figurinha...</div>
+      ) : error || !source ? (
+        <div className="w-44 rounded-xl bg-black/5 p-3 text-xs text-black/50">Figurinha indisponível. Não foi possível carregar esta figurinha.</div>
+      ) : !supported ? (
+        <div className="w-44 rounded-xl bg-black/5 p-3 text-xs text-black/50">Formato de figurinha não suportado.</div>
+      ) : failed ? (
+        <div className="w-44 rounded-xl bg-black/5 p-3 text-xs text-black/50">Não foi possível exibir esta figurinha.</div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={source} alt="Figurinha enviada na conversa" className="h-44 w-44 object-contain" onError={() => setFailed(true)} />
+      )}
+      {caption && <LinkifiedText text={caption} className="mt-2" />}
+    </div>
+  );
+}
+
 export default function MessageRenderer({
   message,
   galleryMessages = [],
@@ -1757,6 +1798,9 @@ export default function MessageRenderer({
   onForward,
   onQuotedMessageClick,
 }: MessageRendererProps) {
+  if (message.messageType === 'stickerMessage' || message.message?.stickerMessage) {
+    return <StickerMessage key={message.id} message={message} />;
+  }
   if (
     message.messageType ===
       "imageMessage" &&
