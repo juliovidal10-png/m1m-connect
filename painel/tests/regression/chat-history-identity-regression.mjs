@@ -13,7 +13,7 @@ const scope = { companyId: 'tenant-a', instanceName: 'instance-a', apiUrl: 'http
 const chat = { remoteJid: lid, canonicalJid: lid, pushName: 'Same name', lastMessage: { key: { remoteJid: lid } } };
 const record = (alternate, primary = lid) => ({ id: 'stored-row', key: { id: 'repeated-wa-id', remoteJid: primary, remoteJidAlt: alternate } });
 function loader(fetch, clock = Date) {
-  const context = { exports: {}, fetch, AbortSignal, Date: clock };
+  const context = { exports: {}, fetch: (url, options) => url.includes('/baileys/onWhatsapp/') ? Promise.resolve({ ok: false }) : fetch(url, options), AbortSignal, Date: clock };
   vm.runInNewContext(compiled, context);
   return context.exports.resolveChatHistoryIdentities;
 }
@@ -76,3 +76,25 @@ assert.equal(discovery, 8, 'Repeated enrichment in the same HTTP request must no
 await bounded([{ remoteJid: '123@g.us', lastMessage: chat.lastMessage }, { remoteJid: '123@newsletter' }], scope);
 assert.equal(discovery, 8, 'Never resolve group participants or channels as direct contacts');
 console.log('TF2 HISTORY PASS: repeated message IDs, explicit links, conflicts, tenant isolation, bounded discovery and failure preservation.');
+
+const nativeContext = { exports: {}, AbortSignal, Date, fetch: async (url, options) => {
+  assert.ok(url.includes('/baileys/onWhatsapp/'));
+  const request = JSON.parse(options.body).jid.m1mIdentityLookup;
+  assert.equal(request.phones.length, 0);
+  assert.ok(request.lids.includes(lid));
+  return { ok: true, json: async () => ({ m1mIdentityLookup: 1, mappings: [{ lid, pn: phone }] }) };
+} };
+vm.runInNewContext(compiled, nativeContext);
+assert.equal((await nativeContext.exports.resolveChatHistoryIdentities([chat], scope))[0].canonicalJid, phone);
+console.log('TF3 native session identity PASS');
+for (const mappings of [
+  [{ lid, pn: phone }, { lid, pn: other }],
+  [{ lid: '999999999999@lid', pn: phone }],
+  [{ lid, pn: lid }],
+]) {
+  const context = { exports: {}, AbortSignal, Date, fetch: async url => ({ ok: true, json: async () =>
+    url.includes('/baileys/') ? { m1mIdentityLookup: 1, mappings } : { messages: { records: [] } } }) };
+  vm.runInNewContext(compiled, context);
+  assert.equal((await context.exports.resolveChatHistoryIdentities([chat], scope))[0].canonicalJid, lid,
+    'Conflicting, unsolicited and non-phone session values cannot identify a customer');
+}

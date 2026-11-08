@@ -15,3 +15,11 @@ Validação local: regressão de contato normal e afetado sintéticos, vínculo 
 Pendência: deploy manual pelo proprietário e conferir os registros afetados já apresentados e um contato normal. Se a fonte não contiver vínculo/nome/foto, manter indicação honesta e registrar a lacuna; não preencher por semelhança. TF3 permanece ativa até validação. Próxima tarefa: TF4 — figurinhas. TF5 aguarda.
 
 Próxima TF: [adicionar quando surgir]
+
+
+### Integração da sessão confirmada — 08/11/2026
+- Produção: Evolution `m1m-evolution:2.3.7-status-ack-identity-r2` ativo; consulta autenticada retornou vínculo explícito de Jeff Barber (cliente 322) LID `244688716095524@lid` → PN `556598062806@s.whatsapp.net`. Mensagem anterior não possuía alternate nem na Evolution; portanto histórico sozinho não recuperava esse telefone.
+- Alteração do painel: consultar mappings da sessão para LIDs não resolvidos (até 100 por lote), cache e requisições compartilhadas por empresa/instância; manter fallback histórico. Nenhum telefone ou contato de produção fixado no código.
+- Foto: fallback somente pelo PN confirmado, validar wuid retornado e URL HTTP(S), até quatro consultas novas por página, cache isolado. Sem gravação de contatos ou mensagens, envio ou reconexão.
+- Validação local: regressões de identidade/histórico/API/alias, teste de sessão sem alternate e foto confirmada, TypeScript. Contato normal e indisponibilidade preservados.
+- Pendente: deploy manual do painel e validação visual de Jeff e contato normal. Dados ainda ausentes na fonte permanecem sem invenção. TF3 continua aberta; próxima tarefa após conclusão: TF4.
