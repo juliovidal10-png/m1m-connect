@@ -1,0 +1,19 @@
+ARG EVOLUTION_BASE_IMAGE=evoapicloud/evolution-api@sha256:1bd8afc4a6cf48822e6cf02469aeae7bd35a12a6b616eacd1291926307f4d339
+FROM ${EVOLUTION_BASE_IMAGE}
+ARG EVOLUTION_BASE_IMAGE
+
+COPY tools/evolution/patch-status-ack.cjs tools/evolution/test-status-ack.cjs /tmp/
+COPY tools/evolution/patch-contact-identity.cjs tools/evolution/test-contact-identity.cjs /tmp/
+RUN node -e 'if (!/@sha256:[a-f0-9]{64}$/.test(process.env.EVOLUTION_BASE_IMAGE || "")) process.exit(1)' \
+    && node /tmp/test-status-ack.cjs node_modules/baileys/lib/Socket/messages-recv.js \
+    && node /tmp/patch-status-ack.cjs \
+    && node --experimental-vm-modules /tmp/test-contact-identity.cjs node_modules/baileys/lib/Socket/socket.js node_modules/baileys/lib/Utils/process-message.js \
+    && node /tmp/patch-contact-identity.cjs \
+    && node --check node_modules/baileys/lib/Socket/messages-recv.js \
+    && node --check node_modules/baileys/lib/Socket/socket.js \
+    && node --check node_modules/baileys/lib/Utils/process-message.js \
+    && node /tmp/patch-status-ack.cjs --check \
+    && node /tmp/patch-contact-identity.cjs --check \
+    && rm /tmp/patch-status-ack.cjs /tmp/test-status-ack.cjs /tmp/patch-contact-identity.cjs /tmp/test-contact-identity.cjs
+
+LABEL org.m1m.evolution.status-ack="1" org.m1m.evolution.contact-identity="1"
