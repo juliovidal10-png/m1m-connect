@@ -363,6 +363,9 @@ function extractContent(
     return extendedText;
   }
 
+  const stickerCaption = getText(getRecord(message.stickerMessage)?.caption);
+  if (stickerCaption) return stickerCaption;
+
   const imageMessage = getRecord(
     message.imageMessage,
   );
@@ -606,7 +609,7 @@ function normalizeEvolutionMessage(
   }
 
   const fromMe = getBoolean(key.fromMe);
-  const messageType = getText(
+  const messageType = getRecord(message.stickerMessage) ? 'stickerMessage' : getText(
     record.messageType,
   );
 
