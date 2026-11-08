@@ -16,3 +16,6 @@ tsc --noEmit --incremental false: passou. Testes simulam download; não comprova
 Deploy manual do painel pelo proprietário. Em empresa/instância confirmadas, enviar uma figurinha sozinha e outra seguida de texto (ou com texto quando o aplicativo permitir); conferir remetente, horário, ordem e aparência, recarregar e conferir novamente. Confirmar uma mídia existente de áudio, foto e vídeo. Não reconectar WhatsApp nem alterar Evolution para esta tarefa. TF4 permanece em validação até esse retorno; próxima TF após conclusão: TF5 — CRM.
 
 Próxima TF: [adicionar quando surgir]
+
+## Retorno de produção
+Proprietário informou Success no deploy e aprovou a continuidade para TF5 após o teste de figurinhas. TF4 encerrada por aceite do proprietário; testes locais e aceite não equivalem a uma nova auditoria independente de todas as mídias.

@@ -398,6 +398,8 @@ model M1MCustomer {
   remoteJid       String
   name            String?
   nameManuallySet Boolean   @default(false)
+  crmCardRemovedAt DateTime?
+  crmManuallyAddedAt DateTime?
   aiEnabled       Boolean   @default(true)
   phone           String?
   company         String?

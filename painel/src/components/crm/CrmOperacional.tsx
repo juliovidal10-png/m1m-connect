@@ -102,6 +102,26 @@ function getInitials(
 }
 
 export default function CrmOperacional() {
+  const [canDeleteCard, setCanDeleteCard] = useState(false);
+  const [cardToDelete, setCardToDelete] = useState<CustomerRecord | null>(null);
+  const [isDeletingCard, setIsDeletingCard] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  async function removeSelectedCard() {
+    if (!cardToDelete || isDeletingCard) return;
+    setIsDeletingCard(true);
+    setDeleteError('');
+    try {
+      const response = await fetch(`/api/crm/cards/${encodeURIComponent(cardToDelete.id)}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível excluir o card.');
+      setCustomers(current => current.filter(customer => customer.id !== cardToDelete.id));
+      setCardToDelete(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Não foi possível excluir o card.');
+    } finally { setIsDeletingCard(false); }
+  }
+
   const [
     customers,
     setCustomers,
@@ -146,7 +166,7 @@ export default function CrmOperacional() {
       try {
         const response =
           await fetch(
-            "/api/customers",
+            "/api/crm/cards",
             {
               cache:
                 "no-store",
@@ -163,10 +183,11 @@ export default function CrmOperacional() {
           );
         }
 
+        setCanDeleteCard(data.canDeleteCard === true);
         setCustomers(
           (
-            Array.isArray(data)
-              ? data
+            Array.isArray(data.cards)
+              ? data.cards
               : []
           ).filter(
             (
@@ -548,6 +569,13 @@ export default function CrmOperacional() {
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
+                    {canDeleteCard && (
+                      <button type="button" onClick={() => { setDeleteError(''); setCardToDelete(customer); }}
+                        className="h-9 rounded-xl border border-red-200 px-3 text-xs font-bold text-red-700 hover:bg-red-50">
+                        Excluir card
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() =>
@@ -588,6 +616,22 @@ export default function CrmOperacional() {
           )}
         </section>
       </div>
+
+      {cardToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="crm-delete-title" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 id="crm-delete-title" className="text-lg font-bold">Excluir este card do CRM?</h2>
+            <p className="mt-3 text-sm font-semibold">{cardToDelete.displayName} · {formatCustomerCode(cardToDelete.customerCode)}</p>
+            <p className="mt-3 text-sm text-black/65">Somente este card sairá do CRM. O contato, a conversa, as mensagens, a agenda e o financeiro serão preservados.</p>
+            <p className="mt-2 text-xs text-black/50">Vínculos preservados: {cardToDelete._count.messages} mensagens, {cardToDelete._count.attendances} atendimentos, {cardToDelete._count.reminders} lembretes e {cardToDelete._count.paymentReceipts} comprovantes.</p>
+            {deleteError && <p role="alert" className="mt-3 text-sm text-red-700">{deleteError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={isDeletingCard} onClick={() => setCardToDelete(null)} className="rounded-xl border px-4 py-2 text-sm disabled:opacity-50">Cancelar</button>
+              <button type="button" disabled={isDeletingCard} onClick={() => void removeSelectedCard()} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{isDeletingCard ? 'Excluindo...' : 'Excluir somente o card'}</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {selectedCustomer && (
         <CustomerPanel
