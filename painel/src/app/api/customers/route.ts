@@ -17,6 +17,7 @@ import {
 import {
   customerService,
 } from "@/services/customer.service";
+import { crmService } from '@/services/crm.service';
 import { enrichCustomerDisplayIdentities } from "@/services/customer-display-identity.service";
 
 function getErrorStatus(
@@ -130,6 +131,7 @@ export async function POST(
         companyId,
       });
 
+    await crmService.markManuallyAdded(companyId, customer.id);
     return NextResponse.json(
       customer,
     );
