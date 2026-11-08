@@ -17,6 +17,7 @@ import {
 import {
   customerService,
 } from "@/services/customer.service";
+import { enrichCustomerDisplayIdentities } from "@/services/customer-display-identity.service";
 
 function getErrorStatus(
   error: unknown,
@@ -61,17 +62,14 @@ export async function GET(
         );
 
       return NextResponse.json(
-        customer,
+        customer ? (await enrichCustomerDisplayIdentities(companyId, [customer]))[0] : null,
       );
     }
 
     const customers =
       await customerService.listCustomers({
         companyId,
-        search:
-          request.nextUrl.searchParams.get(
-            "search",
-          ),
+        search: null,
         status:
           request.nextUrl.searchParams.get(
             "status",
@@ -82,9 +80,15 @@ export async function GET(
           ),
       });
 
-    return NextResponse.json(
-      customers,
-    );
+    const presented = await enrichCustomerDisplayIdentities(companyId, customers);
+    const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
+    return NextResponse.json(search ? presented.filter(customer => [
+      customer.displayName, customer.displayPhone, customer.name, customer.phone,
+      customer.company, customer.city, customer.remoteJid, customer.canonicalJid,
+      customer.customerCode?.toString(), customer.customerCode?.toString().padStart(6, "0"),
+      customer.responsible, customer.assignedUser?.displayName, customer.assignedUser?.name,
+      customer.attendances[0]?.sector?.name,
+    ].some(value => value?.toLocaleLowerCase("pt-BR").includes(search))) : presented);
   } catch (error) {
     console.error(
       "ERRO CUSTOMERS GET:",

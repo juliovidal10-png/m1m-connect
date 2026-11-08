@@ -15,6 +15,9 @@ type CustomerRecord = {
   nameManuallySet?: boolean;
   aiEnabled: boolean;
   phone: string | null;
+  displayName?: string | null;
+  displayPhone?: string | null;
+  profilePicUrl?: string | null;
   company: string | null;
   city: string | null;
   responsible: string | null;
@@ -38,6 +41,9 @@ export default function useCustomer({
 }: UseCustomerParams) {
   const [customerId, setCustomerId] =
     useState<string | null>(null);
+  const [displayIdentity, setDisplayIdentity] = useState<{
+    remoteJid: string; name: string | null; phone: string | null; photo: string | null;
+  } | null>(null);
 
   const [
     customerCode,
@@ -172,6 +178,7 @@ export default function useCustomer({
 
     async function loadCustomer() {
       setIsLoadingCustomer(true);
+      setDisplayIdentity(null);
       clearFeedback();
 
       try {
@@ -208,6 +215,11 @@ export default function useCustomer({
         if (!customer) {
           return;
         }
+        if (controller.signal.aborted) return;
+        setDisplayIdentity({
+          remoteJid, name: customer.displayName || null,
+          phone: customer.displayPhone || null, photo: customer.profilePicUrl || null,
+        });
 
         setCustomerId(
           customer.id,
@@ -502,6 +514,9 @@ export default function useCustomer({
     ]);
 
   return {
+    displayCustomerName: isCustomerNameDirty ? customerName : displayIdentity?.remoteJid === remoteJid ? displayIdentity.name : null,
+    displayCustomerPhone: displayIdentity?.remoteJid === remoteJid ? displayIdentity.phone : undefined,
+    displayCustomerPhoto: displayIdentity?.remoteJid === remoteJid ? displayIdentity.photo : null,
     customerId,
     customerCode,
     setCustomerCode,

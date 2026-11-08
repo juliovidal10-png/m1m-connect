@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { resolveChatHistoryIdentities } from "@/lib/chat-history-identity";
 import { createLegacyGreetingListFilter, legacyGreetingScope, legacyGreetingStart, legacyGreetingEnd, legacyGreetingPrefix } from "@/lib/legacy-greeting-list-filter";
+import { enrichCustomerDisplayIdentities } from "@/services/customer-display-identity.service";
+import { isPhoneIdentity, usefulIdentityName } from "@/lib/customer-display-identity";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -630,7 +632,7 @@ export async function GET(request: Request) {
       return result.chats;
     }
     const deletionService = await import("@/services/conversation-deletion.service");
-    const [customers, activeAttendances, deletionSnapshot, legacyGreetingCustomers] = await Promise.all([
+    const [storedCustomers, activeAttendances, deletionSnapshot, legacyGreetingCustomers] = await Promise.all([
       prisma.m1MCustomer.findMany({
         where: { companyId },
         include: {
@@ -671,6 +673,7 @@ export async function GET(request: Request) {
         },
       }) : Promise.resolve([]),
     ]);
+    const customers = await enrichCustomerDisplayIdentities(companyId, storedCustomers, { allowHistoryDiscovery: false });
     const hideLegacyGreeting = createLegacyGreetingListFilter(companyId, instanceName, legacyGreetingCustomers);
     perfLog("database", {
       customers: customers.length,
@@ -689,9 +692,11 @@ export async function GET(request: Request) {
       const remoteJid = normalizeJid(customer.remoteJid);
       const remoteJidPhone = normalizePhone(customer.remoteJid);
       const customerPhone = normalizePhone(customer.phone);
+      const canonicalJid = normalizeJid(customer.canonicalJid);
       if (remoteJid) customerMap.set(remoteJid, customer);
       if (remoteJidPhone) customerMap.set(remoteJidPhone, customer);
       if (customerPhone) customerMap.set(customerPhone, customer);
+      if (isPhoneIdentity(canonicalJid)) customerMap.set(canonicalJid, customer);
     }
 
     let historyDiscoveryStarted = false;
@@ -749,14 +754,20 @@ export async function GET(request: Request) {
             crmUpdatedAt: null,
           };
         }
-        const officialName = normalizeText(customer.name);
-        const displayName = groupSubject || officialName || normalizeText(chat.pushName);
+        const officialName = usefulIdentityName(customer.name);
+        const chatCanonical = getStableCanonicalJid(chat);
+        const identityMatches = !isPhoneIdentity(chatCanonical) || !isPhoneIdentity(customer.canonicalJid) || chatCanonical === customer.canonicalJid;
+        const resolvedName = identityMatches ? usefulIdentityName(customer.displayName) : null;
+        const displayName = groupSubject || officialName || resolvedName || normalizeText(chat.pushName);
+        const canonicalJid = isGroupJid(getPrimaryRemoteJid(chat)) || isPhoneIdentity(chatCanonical)
+          ? chatCanonical : isPhoneIdentity(customer.canonicalJid) ? customer.canonicalJid : chatCanonical;
         const activeAttendance = attendanceByCustomerId.get(customer.id);
         const attendance = activeAttendance ?? customer.attendances[0];
         return {
           ...chat,
-          canonicalJid: getStableCanonicalJid(chat) || chat.canonicalJid || null,
+          canonicalJid: canonicalJid || chat.canonicalJid || null,
           pushName: displayName,
+          profilePicUrl: (identityMatches && customer.profilePicUrl) || chat.profilePicUrl || null,
           groupSubject,
           attendanceId: attendance?.id ?? null,
           attendanceState: attendance?.state ?? null,
@@ -765,8 +776,8 @@ export async function GET(request: Request) {
           attendanceResponsibleId: attendance?.responsibleId ?? null,
           attendanceManualWhatsApp: isManualWhatsAppTakeover(activeAttendance?.events?.[0]),
           crmCustomerId: customer.id,
-          crmName: groupSubject || customer.name,
-          crmPhone: customer.phone,
+          crmName: groupSubject || officialName || resolvedName,
+          crmPhone: isPhoneIdentity(canonicalJid) ? canonicalJid.split("@")[0] : null,
           crmCompany: customer.company,
           crmCity: customer.city,
           crmResponsible: customer.responsible,

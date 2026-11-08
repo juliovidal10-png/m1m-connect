@@ -69,12 +69,6 @@ type CustomerRecord = {
   };
 };
 
-type ChatContactRecord = {
-  remoteJid: string;
-  profilePicUrl: string | null;
-  isGroup: boolean;
-};
-
 type FilterValue =
   | "ALL"
   | "IA"
@@ -284,29 +278,10 @@ export default function ClientsPageContent() {
       setError(null);
 
       try {
-        const [
-          customersResponse,
-          contactsResponse,
-        ] = await Promise.all([
-          fetch(
-            "/api/customers",
-            {
-              cache: "no-store",
-            },
-          ),
-          fetch(
-            "/api/chat/contacts",
-            {
-              cache: "no-store",
-            },
-          ),
-        ]);
+        const customersResponse = await fetch("/api/customers", { cache: "no-store" });
 
         const customersData =
           await customersResponse.json();
-
-        const contactsData =
-          await contactsResponse.json();
 
         if (!customersResponse.ok) {
           throw new Error(
@@ -314,23 +289,6 @@ export default function ClientsPageContent() {
               "Não foi possível carregar os contatos.",
           );
         }
-
-        const profilePictures =
-          new Map<string, string | null>(
-            (
-              Array.isArray(contactsData)
-                ? (contactsData as ChatContactRecord[])
-                : []
-            )
-              .filter(
-                (contact) =>
-                  !contact.isGroup,
-              )
-              .map((contact) => [
-                contact.remoteJid,
-                contact.profilePicUrl,
-              ]),
-          );
 
         const loadedCustomers =
           Array.isArray(customersData)
@@ -341,13 +299,6 @@ export default function ClientsPageContent() {
                   (customer) =>
                     !customer.isGroup,
                 )
-                .map((customer) => ({
-                  ...customer,
-                  profilePicUrl:
-                    profilePictures.get(
-                      customer.remoteJid,
-                    ) ?? null,
-                }))
             : [];
 
         setCustomers(loadedCustomers);
