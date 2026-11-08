@@ -17,6 +17,49 @@ function cacheKey(scope: Scope, lid: string) {
   return JSON.stringify([scope.apiUrl, scope.companyId, scope.instanceName, lid]);
 }
 
+// Session mappings are independent of message history: old messages can lack remoteJidAlt.
+const sessionCache = new Map<string, Entry>();
+const sessionPending = new Map<string, Promise<void>>();
+async function resolveSessionLinks(scope: Scope, lids: string[]) {
+  const missing = lids.filter(lid => (sessionCache.get(cacheKey(scope, lid))?.expiresAt || 0) <= Date.now()).slice(0, 100);
+  if (scope.allowDiscovery !== false && missing.length) {
+    const batchKey = JSON.stringify([scope.apiUrl, scope.companyId, scope.instanceName, [...missing].sort()]);
+    if (!sessionPending.has(batchKey)) {
+      const task = (async () => {
+        let valid = false;
+        const candidates = new Map<string, Set<string>>();
+        try {
+          const response = await fetch(`${scope.apiUrl.replace(/\/+$/, '')}/baileys/onWhatsapp/${encodeURIComponent(scope.instanceName)}`, {
+            method: 'POST', headers: { apikey: scope.apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jid: { m1mIdentityLookup: { version: 1, phones: [], lids: missing } } }),
+            cache: 'no-store', signal: AbortSignal.timeout(2500),
+          });
+          const data = response.ok ? await response.json() : null;
+          if (data?.m1mIdentityLookup === 1 && Array.isArray(data.mappings) && data.mappings.length <= 120) {
+            valid = true;
+            for (const pair of data.mappings) {
+              const lid = normalize(pair?.lid), phone = normalize(pair?.pn);
+              if (!missing.includes(lid) || !/^\d{8,15}@s\.whatsapp\.net$/.test(phone)) continue;
+              if (!candidates.has(lid)) candidates.set(lid, new Set());
+              candidates.get(lid)!.add(phone);
+            }
+          }
+        } catch { /* Older providers and temporary outages retain history fallback. */ }
+        for (const lid of missing) {
+          const key = cacheKey(scope, lid), phones = candidates.get(lid);
+          const previous = sessionCache.get(key)?.phone;
+          const phone = phones?.size === 1 ? [...phones][0] : phones && phones.size > 1 ? null : previous || null;
+          sessionCache.set(key, { phone, expiresAt: Date.now() + (phone ? 300000 : valid ? 60000 : 15000) });
+        }
+        while (sessionCache.size > 2000) sessionCache.delete(sessionCache.keys().next().value!);
+      })();
+      sessionPending.set(batchKey, task);
+    }
+    try { await sessionPending.get(batchKey); } finally { sessionPending.delete(batchKey); }
+  }
+  return new Map(lids.map(lid => [lid, sessionCache.get(cacheKey(scope, lid))?.phone || null]));
+}
+
 async function lookup(scope: Scope, lid: string): Promise<string | null> {
   const key = cacheKey(scope, lid);
   const cached = cache.get(key);
@@ -81,6 +124,10 @@ export async function resolveChatHistoryIdentities<T extends IdentityChat>(
       for (const phone of phones) links.get(lid)!.add(phone);
       if (!phones.length) unresolved.add(lid);
     }
+  }
+  const sessionLinks = await resolveSessionLinks(scope, [...unresolved]);
+  for (const [lid, phone] of sessionLinks) {
+    if (phone) links.get(lid)!.add(phone);
   }
   // Bounded discovery, shared in-flight work, and tenant-scoped caching keep
   // polling from issuing one history request per conversation on every refresh.

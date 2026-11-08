@@ -35,6 +35,32 @@ async function getContacts(companyId: string, instanceName: string, base: string
   try { return await task; } finally { contactPending.delete(key); }
 }
 
+const photoCache = new Map<string, { expiresAt: number; url: string | null }>();
+const photoPending = new Map<string, Promise<string | null>>();
+async function getConfirmedPhoto(companyId: string, instanceName: string, base: string, apiKey: string, phone: string) {
+  const key = JSON.stringify([base, companyId, instanceName, phone]);
+  const cached = photoCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  if (photoPending.has(key)) return photoPending.get(key)!;
+  const task = (async () => {
+    let url: string | null = null;
+    try {
+      const response = await fetch(`${base.replace(/\/+$/, '')}/chat/fetchProfilePictureUrl/${encodeURIComponent(instanceName)}`, {
+        method: 'POST', headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: phone.split('@')[0] }), cache: 'no-store', signal: AbortSignal.timeout(2500),
+      });
+      const data = response.ok ? await response.json() : null;
+      if (normalizeIdentityJid(data?.wuid) === phone && typeof data?.profilePictureUrl === 'string' &&
+        /^https?:\/\//i.test(data.profilePictureUrl)) url = data.profilePictureUrl;
+    } catch { /* A private/unavailable photo must not hide the confirmed phone. */ }
+    photoCache.set(key, { url, expiresAt: Date.now() + (url ? 300000 : 60000) });
+    while (photoCache.size > 2000) photoCache.delete(photoCache.keys().next().value!);
+    return url;
+  })();
+  photoPending.set(key, task);
+  try { return await task; } finally { photoPending.delete(key); }
+}
+
 type HintData = {
   links: Array<IdentityLink & { customerId: string }>;
   names: Array<IdentityLink & { customerId: string; name: string | null }>;
@@ -100,7 +126,7 @@ export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer
   const [contacts, resolved] = await Promise.all([
     contactsTask, resolveChatHistoryIdentities(seeds, { companyId, instanceName, apiUrl: base, apiKey, allowDiscovery: options.allowHistoryDiscovery }),
   ]);
-  return resolved.map(customer => {
+  const presented = resolved.map(customer => {
     const hint = namesByCustomer.get(customer.id);
     const primary = normalizeIdentityJid(hint?.principal), alternate = normalizeIdentityJid(hint?.alternativo);
     const expected = [normalizeIdentityJid(customer.remoteJid), normalizeIdentityJid(customer.canonicalJid)];
@@ -110,4 +136,16 @@ export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer
       contacts, links: linksByCustomer.get(customer.id), receivedName, canonicalJid: customer.canonicalJid,
     });
   });
+  // Fetch only exact confirmed identities; bound new requests per page and share polling work.
+  let budget = 4;
+  return Promise.all(presented.map(async customer => {
+    const phone = customer.canonicalJid;
+    if (customer.profilePicUrl ||
+      !base || !apiKey || !/^\d{8,15}@s\.whatsapp\.net$/.test(phone || '')) return customer;
+    const key = JSON.stringify([base, companyId, instanceName, phone]);
+    const cached = photoCache.get(key);
+    if (!(cached && cached.expiresAt > Date.now()) && !photoPending.has(key) && budget-- <= 0) return customer;
+    const url = await getConfirmedPhoto(companyId, instanceName, base, apiKey, phone!);
+    return url ? { ...customer, profilePicUrl: url } : customer;
+  }));
 }

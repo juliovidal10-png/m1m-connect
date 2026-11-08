@@ -96,3 +96,26 @@ assert.equal(fallback[0].displayName, 'Normal');
 assert.equal(fallback[0].displayPhone, '(11) 99999-0001', 'Provider outage preserves confirmed data');
 assert.equal(writes, 0);
 console.log('TF3 PASS: historical identity, live name/photo, normal contact, missing/conflicting links, LID rejection, read-only scope and provider outage.');
+
+let photoCalls = 0;
+const liveDeps = { ...deps, '@/lib/chat-history-identity': {
+  resolveChatHistoryIdentities: async rows => rows.map(row => ({ ...row, canonicalJid: pn })),
+} };
+const live = load('src/services/customer-display-identity.service.ts', {
+  require: name => liveDeps[name],
+  process: { env: { EVOLUTION_API_URL: 'https://provider.invalid', EVOLUTION_API_KEY: 'test' } },
+  fetch: async (url, options) => {
+    if (url.includes('/findContacts/')) return { ok: true, json: async () => [] };
+    assert.ok(url.includes('/fetchProfilePictureUrl/'));
+    assert.equal(JSON.parse(options.body).number, pn.split('@')[0]);
+    photoCalls++;
+    return { ok: true, json: async () => ({ wuid: pn, profilePictureUrl: 'https://images.invalid/live.jpg' }) };
+  },
+});
+const liveResult = await live.enrichCustomerDisplayIdentities('tenant-b', [anonymous]);
+assert.equal(liveResult[0].displayPhone, '(11) 99999-0001');
+assert.equal(liveResult[0].profilePicUrl, 'https://images.invalid/live.jpg');
+await live.enrichCustomerDisplayIdentities('tenant-b', [anonymous]);
+assert.equal(photoCalls, 1);
+assert.equal(writes, 0);
+console.log('TF3 confirmed-session phone and exact profile-photo fallback PASS');
