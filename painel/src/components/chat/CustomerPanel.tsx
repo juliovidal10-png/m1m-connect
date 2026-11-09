@@ -349,6 +349,8 @@ export default function CustomerPanel({
   ]);
 
   const {
+    contactPhone,
+    setContactPhone,
     displayCustomerName,
     displayCustomerPhone,
     displayCustomerPhoto,
@@ -626,7 +628,7 @@ export default function CustomerPanel({
                 customerCode={
                   customerCode
                 }
-                phone={displayCustomerPhone === undefined ? phone : displayCustomerPhone || ""}
+                phone={contactPhone || (displayCustomerPhone === undefined ? phone : displayCustomerPhone || "")}
                 company={company}
                 city={city}
                 responsible={responsible}
@@ -712,6 +714,25 @@ export default function CustomerPanel({
                     </span>
                   </label>
                 </div>
+
+                {/^[0-9]+@(lid|s[.]whatsapp[.]net)$/.test(remoteJid) && (
+                  <label className="mb-5 block">
+                    <span className="mb-1 block text-xs font-semibold text-black/55">Telefone do cliente</span>
+                    <input
+                      type="tel"
+                      autoComplete="tel"
+                      maxLength={40}
+                      disabled={isLoadingCustomer || isSaving || !canEditCrm}
+                      value={contactPhone}
+                      placeholder={displayCustomerPhone || "Ex.: (65) 99999-0000"}
+                      onChange={(event) => setContactPhone(event.target.value)}
+                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0A9090] disabled:bg-black/[0.03]"
+                    />
+                    <span className="mt-1 block text-[11px] text-black/45">
+                      Use o DDD ou o formato internacional. O número fica no cadastro do cliente.
+                    </span>
+                  </label>
+                )}
 
                 <CustomerInformation
                   company={company}
