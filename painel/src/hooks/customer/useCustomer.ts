@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import { formatSavedContactPhone, maskContactPhoneInput, normalizeCustomerContactPhone } from '@/lib/contact-phone';
+
 type CustomerRecord = {
   id: string;
   companyId: string;
@@ -220,7 +222,7 @@ export default function useCustomer({
           return;
         }
         if (controller.signal.aborted) return;
-        setPhoneDraft({ jid: remoteJid, value: customer.contactPhone || '', changed: false });
+        setPhoneDraft({ jid: remoteJid, value: formatSavedContactPhone(customer.contactPhone), changed: false });
         setDisplayIdentity({
           remoteJid, name: customer.displayName || null,
           phone: customer.displayPhone || null, photo: customer.profilePicUrl || null,
@@ -310,6 +312,9 @@ export default function useCustomer({
 
   const saveCustomerRecord =
     useCallback(async () => {
+      const manualPhone = phoneDraft?.jid === remoteJid && phoneDraft.changed
+        ? normalizeCustomerContactPhone(phoneDraft.value)
+        : undefined;
       const response = await fetch(
         "/api/customers",
         {
@@ -327,7 +332,7 @@ export default function useCustomer({
                 : undefined,
             customerCode,
             phone,
-            contactPhone: phoneDraft?.jid === remoteJid && phoneDraft.changed ? phoneDraft.value : undefined,
+            contactPhone: manualPhone,
             company,
             city,
             responsible,
@@ -354,7 +359,7 @@ export default function useCustomer({
       const customer =
         data as CustomerRecord;
 
-      setPhoneDraft({ jid: remoteJid, value: customer.contactPhone || '', changed: false });
+      setPhoneDraft({ jid: remoteJid, value: formatSavedContactPhone(customer.contactPhone), changed: false });
       setCustomerId(
         customer.id,
       );
@@ -523,7 +528,15 @@ export default function useCustomer({
 
   return {
     contactPhone,
-    setContactPhone: (value: string) => setPhoneDraft({ jid: remoteJid, value, changed: true }),
+    setContactPhone: (value: string) => {
+      const masked = maskContactPhoneInput(value);
+      if (masked === null) {
+        showError('Digite um telefone com DDD e 8 ou 9 dígitos, ou use + e DDI.');
+        return;
+      }
+      clearFeedback();
+      setPhoneDraft({ jid: remoteJid, value: masked, changed: true });
+    },
     displayCustomerName: isCustomerNameDirty ? customerName : displayIdentity?.remoteJid === remoteJid ? displayIdentity.name : null,
     displayCustomerPhone: displayIdentity?.remoteJid === remoteJid ? displayIdentity.phone : undefined,
     displayCustomerPhoto: displayIdentity?.remoteJid === remoteJid ? displayIdentity.photo : null,

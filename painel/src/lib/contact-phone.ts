@@ -20,3 +20,47 @@ export function normalizeContactPhone(value: unknown): string | null {
   }
   return '+' + digits;
 }
+
+// The manual field takes a national number with DDD, or an explicit international number.
+export function normalizeCustomerContactPhone(value: unknown): string | null {
+  const normalized = normalizeContactPhone(value);
+  if (!normalized || typeof value !== 'string') return normalized;
+
+  const length = value.replace(/\D/g, '').length;
+  if (!value.trim().startsWith('+') && length !== 10 && length !== 11) {
+    throw new InvalidContactPhone();
+  }
+  if (normalized.startsWith('+55') && !/^\+55[1-9]\d{9,10}$/.test(normalized)) {
+    throw new InvalidContactPhone();
+  }
+  return normalized;
+}
+
+function formatNationalPhone(digits: string) {
+  if (!digits) return '';
+  if (digits.length <= 2) return '(' + digits;
+  const subscriber = digits.slice(2);
+  const prefixLength = digits.length === 11 ? 5 : 4;
+  const suffix = subscriber.slice(prefixLength);
+  return '(' + digits.slice(0, 2) + ') ' + subscriber.slice(0, prefixLength) + (suffix ? '-' + suffix : '');
+}
+
+export function maskContactPhoneInput(value: string): string | null {
+  const input = value.trimStart();
+  if (!/^\+?[0-9().\s-]*$/.test(input)) return null;
+  const digits = input.replace(/\D/g, '');
+  if (input.startsWith('+')) {
+    if (digits.startsWith('55')) {
+      if (digits.length > 13) return null;
+      return digits.length > 2 ? '+55 ' + formatNationalPhone(digits.slice(2)) : '+55';
+    }
+    return digits.length <= 15 ? '+' + digits : null;
+  }
+  return digits.length <= 11 ? formatNationalPhone(digits) : null;
+}
+
+export function formatSavedContactPhone(phone: string | null | undefined) {
+  if (!phone) return '';
+  const national = /^\+55([1-9]\d{9,10})$/.exec(phone);
+  return national ? formatNationalPhone(national[1]) : phone;
+}

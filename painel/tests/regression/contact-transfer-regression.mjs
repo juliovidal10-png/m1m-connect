@@ -18,6 +18,16 @@ function load(file, dependencies = {}) {
 const phone = load('src/lib/contact-phone.ts');
 assert.equal(phone.normalizeContactPhone('(65) 99999-0123'), '+5565999990123');
 assert.equal(phone.normalizeContactPhone('  '), null);
+assert.equal(phone.maskContactPhoneInput('65999990123'), '(65) 99999-0123');
+assert.equal(phone.maskContactPhoneInput('6533330123'), '(65) 3333-0123');
+assert.equal(phone.maskContactPhoneInput('659999901234'), null);
+assert.equal(phone.maskContactPhoneInput('+55 65 99999-0123'), '+55 (65) 99999-0123');
+assert.equal(phone.maskContactPhoneInput('+1 (202) 555-0123'), '+12025550123');
+assert.equal(phone.formatSavedContactPhone('+5565999990123'), '(65) 99999-0123');
+assert.throws(() => phone.normalizeCustomerContactPhone('(65) 9999-012'), phone.InvalidContactPhone);
+assert.throws(() => phone.normalizeCustomerContactPhone('+55659999012'), phone.InvalidContactPhone);
+assert.throws(() => phone.normalizeCustomerContactPhone('659999901234'), phone.InvalidContactPhone);
+
 assert.throws(() => phone.normalizeContactPhone('12345678901234@lid'), phone.InvalidContactPhone);
 assert.throws(() => phone.normalizeContactPhone('6.55E+12'), phone.InvalidContactPhone);
 const csv = load('src/lib/contact-csv.ts', { './contact-phone': phone });
