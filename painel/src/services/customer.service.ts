@@ -1,3 +1,4 @@
+import { normalizeContactPhone } from '@/lib/contact-phone';
 import {
   customerRepository,
   type CustomerData,
@@ -11,6 +12,7 @@ export type SaveCustomerInput = {
   nameManuallySet?: boolean;
   aiEnabled?: boolean;
   phone?: string | null;
+  contactPhone?: string | null;
   company?: string | null;
   city?: string | null;
   responsible?: string | null;
@@ -224,6 +226,7 @@ export const customerService = {
       aiEnabled:
         input.aiEnabled,
       phone: input.phone,
+      contactPhone: input.contactPhone === undefined ? undefined : normalizeContactPhone(input.contactPhone),
       company: input.company,
       city: input.city,
       responsible:

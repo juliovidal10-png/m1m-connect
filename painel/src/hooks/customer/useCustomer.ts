@@ -15,6 +15,7 @@ type CustomerRecord = {
   nameManuallySet?: boolean;
   aiEnabled: boolean;
   phone: string | null;
+  contactPhone?: string | null;
   displayName?: string | null;
   displayPhone?: string | null;
   profilePicUrl?: string | null;
@@ -41,6 +42,8 @@ export default function useCustomer({
 }: UseCustomerParams) {
   const [customerId, setCustomerId] =
     useState<string | null>(null);
+  const [phoneDraft, setPhoneDraft] = useState<{ jid: string; value: string; changed: boolean } | null>(null);
+  const contactPhone = phoneDraft?.jid === remoteJid ? phoneDraft.value : '';
   const [displayIdentity, setDisplayIdentity] = useState<{
     remoteJid: string; name: string | null; phone: string | null; photo: string | null;
   } | null>(null);
@@ -179,6 +182,7 @@ export default function useCustomer({
     async function loadCustomer() {
       setIsLoadingCustomer(true);
       setDisplayIdentity(null);
+      setPhoneDraft(null);
       clearFeedback();
 
       try {
@@ -216,6 +220,7 @@ export default function useCustomer({
           return;
         }
         if (controller.signal.aborted) return;
+        setPhoneDraft({ jid: remoteJid, value: customer.contactPhone || '', changed: false });
         setDisplayIdentity({
           remoteJid, name: customer.displayName || null,
           phone: customer.displayPhone || null, photo: customer.profilePicUrl || null,
@@ -322,6 +327,7 @@ export default function useCustomer({
                 : undefined,
             customerCode,
             phone,
+            contactPhone: phoneDraft?.jid === remoteJid && phoneDraft.changed ? phoneDraft.value : undefined,
             company,
             city,
             responsible,
@@ -348,6 +354,7 @@ export default function useCustomer({
       const customer =
         data as CustomerRecord;
 
+      setPhoneDraft({ jid: remoteJid, value: customer.contactPhone || '', changed: false });
       setCustomerId(
         customer.id,
       );
@@ -397,6 +404,7 @@ export default function useCustomer({
       isCustomerNameDirty,
       customerCode,
       phone,
+      phoneDraft,
       company,
       city,
       responsible,
@@ -514,6 +522,8 @@ export default function useCustomer({
     ]);
 
   return {
+    contactPhone,
+    setContactPhone: (value: string) => setPhoneDraft({ jid: remoteJid, value, changed: true }),
     displayCustomerName: isCustomerNameDirty ? customerName : displayIdentity?.remoteJid === remoteJid ? displayIdentity.name : null,
     displayCustomerPhone: displayIdentity?.remoteJid === remoteJid ? displayIdentity.phone : undefined,
     displayCustomerPhoto: displayIdentity?.remoteJid === remoteJid ? displayIdentity.photo : null,

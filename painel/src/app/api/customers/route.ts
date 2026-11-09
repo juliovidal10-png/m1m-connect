@@ -1,3 +1,4 @@
+import { InvalidContactPhone } from '@/lib/contact-phone';
 import {
   NextRequest,
   NextResponse,
@@ -23,6 +24,7 @@ import { enrichCustomerDisplayIdentities } from "@/services/customer-display-ide
 function getErrorStatus(
   error: unknown,
 ) {
+  if (error instanceof InvalidContactPhone) return 400;
   return error instanceof AuthorizationError
     ? error.statusCode
     : 500;
@@ -84,7 +86,7 @@ export async function GET(
     const presented = await enrichCustomerDisplayIdentities(companyId, customers);
     const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
     return NextResponse.json(search ? presented.filter(customer => [
-      customer.displayName, customer.displayPhone, customer.name, customer.phone,
+      customer.displayName, customer.displayPhone, customer.contactPhone, customer.name, customer.phone,
       customer.company, customer.city, customer.remoteJid, customer.canonicalJid,
       customer.customerCode?.toString(), customer.customerCode?.toString().padStart(6, "0"),
       customer.responsible, customer.assignedUser?.displayName, customer.assignedUser?.name,

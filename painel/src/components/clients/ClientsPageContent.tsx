@@ -11,6 +11,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 
+import ContactTransfer from "./ContactTransfer";
 import CustomerPanel from "@/components/chat/CustomerPanel";
 
 type CustomerStatus =
@@ -26,6 +27,7 @@ type CustomerRecord = {
   displayName: string;
   phone: string | null;
   displayPhone: string | null;
+  contactPhone?: string | null;
   company: string | null;
   city: string | null;
   status: CustomerStatus;
@@ -266,6 +268,7 @@ export default function ClientsPageContent() {
     setSelectedCustomerId,
   ] = useState<string | null>(null);
 
+  const [contactsVersion, setContactsVersion] = useState(0);
   const [isLoading, setIsLoading] =
     useState(true);
 
@@ -274,7 +277,7 @@ export default function ClientsPageContent() {
 
   useEffect(() => {
     async function loadCustomers() {
-      setIsLoading(true);
+      if (contactsVersion === 0) setIsLoading(true);
       setError(null);
 
       try {
@@ -324,7 +327,7 @@ export default function ClientsPageContent() {
     }
 
     void loadCustomers();
-  }, []);
+  }, [contactsVersion]);
 
   const requestedRemoteJid =
     searchParams.get("remoteJid");
@@ -436,6 +439,7 @@ export default function ClientsPageContent() {
 
           return [
             customer.displayName,
+            customer.contactPhone,
             customer.displayPhone,
             customer.company,
             customer.city,
@@ -570,6 +574,7 @@ export default function ClientsPageContent() {
                 "1px solid rgba(0,0,0,0.08)",
             }}
           >
+            <ContactTransfer onImported={() => setContactsVersion(version => version + 1)} />
             <label
               style={{
                 height: "48px",
@@ -911,7 +916,7 @@ export default function ClientsPageContent() {
                               "rgba(0,0,0,0.44)",
                           }}
                         >
-                          {customer.displayPhone ||
+                          {customer.contactPhone || customer.displayPhone ||
                             "Telefone não informado"}
                         </p>
 

@@ -402,6 +402,7 @@ model M1MCustomer {
   crmManuallyAddedAt DateTime?
   aiEnabled       Boolean   @default(true)
   phone           String?
+  contactPhone    String?
   company         String?
   city            String?
   responsible     String?
