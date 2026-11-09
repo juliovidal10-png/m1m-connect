@@ -6,7 +6,7 @@ import { createHmac } from "node:crypto";
 import { resolveChatHistoryIdentities } from "@/lib/chat-history-identity";
 import { createLegacyGreetingListFilter, legacyGreetingScope, legacyGreetingStart, legacyGreetingEnd, legacyGreetingPrefix } from "@/lib/legacy-greeting-list-filter";
 import { enrichCustomerDisplayIdentities } from "@/services/customer-display-identity.service";
-import { isPhoneIdentity, usefulIdentityName } from "@/lib/customer-display-identity";
+import { isPhoneIdentity, presentCustomerIdentity, usefulIdentityName } from "@/lib/customer-display-identity";
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
@@ -60,6 +60,27 @@ type EnrichedChat = EvolutionChat & {
 };
 
 const groupSubjectCache = new Map<string, string>();
+const groupSubjectRetryAt = new Map<string, number>();
+
+function cachedGroupSubjects(groupJids: string[], instanceName: string) {
+  const subjects = new Map<string, string>();
+  const missing: string[] = [];
+  const now = Date.now();
+  for (const jid of groupJids) {
+    const key = `${instanceName}:${normalizeJid(jid)}`;
+    const cached = groupSubjectCache.get(key);
+    if (cached) subjects.set(jid, cached);
+    else if (missing.length < 8 && (groupSubjectRetryAt.get(key) ?? 0) <= now) {
+      groupSubjectRetryAt.set(key, now + 30000);
+      missing.push(jid);
+    }
+  }
+  while (groupSubjectRetryAt.size > 2000) groupSubjectRetryAt.delete(groupSubjectRetryAt.keys().next().value!);
+  if (missing.length) {
+    after(async () => { await Promise.all(missing.map(jid => getGroupSubject(jid, instanceName))); });
+  }
+  return subjects;
+}
 
 function normalizeText(value?: string | null) {
   const normalizedValue = value?.trim();
@@ -589,6 +610,10 @@ export async function GET(request: Request) {
 
     const wantsQueueCounts = url.searchParams.get("queueCounts") === "1";
     const queue = url.searchParams.get("queue");
+    const directJid = normalizeJid(url.searchParams.get("directJid"));
+    if (directJid && !/^(?:[0-9]+@(s[.]whatsapp[.]net|lid)|[0-9-]+@g[.]us)$/.test(directJid)) {
+      return NextResponse.json({ error: "Identificador de conversa inválido." }, { status: 400 });
+    }
     if (queue !== null && !isConversationQueue(queue)) {
       return NextResponse.json({ error: "Fila invalida." }, { status: 400 });
     }
@@ -637,7 +662,7 @@ export async function GET(request: Request) {
 
     // After authorization/scope resolution, overlap provider I/O with local reads.
     // Capture rejection immediately so a DB failure cannot leave an unhandled promise.
-    const inventoryTask = queue || wantsQueueCounts || wantsWaitingCount
+    const inventoryTask = !directJid && (queue || wantsQueueCounts || wantsWaitingCount)
       ? getOperationalInventory(companyId, instanceName).then(
           chats => ({ chats }), error => ({ error }),
         ) : null;
@@ -648,9 +673,9 @@ export async function GET(request: Request) {
       return result.chats;
     }
     const deletionService = await import("@/services/conversation-deletion.service");
-    const [storedCustomers, activeAttendances, deletionSnapshot, legacyGreetingCustomers] = await Promise.all([
+    const [storedCustomers, activeAttendances, deletionSnapshot, legacyGreetingCustomers, directLatest] = await Promise.all([
       prisma.m1MCustomer.findMany({
-        where: { companyId },
+        where: { companyId, ...(directJid ? { remoteJid: directJid } : {}) },
         include: {
           attendances: {
             where: { companyId },
@@ -661,7 +686,11 @@ export async function GET(request: Request) {
         },
       }),
       prisma.m1MAttendance.findMany({
-        where: { companyId, state: { in: ["IA", "HUMANO"] } },
+        where: {
+          companyId,
+          state: { in: ["IA", "HUMANO"] },
+          ...(directJid ? { customer: { companyId, remoteJid: directJid } } : {}),
+        },
         orderBy: { startedAt: "desc" },
         include: {
           sector: {
@@ -676,7 +705,7 @@ export async function GET(request: Request) {
         },
       }),
       deletionService.deletionListSnapshot(companyId, instanceName),
-      legacyGreetingScope(companyId, instanceName) ? prisma.m1MCustomer.findMany({
+      !directJid && legacyGreetingScope(companyId, instanceName) ? prisma.m1MCustomer.findMany({
         where: { companyId, remoteJid: { endsWith: "@lid" }, messages: { some: {
           companyId, instanceName, fromMe: true, type: "TEXT", content: { startsWith: legacyGreetingPrefix },
           sentAt: { gte: legacyGreetingStart, lt: legacyGreetingEnd },
@@ -688,11 +717,18 @@ export async function GET(request: Request) {
             type: true, content: true, sentAt: true, evolutionMessageId: true } },
         },
       }) : Promise.resolve([]),
+      directJid ? prisma.m1MMessage.findFirst({
+        where: { companyId, instanceName, customer: { companyId, remoteJid: directJid } },
+        orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+        select: { sentAt: true, rawPayload: true },
+      }) : Promise.resolve(null),
     ]);
-    const customers = await enrichCustomerDisplayIdentities(companyId, storedCustomers, {
-      allowHistoryDiscovery: false,
-      deferProvider: task => after(async () => { await task; }),
-    });
+    const customers = directJid
+      ? storedCustomers.map(customer => presentCustomerIdentity(customer))
+      : await enrichCustomerDisplayIdentities(companyId, storedCustomers, {
+          allowHistoryDiscovery: false,
+          deferProvider: task => after(async () => { await task; }),
+        });
     const hideLegacyGreeting = createLegacyGreetingListFilter(companyId, instanceName, legacyGreetingCustomers);
     perfLog("database", {
       customers: customers.length,
@@ -719,8 +755,8 @@ export async function GET(request: Request) {
     }
 
     let historyDiscoveryStarted = false;
-    async function enrich(rawChats: EvolutionChat[], resolveSubjects = true): Promise<EnrichedChat[]> {
-      const allowDiscovery = !historyDiscoveryStarted;
+    async function enrich(rawChats: EvolutionChat[], resolveSubjects = true, deferSubjects = false): Promise<EnrichedChat[]> {
+      const allowDiscovery = !directJid && !historyDiscoveryStarted;
       historyDiscoveryStarted = true;
       const identityChats = await resolveChatHistoryIdentities(rawChats, {
         companyId, instanceName: instanceName!, apiUrl: API_URL || "", apiKey: API_KEY || "", allowDiscovery,
@@ -732,11 +768,11 @@ export async function GET(request: Request) {
             .filter((jid): jid is string => Boolean(jid) && isGroupJid(jid)),
         ),
       );
-      const groupSubjectEntries = await Promise.all(
-        (resolveSubjects ? groupJids : []).map(async (groupJid) => [groupJid, await getGroupSubject(groupJid, instanceName!)] as const),
-      );
-      const groupSubjectMap = new Map<string, string>();
-      for (const [groupJid, subject] of groupSubjectEntries) if (subject) groupSubjectMap.set(groupJid, subject);
+      const groupSubjectMap = deferSubjects
+        ? cachedGroupSubjects(groupJids, instanceName!)
+        : new Map(await Promise.all(
+            (resolveSubjects ? groupJids : []).map(async jid => [jid, await getGroupSubject(jid, instanceName!)] as const),
+          ));
 
       return identityChats.map((chat) => {
         const identities = getChatIdentities(chat);
@@ -842,6 +878,23 @@ export async function GET(request: Request) {
       });
     }
 
+    if (directJid) {
+      const customer = storedCustomers[0];
+      const items = customer && directLatest
+        ? visible(await enrich([{
+            id: null,
+            remoteJid: directJid,
+            pushName: customer.name,
+            updatedAt: directLatest.sentAt.toISOString(),
+            unreadCount: null,
+            lastMessage: directLatest.rawPayload as EvolutionChat["lastMessage"],
+          }], false), false)
+        : [];
+      return NextResponse.json({ items, hasMore: false }, {
+        headers: { "Server-Timing": `direct;dur=${Date.now() - perfStartedAt}` },
+      });
+    }
+
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
@@ -893,7 +946,7 @@ export async function GET(request: Request) {
         ].join(" ")).includes(search));
       }
       const page = matches.slice(offset, offset + limit);
-      const items = search ? page : await enrich(page);
+      const items = search ? page : await enrich(page, true, true);
       if (request.signal.aborted) return new NextResponse(null, { status: 499 });
       const totalMs = Date.now() - perfStartedAt;
       perfLog("queue-page", { queue, inventoryMs, matched: matches.length, returned: items.length, offset, limit });
