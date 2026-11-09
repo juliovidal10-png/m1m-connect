@@ -1,5 +1,7 @@
+import { prisma } from '@/lib/prisma';
 import { InvalidContactPhone } from '@/lib/contact-phone';
 import {
+  after,
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -42,9 +44,19 @@ function getErrorMessage(
 export async function GET(
   request: NextRequest,
 ) {
+  const startedAt = Date.now();
+  const timing = () => ({ "Server-Timing": `total;dur=${Date.now() - startedAt}` });
   try {
     const companyId =
       await getAuthenticatedCompanyId();
+
+    if (request.nextUrl.searchParams.get("view") === "dashboard") {
+      const statuses = await prisma.m1MCustomer.findMany({
+        where: { companyId },
+        select: { id: true, status: true },
+      });
+      return NextResponse.json(statuses, { headers: timing() });
+    }
 
     const remoteJid =
       request.nextUrl.searchParams.get(
@@ -83,15 +95,17 @@ export async function GET(
           ),
       });
 
-    const presented = await enrichCustomerDisplayIdentities(companyId, customers);
     const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
+    const presented = await enrichCustomerDisplayIdentities(companyId, customers, search ? {} : {
+      deferProvider: task => after(async () => { await task; }),
+    });
     return NextResponse.json(search ? presented.filter(customer => [
       customer.displayName, customer.displayPhone, customer.contactPhone, customer.name, customer.phone,
       customer.company, customer.city, customer.remoteJid, customer.canonicalJid,
       customer.customerCode?.toString(), customer.customerCode?.toString().padStart(6, "0"),
       customer.responsible, customer.assignedUser?.displayName, customer.assignedUser?.name,
       customer.attendances[0]?.sector?.name,
-    ].some(value => value?.toLocaleLowerCase("pt-BR").includes(search))) : presented);
+    ].some(value => value?.toLocaleLowerCase("pt-BR").includes(search))) : presented, { headers: timing() });
   } catch (error) {
     console.error(
       "ERRO CUSTOMERS GET:",

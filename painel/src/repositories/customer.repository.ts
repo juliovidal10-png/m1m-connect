@@ -19,6 +19,7 @@ export type CustomerData = {
 };
 
 export type ListCustomersFilters = {
+  customerIds?: string[];
   search?: string | null;
   status?: string | null;
   responsibleId?: string | null;
@@ -614,6 +615,7 @@ export const customerRepository = {
       await prisma.m1MCustomer.findMany({
         where: {
           companyId,
+          ...(filters.customerIds ? { id: { in: filters.customerIds } } : {}),
           ...(status &&
           status !== "TODOS"
             ? {

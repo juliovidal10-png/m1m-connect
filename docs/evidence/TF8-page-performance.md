@@ -1,0 +1,10 @@
+# TF8 — Tempo de abertura das telas
+
+Em 09/11/2026, o proprietário relatou lentidão em Dashboard, Conversas, Contatos e CRM. Agenda e Financeiro abriam rápido. Base `39280fb74c2b5d83be4cb43b80afe7094466dae4`. TF7 validada pelo proprietário. O caso do telefone do Jeff em Conversas continua pausado a pedido dele.
+
+- Dashboard pedia contatos completos e enriquecimento do WhatsApp só para contar estados. A visão de Dashboard agora consulta ID e status na empresa autenticada.
+- Contatos e CRM renderizam com dados salvos e cache se a consulta de apresentação ao WhatsApp passar de 350 ms. A consulta pendente atualiza o cache após a resposta. A foto consultada individualmente entra pelo Cliente 360° e pelo cache. A espera de autenticação e banco fica fora desse limite.
+- CRM obtém as primeiras mensagens em uma consulta por conjunto e carrega os dados detalhados dos cadastros elegíveis. A regra da TF5 e a ordem cronológica permanecem.
+- Conversas reaproveita inventário bruto por empresa e instância enquanto atualiza em segundo plano, com tolerância de até 60 segundos após expirar o inventário. A lista recente tem validade própria. Sem inventário disponível, a primeira carga espera a Evolution. Permissões, estados e exclusões são calculados em cada pedido.
+
+TypeScript e regressões locais de Dashboard, CRM, Conversas, identidade e CSV passaram. Testes específicos simulam provedor atrasado, atualização de cache, primeira carga e isolamento. Server-Timing nas rotas permite medir após o deploy manual. Os resultados de latência em produção ainda precisam ser medidos.

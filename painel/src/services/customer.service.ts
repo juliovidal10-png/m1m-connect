@@ -29,6 +29,7 @@ export type AssignResponsibleInput = {
 
 export type ListCustomersInput = {
   companyId: string;
+  customerIds?: string[];
   search?: string | null;
   status?: string | null;
   responsibleId?: string | null;
@@ -182,6 +183,7 @@ export const customerService = {
     return customerRepository.listByCompany(
       companyId,
       {
+        customerIds: input.customerIds,
         search:
           input.search,
         status:

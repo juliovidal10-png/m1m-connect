@@ -20,18 +20,24 @@ export function isCrmCardEligible(row: EligibilityRow) {
 export const crmService = {
   async visibleCustomerIds(companyId: string): Promise<Set<string>> {
     const rows = await prisma.$queryRawUnsafe<EligibilityRow[]>(`
+      WITH candidates AS MATERIALIZED (
+        SELECT id, "companyId", "crmCardRemovedAt", "crmManuallyAddedAt", company, city, observations
+        FROM m1m_customers
+        WHERE "companyId" = $1 AND "crmCardRemovedAt" IS NULL
+          AND "remoteJid" ~ '@(s[.]whatsapp[.]net|lid)$'
+      ), first_messages AS (
+        SELECT DISTINCT ON (m."customerId") m."customerId", m."fromMe"
+        FROM m1m_messages m
+        JOIN candidates c ON c.id = m."customerId" AND c."companyId" = m."companyId"
+        JOIN m1m_companies company ON company.id = c."companyId"
+          AND m."instanceName" = company."whatsappInstanceName"
+        WHERE m."companyId" = $1 AND m.type NOT IN ('REACTION', 'UNKNOWN')
+        ORDER BY m."customerId", m."sentAt" ASC, m."createdAt" ASC, m.id ASC
+      )
       SELECT c.id, c."crmCardRemovedAt" AS "removedAt", c."crmManuallyAddedAt" AS "manuallyAddedAt",
              c.company, c.city, c.observations, first_message."fromMe" AS "firstFromMe"
-      FROM m1m_customers c
-      JOIN m1m_companies company ON company.id = c."companyId"
-      LEFT JOIN LATERAL (
-        SELECT m."fromMe" FROM m1m_messages m
-        WHERE m."companyId" = c."companyId" AND m."customerId" = c.id
-          AND m."instanceName" = company."whatsappInstanceName"
-          AND m.type::text NOT IN ('REACTION', 'UNKNOWN')
-        ORDER BY m."sentAt" ASC, m."createdAt" ASC, m.id ASC LIMIT 1
-      ) first_message ON true
-      WHERE c."companyId" = $1 AND c."remoteJid" ~ '@(s[.]whatsapp[.]net|lid)$'
+      FROM candidates c
+      LEFT JOIN first_messages first_message ON first_message."customerId" = c.id
     `, companyId);
     return new Set(rows.filter(isCrmCardEligible).map(row => row.id));
   },
