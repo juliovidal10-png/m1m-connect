@@ -11,7 +11,7 @@ export function contactsToCsv(contacts: CsvContact[]) {
   const quote = (value: string) => '"' + value.replace(/"/g, '""') + '"';
   const rows = contacts.map(({ name, phone }) => {
     const safeName = /^\s*[=+\-@\t\r\n]/.test(name) ? "'" + name : name;
-    return quote(safeName) + ';' + quote("'" + phone);
+    return quote(safeName) + ';' + quote(phone ? "'" + phone : '');
   });
   return '\uFEFF' + ['Nome;Telefone', ...rows].join('\r\n') + '\r\n';
 }

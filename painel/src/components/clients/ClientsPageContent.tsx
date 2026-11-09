@@ -517,28 +517,50 @@ export default function ClientsPageContent() {
       selectedCustomerId,
     ]);
 
+  const header = (
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-black/5 bg-white px-6 py-4 lg:px-10">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-black/35">Atendimento</p>
+        <h1 className="mt-1 text-xl font-bold">Contatos</h1>
+      </div>
+      <ContactTransfer
+        customers={customers}
+        customersAvailable={!isLoading && !error}
+        onImported={() => setContactsVersion(version => version + 1)}
+      />
+    </header>
+  );
+
   if (isLoading) {
     return (
+      <>
+      {header}
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8] p-6 lg:p-8">
         <div className="mx-auto grid w-full max-w-[1500px] gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
           <div className="h-[720px] animate-pulse rounded-2xl border border-black/5 bg-white" />
           <div className="h-[720px] animate-pulse rounded-2xl border border-black/5 bg-white" />
         </div>
       </div>
+      </>
     );
   }
 
   if (error) {
     return (
+      <>
+      {header}
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#f7f7f8] p-6 lg:p-8">
         <div className="mx-auto w-full max-w-[1500px] rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
           {error}
         </div>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    {header}
     <div
       style={{
         minHeight: 0,
@@ -574,7 +596,6 @@ export default function ClientsPageContent() {
                 "1px solid rgba(0,0,0,0.08)",
             }}
           >
-            <ContactTransfer onImported={() => setContactsVersion(version => version + 1)} />
             <label
               style={{
                 height: "48px",
@@ -1235,6 +1256,7 @@ export default function ClientsPageContent() {
         />
       )}
     </div>
+    </>
   );
 
 }
