@@ -361,6 +361,18 @@ export default function Sidebar() {
   };
 
   useEffect(() => {
+    if (pathname === "/") {
+      const receiveCounts = (event: Event) => {
+        const waiting = (event as CustomEvent<{ waiting?: number }>).detail?.waiting;
+        if (typeof waiting !== "number" || !Number.isSafeInteger(waiting) || waiting < 0) return;
+        setConversationsWaitingCount(waiting);
+        setWaitingCountStatus("current");
+      };
+      window.addEventListener("m1m:chat-queue-counts", receiveCounts);
+      return () => window.removeEventListener("m1m:chat-queue-counts", receiveCounts);
+    }
+
+    const controller = new AbortController();
     let cancelled = false;
     let inFlight = false;
     const refreshWaitingCount = async () => {
@@ -371,6 +383,7 @@ export default function Sidebar() {
       try {
         const response = await fetch("/api/chat/list?waitingCount=1", {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (!response.ok) throw new Error("Falha na consulta da fila Aguardando");
@@ -400,9 +413,10 @@ export default function Sidebar() {
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearInterval(timer);
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return;

@@ -12,6 +12,10 @@ const jid = '5565999990123@s.whatsapp.net';
 const companyId = 'empresa-a';
 const instanceName = 'wa-a';
 const customer = { id: 'cliente-a', remoteJid: jid, name: 'Cliente A', attendances: [] };
+let directMode = true;
+const queueRules = { exports: {} };
+vm.runInNewContext(compile(fs.readFileSync('src/lib/conversation-queue.ts', 'utf8')), queueRules);
+let providerCalls = 0;
 let permitted = true;
 let deleted = false;
 let messageAvailable = true;
@@ -19,22 +23,25 @@ let attendance = [];
 let calls = 0;
 let sectors = [{ sectorId: 'setor-a' }];
 const deps = {
-  '@/lib/conversation-queue': { isConversationQueue: () => false, isManualWhatsAppTakeover: () => false },
+  '@/lib/conversation-queue': queueRules.exports,
   '@/services/auth/authorization.service': { authorizationService: {
     getCurrentUser: async () => ({ companyId, userId: 'atendente-a' }),
     hasPermission: () => permitted,
   } },
   '@/generated/prisma/enums': { M1MUserPermission: { VIEW_ALL_CONVERSATIONS: 'VIEW_ALL_CONVERSATIONS' } },
-  'next/server': { after: () => assert.fail('Direct open schedules no provider work'),
+  'next/server': { after: () => { assert.equal(directMode, false, 'Direct open schedules no provider work'); },
     NextResponse: { json: (data, options) => ({ data, options }) } },
   'node:crypto': {},
   '@/lib/chat-history-identity': { resolveChatHistoryIdentities: async (rows, scope) => {
-    assert.equal(scope.allowDiscovery, false);
+    if (directMode) assert.equal(scope.allowDiscovery, false);
     return rows;
   } },
-  '@/lib/legacy-greeting-list-filter': { createLegacyGreetingListFilter: () => () => false },
+  '@/lib/legacy-greeting-list-filter': { createLegacyGreetingListFilter: () => () => false, legacyGreetingScope: () => false },
   '@/services/customer-display-identity.service': {
-    enrichCustomerDisplayIdentities: () => assert.fail('Direct open does not await provider enrichment'),
+    enrichCustomerDisplayIdentities: async (_company, rows) => {
+      assert.equal(directMode, false, 'Direct open does not await provider enrichment');
+      return rows.map(row => identity.exports.presentCustomerIdentity(row));
+    },
   },
   '@/lib/customer-display-identity': identity.exports,
   '@/lib/tenant': {},
@@ -53,12 +60,12 @@ const deps = {
     m1MSectorUser: { findMany: async () => sectors },
     m1MCustomer: { findMany: async ({ where }) => {
       assert.equal(where.companyId, companyId);
-      assert.equal(where.remoteJid, jid);
+      assert.equal(where.remoteJid, directMode ? jid : undefined);
       return [customer];
     } },
     m1MAttendance: { findMany: async ({ where }) => {
       assert.equal(where.companyId, companyId);
-      assert.equal(where.customer.remoteJid, jid);
+      assert.equal(where.customer?.remoteJid, directMode ? jid : undefined);
       return attendance;
     } },
     m1MMessage: { findFirst: async ({ where }) => {
@@ -73,10 +80,14 @@ const deps = {
     } },
   } },
 };
-const context = { exports: {}, URL,
+const context = { exports: {}, URL, AbortSignal,
   process: { env: { EVOLUTION_API_URL: 'https://provider.invalid', EVOLUTION_API_KEY: 'test' } },
   console: { log() {}, error() {} },
-  fetch: () => assert.fail('Direct open should not request Evolution'),
+  fetch: async () => {
+    assert.equal(directMode, false, 'Direct open should not request Evolution');
+    providerCalls++;
+    return { ok: true, json: async () => [{ remoteJid: jid }] };
+  },
   require: name => { assert.ok(Object.hasOwn(deps, name), name); return deps[name]; },
 };
 vm.runInNewContext(compile(fs.readFileSync('src/app/api/chat/list/route.ts', 'utf8')), context);
@@ -105,6 +116,20 @@ sectors = [];
 const before = calls;
 assert.equal((await open()).data.items.length, 0);
 assert.equal(calls, before);
+
+directMode = false;
+permitted = true;
+attendance = [{ customerId: customer.id, state: 'HUMANO', sectorId: 'setor-a', events: [] }];
+const request = query => context.exports.GET({ url: 'https://panel.invalid/api/chat/list?' + query, signal: { aborted: false } });
+const combined = await request('queue=OPEN&includeCounts=1');
+assert.equal(combined.data.items.length, 0, 'Waiting item is outside the open tab');
+assert.equal(combined.data.counts.waiting, 1, 'Totals cover all authorized tabs');
+assert.equal(combined.data.counts.inService, 0);
+assert.equal(providerCalls, 1, 'The page and totals share the inventory request');
+const separate = await request('queueCounts=1');
+assert.equal(separate.data.waiting, combined.data.counts.waiting);
+const noCounts = await request('queue=WAITING&offset=1');
+assert.equal(noCounts.data.counts, undefined, 'Additional pages do not calculate totals');
 
 const inbox = fs.readFileSync('src/components/chat/ChatInbox.tsx', 'utf8');
 const start = inbox.indexOf('  const resolveChatByRemoteJid =');

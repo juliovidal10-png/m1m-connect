@@ -31,7 +31,8 @@ export const crmService = {
         JOIN candidates c ON c.id = m."customerId" AND c."companyId" = m."companyId"
         JOIN m1m_companies company ON company.id = c."companyId"
           AND m."instanceName" = company."whatsappInstanceName"
-        WHERE m."companyId" = $1 AND m.type NOT IN ('REACTION', 'UNKNOWN')
+        WHERE m."companyId" = $1 AND c."crmManuallyAddedAt" IS NULL
+          AND m.type NOT IN ('REACTION', 'UNKNOWN')
         ORDER BY m."customerId", m."sentAt" ASC, m."createdAt" ASC, m.id ASC
       )
       SELECT c.id, c."crmCardRemovedAt" AS "removedAt", c."crmManuallyAddedAt" AS "manuallyAddedAt",

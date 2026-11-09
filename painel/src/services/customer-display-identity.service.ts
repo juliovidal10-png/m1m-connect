@@ -100,7 +100,7 @@ async function getHints(companyId: string, instanceName: string, ids: string[]):
   try { return await task; } finally { hintPending.delete(key); }
 }
 
-export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer>(companyId: string, customers: T[], options: { allowHistoryDiscovery?: boolean; deferProvider?: (task: Promise<unknown>) => void } = {}) {
+export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer>(companyId: string, customers: T[], options: { allowHistoryDiscovery?: boolean; deferHints?: boolean; deferProvider?: (task: Promise<unknown>) => void } = {}) {
   if (!customers.length) return [];
   const company = await companyRepository.findById(companyId);
   const instanceName = company?.whatsappInstanceName?.trim();
@@ -108,7 +108,17 @@ export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer
   const base = process.env.EVOLUTION_API_URL || '', apiKey = process.env.EVOLUTION_API_KEY || '';
   const ids = customers.map(customer => customer.id);
   const contactsTask = getContacts(companyId, instanceName, base, apiKey);
-  const { links, names } = await getHints(companyId, instanceName, ids);
+  const hints = getHints(companyId, instanceName, ids);
+  let hintsTimer: ReturnType<typeof setTimeout> | undefined;
+  const defer = options.deferHints ? options.deferProvider : undefined;
+  const hintData = defer
+    ? await Promise.race([
+        hints,
+        new Promise<null>(resolve => { hintsTimer = setTimeout(() => resolve(null), 250); }),
+      ]).finally(() => clearTimeout(hintsTimer))
+    : await hints;
+  if (!hintData) defer?.(hints.catch(() => {}));
+  const { links, names } = hintData ?? { links: [], names: [] };
   const linksByCustomer = new Map<string, IdentityLink[]>();
   for (const link of links) {
     if (!linksByCustomer.has(link.customerId)) linksByCustomer.set(link.customerId, []);
