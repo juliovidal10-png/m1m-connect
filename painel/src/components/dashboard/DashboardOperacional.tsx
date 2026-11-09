@@ -469,7 +469,7 @@ export default function DashboardOperacional() {
           receiptsResponse,
         ] = await Promise.all([
           fetch(
-            "/api/customers",
+            "/api/customers?view=dashboard",
             {
               signal: controller.signal,
               cache:

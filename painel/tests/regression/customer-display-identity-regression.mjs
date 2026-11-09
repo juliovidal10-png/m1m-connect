@@ -119,3 +119,29 @@ await live.enrichCustomerDisplayIdentities('tenant-b', [anonymous]);
 assert.equal(photoCalls, 1);
 assert.equal(writes, 0);
 console.log('TF3 confirmed-session phone and exact profile-photo fallback PASS');
+
+let releaseProvider;
+let deferTask;
+const slow = load('src/services/customer-display-identity.service.ts', {
+  require: name => deps[name],
+  process: { env: { EVOLUTION_API_URL: 'https://provider.invalid', EVOLUTION_API_KEY: 'test' } },
+  setTimeout, clearTimeout,
+  fetch: async url => {
+    assert.match(url, /findContacts/);
+    return new Promise(resolve => { releaseProvider = resolve; });
+  },
+});
+const fastList = await slow.enrichCustomerDisplayIdentities('tenant-a', [anonymous], {
+  deferProvider: task => { deferTask = task; },
+});
+assert.equal(fastList[0].displayPhone, '(11) 99999-0001');
+assert.equal(fastList[0].displayName, 'Nome recebido');
+assert.ok(deferTask, 'The list must return before the unavailable provider');
+releaseProvider({ ok: true, json: async () => contacts });
+await deferTask;
+const warmList = await slow.enrichCustomerDisplayIdentities('tenant-a', [anonymous], {
+  deferProvider: () => assert.fail('Warm provider cache must not defer'),
+});
+assert.equal(warmList[0].displayName, 'Maria Silva');
+assert.equal(warmList[0].profilePicUrl, contacts[0].profilePicUrl);
+console.log('TF8 PASS: list returns local data while provider is pending, and reuses the completed scoped cache.');

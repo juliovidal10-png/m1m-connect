@@ -33,8 +33,8 @@ try{
     const originalInterval=window.setInterval;window.setInterval=(f,ms)=>{if(ms===30000)window.poll=polling?f:()=>{};return polling?originalInterval(f,ms):0};
     window.fetch=(endpoint,options={})=>new Promise((resolve,reject)=>{
      const row={endpoint,started:performance.now(),aborted:false};window.requests.push(row);
-     const failed=window.fail;const bodies={'/api/customers':[{id:'A',status:'IA'},{id:'B',status:'HUMANO'}],'/api/reminders':[], '/api/payment-receipts':[], '/api/company/access-status':{}};
-     const timer=setTimeout(()=>{row.finished=performance.now();resolve({ok:!(failed&&endpoint==='/api/customers'),json:async()=>failed&&endpoint==='/api/customers'?{error:'Erro controlado'}:bodies[endpoint]})},endpoint==='/api/customers'?600:20);
+     const failed=window.fail;const bodies={'/api/customers?view=dashboard':[{id:'A',status:'IA'},{id:'B',status:'HUMANO'}],'/api/reminders':[], '/api/payment-receipts':[], '/api/company/access-status':{}};
+     const timer=setTimeout(()=>{row.finished=performance.now();resolve({ok:!(failed&&endpoint==='/api/customers?view=dashboard'),json:async()=>failed&&endpoint==='/api/customers?view=dashboard'?{error:'Erro controlado'}:bodies[endpoint]})},endpoint==='/api/customers?view=dashboard'?600:20);
      options.signal?.addEventListener('abort',()=>{row.aborted=true;clearTimeout(timer);reject(new DOMException('Aborted','AbortError'))},{once:true});
     });
    },polling);

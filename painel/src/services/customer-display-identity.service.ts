@@ -100,7 +100,7 @@ async function getHints(companyId: string, instanceName: string, ids: string[]):
   try { return await task; } finally { hintPending.delete(key); }
 }
 
-export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer>(companyId: string, customers: T[], options: { allowHistoryDiscovery?: boolean } = {}) {
+export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer>(companyId: string, customers: T[], options: { allowHistoryDiscovery?: boolean; deferProvider?: (task: Promise<unknown>) => void } = {}) {
   if (!customers.length) return [];
   const company = await companyRepository.findById(companyId);
   const instanceName = company?.whatsappInstanceName?.trim();
@@ -123,19 +123,61 @@ export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer
       links: linksByCustomer.get(customer.id),
     }) || customer.remoteJid };
   });
-  const [contacts, resolved] = await Promise.all([
-    contactsTask, resolveChatHistoryIdentities(seeds, { companyId, instanceName, apiUrl: base, apiKey, allowDiscovery: options.allowHistoryDiscovery }),
-  ]);
-  const presented = resolved.map(customer => {
-    const hint = namesByCustomer.get(customer.id);
-    const primary = normalizeIdentityJid(hint?.principal), alternate = normalizeIdentityJid(hint?.alternativo);
-    const expected = [normalizeIdentityJid(customer.remoteJid), normalizeIdentityJid(customer.canonicalJid)];
-    const receivedName = hint && !primary.endsWith('@g.us') && !primary.endsWith('@newsletter') &&
-      [primary, alternate].some(jid => jid && expected.includes(jid)) ? usefulIdentityName(hint.name) : null;
-    return presentCustomerIdentity(customer, {
-      contacts, links: linksByCustomer.get(customer.id), receivedName, canonicalJid: customer.canonicalJid,
+  const scope = { companyId, instanceName, apiUrl: base, apiKey, allowDiscovery: options.allowHistoryDiscovery };
+  function present(resolved: typeof seeds, contacts: IdentityContact[]) {
+    const contactsByJid = new Map<string, IdentityContact[]>();
+    for (const contact of contacts) {
+      const jid = normalizeIdentityJid(contact.remoteJid);
+      const matches = contactsByJid.get(jid);
+      if (matches) matches.push(contact);
+      else contactsByJid.set(jid, [contact]);
+    }
+    return resolved.map(customer => {
+      const hint = namesByCustomer.get(customer.id);
+      const primary = normalizeIdentityJid(hint?.principal), alternate = normalizeIdentityJid(hint?.alternativo);
+      const remote = normalizeIdentityJid(customer.remoteJid);
+      const canonical = normalizeIdentityJid(customer.canonicalJid);
+      const expected = [remote, canonical];
+      const receivedName = hint && !primary.endsWith('@g.us') && !primary.endsWith('@newsletter') &&
+        [primary, alternate].some(jid => jid && expected.includes(jid)) ? usefulIdentityName(hint.name) : null;
+      const matchingContacts = [...(contactsByJid.get(remote) || []),
+        ...(canonical === remote ? [] : contactsByJid.get(canonical) || [])];
+      return presentCustomerIdentity(customer, {
+        contacts: matchingContacts, links: linksByCustomer.get(customer.id), receivedName, canonicalJid: customer.canonicalJid,
+      });
     });
-  });
+  }
+
+  function withCachedPhoto(customer: ReturnType<typeof present>[number]) {
+    if (customer.profilePicUrl) return customer;
+    const photo = photoCache.get(JSON.stringify([base, companyId, instanceName, customer.canonicalJid]));
+    return photo?.url && photo.expiresAt > Date.now() ? { ...customer, profilePicUrl: photo.url } : customer;
+  }
+
+  const live = Promise.all([resolveChatHistoryIdentities(seeds, scope), contactsTask])
+    .then(([resolved, contacts]) => present(resolved, contacts));
+
+  if (options.deferProvider) {
+    // List requests can use the saved data while the provider refreshes its scoped caches.
+    // The customer detail still waits for live identity and photo lookup.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const ready = await Promise.race([
+        live,
+        new Promise<null>(resolve => { timer = setTimeout(() => resolve(null), 350); }),
+      ]);
+      if (ready) return ready.map(withCachedPhoto);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    options.deferProvider(live.catch(() => {}));
+    const resolved = await resolveChatHistoryIdentities(seeds, { ...scope, allowDiscovery: false });
+    const cached = contactCache.get(JSON.stringify([base, companyId, instanceName]));
+    return present(resolved, cached?.contacts || []).map(withCachedPhoto);
+  }
+
+  const presented = await live;
   // Fetch only exact confirmed identities; bound new requests per page and share polling work.
   let budget = 4;
   return Promise.all(presented.map(async customer => {

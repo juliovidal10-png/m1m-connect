@@ -27,10 +27,10 @@ let writes = [], queryScopes = [];
 const prisma = {
   $queryRawUnsafe: async (sql, companyId) => {
     queryScopes.push(companyId);
-    assert.match(sql, /c\."companyId" = \$1/);
-    assert.match(sql, /m\."companyId" = c\."companyId" AND m\."customerId" = c.id/);
+    assert.match(sql, /"companyId" = \$1/);
+    assert.match(sql, /c.id = m\."customerId" AND c\."companyId" = m\."companyId"/);
     assert.match(sql, /m\."instanceName" = company\."whatsappInstanceName"/);
-    assert.match(sql, /ORDER BY m\."sentAt" ASC, m\."createdAt" ASC, m.id ASC LIMIT 1/);
+    assert.match(sql, /ORDER BY m\."customerId", m\."sentAt" ASC, m\."createdAt" ASC, m.id ASC/);
     assert.match(sql, /NOT IN \('REACTION', 'UNKNOWN'\)/);
     return companyId === 'a' ? [row('incoming', { firstFromMe: false, removedAt: records[0].crmCardRemovedAt }),
       row('outgoing', { firstFromMe: true })] : [row('foreign', { firstFromMe: false })];

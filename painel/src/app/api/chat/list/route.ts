@@ -1,7 +1,7 @@
 import { getConversationQueue, isConversationQueue, isManualWhatsAppTakeover } from "@/lib/conversation-queue";
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
 import { resolveChatHistoryIdentities } from "@/lib/chat-history-identity";
 import { createLegacyGreetingListFilter, legacyGreetingScope, legacyGreetingStart, legacyGreetingEnd, legacyGreetingPrefix } from "@/lib/legacy-greeting-list-filter";
@@ -493,6 +493,7 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
     }
     if (!complete) throw new Error("TF3: inventario excedeu limite de varredura; total indisponivel");
     tf3InventoryCache.set(key, { chats, expiresAt: Date.now() + TF3_INVENTORY_CACHE_MS });
+    queueHeadCache.delete(key);
     return chats;
   })();
   tf3InventoryRefresh.set(key, refresh);
@@ -507,37 +508,52 @@ async function getTf3CompleteInventory(companyId: string, instanceName: string):
 // A cabeca recente evita esperar o TTL do inventario para exibir novas conversas/mensagens.
 const queueHeadCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
 const queueHeadRefresh = new Map<string, Promise<EvolutionChat[]>>();
+async function refreshQueueHead(key: string, instanceName: string) {
+  const inventoryAtStart = tf3InventoryCache.get(key);
+  const inFlight = queueHeadRefresh.get(key);
+  if (inFlight) return inFlight;
+  const task = (async () => {
+    const response = await fetch(`${API_URL}/chat/findChats/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: API_KEY || "" },
+      body: JSON.stringify({ where: {}, take: 200, skip: 0 }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`Chat inventory head HTTP ${response.status}`);
+    const data = await response.json();
+    const chats: EvolutionChat[] = Array.isArray(data) ? data : data?.value;
+    if (!Array.isArray(chats) || chats.length > 200) throw new Error("Invalid chat inventory head");
+    if (tf3InventoryCache.get(key) === inventoryAtStart) {
+      queueHeadCache.set(key, { chats, expiresAt: Date.now() + 2000 });
+    }
+    return chats;
+  })();
+  queueHeadRefresh.set(key, task);
+  try { return await task; }
+  finally { queueHeadRefresh.delete(key); }
+}
+
 async function getOperationalInventory(companyId: string, instanceName: string): Promise<EvolutionChat[]> {
   const key = JSON.stringify([companyId, instanceName]);
-  const alreadyWarm = (tf3InventoryCache.get(key)?.expiresAt ?? 0) > Date.now();
-  const inventory = await getTf3CompleteInventory(companyId, instanceName);
-  if (!alreadyWarm) return inventory;
-  let head = queueHeadCache.get(key);
-  if (!head || head.expiresAt <= Date.now()) {
-    let pending = queueHeadRefresh.get(key);
-    if (!pending) {
-      pending = (async () => {
-        const response = await fetch(`${API_URL}/chat/findChats/${encodeURIComponent(instanceName)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: API_KEY || "" },
-          body: JSON.stringify({ where: {}, take: 200, skip: 0 }),
-          cache: "no-store",
-          signal: AbortSignal.timeout(15000),
-        });
-        if (!response.ok) throw new Error(`Chat inventory head HTTP ${response.status}`);
-        const data = await response.json();
-        const chats: EvolutionChat[] = Array.isArray(data) ? data : data?.value;
-        if (!Array.isArray(chats) || chats.length > 200) throw new Error("Invalid chat inventory head");
-        queueHeadCache.set(key, { chats, expiresAt: Date.now() + 2000 });
-        return chats;
-      })();
-      queueHeadRefresh.set(key, pending);
-    }
-    try { head = { chats: await pending, expiresAt: Date.now() + 2000 }; }
-    finally { if (queueHeadRefresh.get(key) === pending) queueHeadRefresh.delete(key); }
+  const cached = tf3InventoryCache.get(key);
+  const now = Date.now();
+
+  // A cold instance still needs the complete inventory for correct queue pagination.
+  if (!cached || cached.expiresAt + TF3_INVENTORY_CACHE_MS <= now) {
+    return getTf3CompleteInventory(companyId, instanceName);
   }
+
+  const head = queueHeadCache.get(key);
+  if (cached.expiresAt <= now) {
+    after(async () => { await getTf3CompleteInventory(companyId, instanceName).catch(() => {}); });
+  } else if (!head || head.expiresAt <= now) {
+    after(async () => { await refreshQueueHead(key, instanceName).catch(() => {}); });
+  }
+
   const combined = new Map<string, EvolutionChat>();
-  for (const chat of [...head.chats, ...inventory]) {
+  const recentHead = head && head.expiresAt + 15000 > now ? head.chats : [];
+  for (const chat of [...recentHead, ...cached.chats]) {
     const jid = getPrimaryRemoteJid(chat);
     if (jid && !combined.has(jid)) combined.set(jid, chat);
   }
@@ -673,7 +689,10 @@ export async function GET(request: Request) {
         },
       }) : Promise.resolve([]),
     ]);
-    const customers = await enrichCustomerDisplayIdentities(companyId, storedCustomers, { allowHistoryDiscovery: false });
+    const customers = await enrichCustomerDisplayIdentities(companyId, storedCustomers, {
+      allowHistoryDiscovery: false,
+      deferProvider: task => after(async () => { await task; }),
+    });
     const hideLegacyGreeting = createLegacyGreetingListFilter(companyId, instanceName, legacyGreetingCustomers);
     perfLog("database", {
       customers: customers.length,
