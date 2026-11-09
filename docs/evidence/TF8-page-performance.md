@@ -8,3 +8,9 @@ Em 09/11/2026, o proprietário relatou lentidão em Dashboard, Conversas, Contat
 - Conversas reaproveita inventário bruto por empresa e instância enquanto atualiza em segundo plano, com tolerância de até 60 segundos após expirar o inventário. A lista recente tem validade própria. Sem inventário disponível, a primeira carga espera a Evolution. Permissões, estados e exclusões são calculados em cada pedido.
 
 TypeScript e regressões locais de Dashboard, CRM, Conversas, identidade e CSV passaram. Testes específicos simulam provedor atrasado, atualização de cache, primeira carga e isolamento. Server-Timing nas rotas permite medir após o deploy manual. Os resultados de latência em produção ainda precisam ser medidos.
+
+## Abertura direta de conversa
+
+Após o primeiro deploy, o proprietário confirmou melhora no Dashboard e relatou espera em Conversas, sobretudo no botão Conversa do Cliente 360°. O clique usava a busca geral mesmo quando o cadastro e a conversa já existiam. A abertura direta consulta o JID exato, os atendimentos e uma mensagem salva da empresa e instância atuais. A autorização, os setores e a exclusão seguem a mesma verificação da lista. Quando o caminho direto não encontra resultado, a busca normal continua disponível. A prévia e a carga do histórico usam o fluxo existente depois de selecionar a conversa.
+
+Na página sem busca, nomes de grupos já conhecidos aparecem pelo cache. Consultas de nomes ausentes ocorrem em lotes de até oito em segundo plano. A busca textual continua consultando os nomes necessários. A resposta direta expõe Server-Timing. TypeScript e regressões de abertura direta, cache, alias e permissões passaram com banco e Evolution simulados. Validação de tempo em produção pendente.

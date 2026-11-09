@@ -1,0 +1,133 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import ts from 'typescript';
+
+const compile = source => ts.transpileModule(source, { compilerOptions: {
+  target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS,
+} }).outputText;
+const identity = { exports: {}, URL };
+vm.runInNewContext(compile(fs.readFileSync('src/lib/customer-display-identity.ts', 'utf8')), identity);
+const jid = '5565999990123@s.whatsapp.net';
+const companyId = 'empresa-a';
+const instanceName = 'wa-a';
+const customer = { id: 'cliente-a', remoteJid: jid, name: 'Cliente A', attendances: [] };
+let permitted = true;
+let deleted = false;
+let messageAvailable = true;
+let attendance = [];
+let calls = 0;
+let sectors = [{ sectorId: 'setor-a' }];
+const deps = {
+  '@/lib/conversation-queue': { isConversationQueue: () => false, isManualWhatsAppTakeover: () => false },
+  '@/services/auth/authorization.service': { authorizationService: {
+    getCurrentUser: async () => ({ companyId, userId: 'atendente-a' }),
+    hasPermission: () => permitted,
+  } },
+  '@/generated/prisma/enums': { M1MUserPermission: { VIEW_ALL_CONVERSATIONS: 'VIEW_ALL_CONVERSATIONS' } },
+  'next/server': { after: () => assert.fail('Direct open schedules no provider work'),
+    NextResponse: { json: (data, options) => ({ data, options }) } },
+  'node:crypto': {},
+  '@/lib/chat-history-identity': { resolveChatHistoryIdentities: async (rows, scope) => {
+    assert.equal(scope.allowDiscovery, false);
+    return rows;
+  } },
+  '@/lib/legacy-greeting-list-filter': { createLegacyGreetingListFilter: () => () => false },
+  '@/services/customer-display-identity.service': {
+    enrichCustomerDisplayIdentities: () => assert.fail('Direct open does not await provider enrichment'),
+  },
+  '@/lib/customer-display-identity': identity.exports,
+  '@/lib/tenant': {},
+  '@/repositories/company.repository': { companyRepository: { findById: async id => {
+    assert.equal(id, companyId);
+    return { whatsappInstanceName: instanceName };
+  } } },
+  '@/services/conversation-deletion.service': {
+    deletionListSnapshot: async (company, instance) => {
+      assert.equal(company, companyId);
+      assert.equal(instance, instanceName);
+      return deleted ? [{ state: 'DELETED', aliases: [jid] }] : [];
+    },
+  },
+  '@/lib/prisma': { prisma: {
+    m1MSectorUser: { findMany: async () => sectors },
+    m1MCustomer: { findMany: async ({ where }) => {
+      assert.equal(where.companyId, companyId);
+      assert.equal(where.remoteJid, jid);
+      return [customer];
+    } },
+    m1MAttendance: { findMany: async ({ where }) => {
+      assert.equal(where.companyId, companyId);
+      assert.equal(where.customer.remoteJid, jid);
+      return attendance;
+    } },
+    m1MMessage: { findFirst: async ({ where }) => {
+      calls++;
+      assert.equal(where.companyId, companyId);
+      assert.equal(where.instanceName, instanceName);
+      assert.equal(where.customer.remoteJid, jid);
+      return messageAvailable ? {
+        sentAt: new Date('2026-11-09T13:00:00Z'),
+        rawPayload: { key: { id: 'm1', remoteJid: jid, fromMe: false }, message: { conversation: 'Olá' } },
+      } : null;
+    } },
+  } },
+};
+const context = { exports: {}, URL,
+  process: { env: { EVOLUTION_API_URL: 'https://provider.invalid', EVOLUTION_API_KEY: 'test' } },
+  console: { log() {}, error() {} },
+  fetch: () => assert.fail('Direct open should not request Evolution'),
+  require: name => { assert.ok(Object.hasOwn(deps, name), name); return deps[name]; },
+};
+vm.runInNewContext(compile(fs.readFileSync('src/app/api/chat/list/route.ts', 'utf8')), context);
+const open = (value = jid) => context.exports.GET({ url: 'https://panel.invalid/api/chat/list?directJid=' + encodeURIComponent(value) });
+const response = await open();
+assert.equal(response.data.items[0].remoteJid, jid);
+assert.equal(response.data.items[0].crmCustomerId, customer.id);
+assert.match(response.options.headers['Server-Timing'], /direct;dur=/);
+assert.equal((await open('invalido')).options.status, 400);
+messageAvailable = false;
+assert.equal((await open()).data.items.length, 0);
+messageAvailable = true;
+deleted = true;
+assert.equal((await open()).data.items.length, 0);
+deleted = false;
+permitted = false;
+assert.equal((await open()).data.items.length, 0);
+attendance = [{ customerId: customer.id, state: 'HUMANO', sectorId: 'setor-b', events: [] }];
+assert.equal((await open()).data.items.length, 0);
+attendance[0].sectorId = 'setor-a';
+attendance[0].responsibleId = 'outra-pessoa';
+assert.equal((await open()).data.items.length, 0);
+attendance[0].responsibleId = 'atendente-a';
+assert.equal((await open()).data.items.length, 1);
+sectors = [];
+const before = calls;
+assert.equal((await open()).data.items.length, 0);
+assert.equal(calls, before);
+
+const inbox = fs.readFileSync('src/components/chat/ChatInbox.tsx', 'utf8');
+const start = inbox.indexOf('  const resolveChatByRemoteJid =');
+const end = inbox.indexOf('  useEffect(', start);
+let requests = [];
+let miss = false;
+const frontend = {
+  useCallback: fn => fn,
+  chatsRef: { current: [] },
+  findChatByRequestedJid: (rows, key) => rows.find(row => row.remoteJid === key),
+  mergeDuplicateChats: rows => rows,
+  fetch: async url => {
+    requests.push(url);
+    return { ok: true, json: async () => ({ items: miss && url.includes('directJid=') ? [] : [{ remoteJid: jid }] }) };
+  },
+};
+vm.runInNewContext(compile(inbox.slice(start, end) + '\nthis.resolve = resolveChatByRemoteJid;'), frontend);
+assert.equal((await frontend.resolve(jid)).remoteJid, jid);
+assert.equal(requests.length, 1);
+assert.match(requests[0], /directJid=/);
+miss = true;
+requests = [];
+assert.equal((await frontend.resolve(jid)).remoteJid, jid);
+assert.equal(requests.length, 2);
+assert.match(requests[1], /search=/);
+console.log('TF8 PASS: exact direct open, local history, deletion, tenant, sector, assignee and normal search fallback.');

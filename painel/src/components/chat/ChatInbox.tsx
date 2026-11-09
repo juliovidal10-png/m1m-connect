@@ -2044,6 +2044,16 @@ const loadContacts =
         return localMatch;
       }
 
+      const encodedJid = encodeURIComponent(requestedRemoteJid);
+      if (/^(?:[0-9]+@(s[.]whatsapp[.]net|lid)|[0-9-]+@g[.]us)$/i.test(requestedRemoteJid)) {
+        const direct = await fetch(`/api/chat/list?directJid=${encodedJid}`, { cache: "no-store" }).catch(() => null);
+        if (direct?.ok) {
+          const data = await direct.json().catch(() => null);
+          const match = Array.isArray(data?.items) ? findChatByRequestedJid(data.items, requestedRemoteJid) : null;
+          if (match) return match;
+        }
+      }
+
       const response = await fetch(
         `/api/chat/list?search=${encodeURIComponent(
           requestedRemoteJid,
