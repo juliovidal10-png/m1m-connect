@@ -729,7 +729,7 @@ export default function CustomerPanel({
                       className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0A9090] disabled:bg-black/[0.03]"
                     />
                     <span className="mt-1 block text-[11px] text-black/45">
-                      Use o DDD ou o formato internacional. O número fica no cadastro do cliente.
+                      Use 10 ou 11 dígitos com DDD. Para um número internacional, comece com + e o DDI.
                     </span>
                   </label>
                 )}

@@ -1,4 +1,4 @@
-import { normalizeContactPhone } from '@/lib/contact-phone';
+import { normalizeCustomerContactPhone } from '@/lib/contact-phone';
 import {
   customerRepository,
   type CustomerData,
@@ -226,7 +226,7 @@ export const customerService = {
       aiEnabled:
         input.aiEnabled,
       phone: input.phone,
-      contactPhone: input.contactPhone === undefined ? undefined : normalizeContactPhone(input.contactPhone),
+      contactPhone: input.contactPhone === undefined ? undefined : normalizeCustomerContactPhone(input.contactPhone),
       company: input.company,
       city: input.city,
       responsible:
