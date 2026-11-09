@@ -609,6 +609,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
 
     const wantsQueueCounts = url.searchParams.get("queueCounts") === "1";
+    const includeCounts = url.searchParams.get("includeCounts") === "1";
     const queue = url.searchParams.get("queue");
     const directJid = normalizeJid(url.searchParams.get("directJid"));
     if (directJid && !/^(?:[0-9]+@(s[.]whatsapp[.]net|lid)|[0-9-]+@g[.]us)$/.test(directJid)) {
@@ -649,7 +650,7 @@ export async function GET(request: Request) {
       if (wantsQueueCounts) return NextResponse.json({ waiting: 0, inService: 0 });
       return wantsTotalCount
         ? NextResponse.json({ totalCount: 0 })
-        : NextResponse.json({ items: [], hasMore: false });
+        : NextResponse.json({ items: [], hasMore: false, counts: includeCounts ? { waiting: 0, inService: 0 } : undefined });
     }
 
     const company = await companyRepository.findById(companyId);
@@ -898,16 +899,21 @@ export async function GET(request: Request) {
     // TF2: mesma associacao, visibilidade e deduplicacao da listagem de Conversas.
     // O cache guarda somente o inventario bruto da Evolution, nunca estados ou permissoes.
     // Atendimentos e autorizacoes sao consultados novamente em cada polling.
+    async function queueCounts(items: EnrichedChat[]) {
+      const canReview = authenticatedUser.isPrimary || String(authenticatedUser.role) === "ADMIN";
+      const pendingReviewCount = canReview && await deletionService.deletionStorageAvailable()
+        ? Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName} AND state='PENDING'`)[0].count)
+        : undefined;
+      return {
+        pendingReviewCount,
+        waiting: items.filter(chat => getConversationQueue(chat) === "WAITING").length,
+        inService: items.filter(chat => getConversationQueue(chat) === "IN_SERVICE").length,
+      };
+    }
     if (wantsQueueCounts) {
       const rawChats = await operationalChats();
       const items = dedupeEnrichedChats(visible(await enrich(rawChats, false), false));
-      const pendingReviewCount=await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable() && (authenticatedUser.isPrimary || String(authenticatedUser.role)==="ADMIN")
-        ? Number((await prisma.$queryRaw<{count:bigint}[]>`SELECT count(*) FROM m1m_conversation_deletion_reviews WHERE "companyId"=${companyId} AND "instanceName"=${instanceName} AND state='PENDING'`)[0].count) : undefined;
-      return NextResponse.json({
-        pendingReviewCount,
-        waiting: items.filter((chat) => getConversationQueue(chat) === "WAITING").length,
-        inService: items.filter((chat) => getConversationQueue(chat) === "IN_SERVICE").length,
-      });
+      return NextResponse.json(await queueCounts(items));
     }
 
     if (wantsTotalCount) {
@@ -938,7 +944,12 @@ export async function GET(request: Request) {
       if (request.signal.aborted) return new NextResponse(null, { status: 499 });
       const inventoryMs = Date.now() - inventoryStartedAt;
       // Classificar antes de resolver os nomes de grupos evita chamadas para outras filas.
-      let matches = dedupeEnrichedChats(visible(await enrich(rawChats, false)));
+      const enriched = await enrich(rawChats, false);
+      const visibleChats = visible(enriched, false);
+      const countsTask = includeCounts
+        ? queueCounts(dedupeEnrichedChats(visibleChats)).catch(() => undefined)
+        : Promise.resolve(undefined);
+      let matches = dedupeEnrichedChats(visibleChats.filter(chat => getConversationQueue(chat) === queue));
       if (search) {
         matches = (await enrich(matches)).filter((chat) => normalizeSearch([
           chat.pushName, chat.groupSubject, chat.crmName, chat.crmPhone,
@@ -948,9 +959,10 @@ export async function GET(request: Request) {
       const page = matches.slice(offset, offset + limit);
       const items = search ? page : await enrich(page, true, true);
       if (request.signal.aborted) return new NextResponse(null, { status: 499 });
+      const counts = await countsTask;
       const totalMs = Date.now() - perfStartedAt;
       perfLog("queue-page", { queue, inventoryMs, matched: matches.length, returned: items.length, offset, limit });
-      return NextResponse.json({ items, hasMore: matches.length > offset + limit }, {
+      return NextResponse.json({ items, hasMore: matches.length > offset + limit, counts }, {
         headers: {
           "Server-Timing": `inventory;dur=${inventoryMs}, total;dur=${totalMs}`,
           "X-M1M-List-State": items.length ? "ready" : "empty",

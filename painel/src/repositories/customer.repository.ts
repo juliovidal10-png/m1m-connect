@@ -709,7 +709,8 @@ export const customerRepository = {
              WHERE m."companyId" = $1 AND m."customerId" = ANY($2::text[])
              ORDER BY m."customerId", m."sentAt" DESC
            )
-           SELECT m."customerId", m.content, m."rawPayload", m."sentAt"
+           SELECT m."customerId", m.content, m."sentAt",
+                  jsonb_build_object('key', m."rawPayload"->'key', 'pushName', m."rawPayload"->'pushName') AS "rawPayload"
            FROM latest_ids l JOIN "m1m_messages" m ON m.id = l.id
            WHERE m."companyId" = $1`,
           companyId,

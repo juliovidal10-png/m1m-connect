@@ -1502,6 +1502,17 @@ const loadContacts =
     chatsRef.current = chats;
   }, [chats]);
 
+  const applyQueueCounts = useCallback((data: { waiting?: number; inService?: number; pendingReviewCount?: number } | undefined) => {
+    if (!data || typeof data.waiting !== "number" || typeof data.inService !== "number" ||
+        !Number.isSafeInteger(data.waiting) || data.waiting < 0 ||
+        !Number.isSafeInteger(data.inService) || data.inService < 0) return;
+    setQueueCounts({ waiting: data.waiting, inService: data.inService });
+    if (typeof data.pendingReviewCount === "number" && Number.isSafeInteger(data.pendingReviewCount) && data.pendingReviewCount >= 0) {
+      setReviewPendingCount(data.pendingReviewCount);
+    }
+    window.dispatchEvent(new CustomEvent("m1m:chat-queue-counts", { detail: { waiting: data.waiting } }));
+  }, []);
+
   const queueCountsRequestRef = useRef({ inFlight: false, pending: false });
   const loadQueueCounts = useCallback(async () => {
     const request = queueCountsRequestRef.current;
@@ -1512,11 +1523,7 @@ const loadContacts =
       const response = await fetch("/api/chat/list?queueCounts=1", { cache: "no-store" });
       const data = await response.json();
       if (revision !== attendanceRevisionRef.current) { request.pending = true; return; }
-      if (response.ok && Number.isSafeInteger(data.waiting) && data.waiting >= 0 &&
-          Number.isSafeInteger(data.inService) && data.inService >= 0) {
-        setQueueCounts({ waiting: data.waiting, inService: data.inService });
-        if(Number.isSafeInteger(data.pendingReviewCount)&&data.pendingReviewCount>=0)setReviewPendingCount(data.pendingReviewCount);
-      }
+      if (response.ok) applyQueueCounts(data);
     } catch { /* Preserva o ultimo total confirmado. */ }
     finally {
       request.inFlight = false;
@@ -1525,7 +1532,7 @@ const loadContacts =
         queueMicrotask(() => { void loadQueueCounts(); });
       }
     }
-  }, []);
+  }, [applyQueueCounts]);
 
   const loadChats = useCallback(
     async (showLoading = false, mode: "replace" | "append" | "refresh" = "replace") => {
@@ -1553,10 +1560,12 @@ const loadContacts =
         do {
           const limit = Math.min(wanted - items.length, 100);
           const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
+          if (offset === 0) params.set("includeCounts", "1");
           const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store", signal: controller.signal });
           const data = await response.json();
           if (!isCurrent()) return;
           if (!response.ok) throw new Error(data.error || "Erro ao carregar conversas.");
+          applyQueueCounts(data?.counts);
           const page: Chat[] = Array.isArray(data?.items) ? data.items : [];
           items = [...items, ...page];
           offset += page.length;
@@ -1618,7 +1627,7 @@ const loadContacts =
           }
         }
       }
-    }, [],
+    }, [applyQueueCounts],
   );
 
   useEffect(() => () => {
@@ -1990,11 +1999,7 @@ const loadContacts =
 
   useEffect(() => {
     loadContacts();
-    void loadQueueCounts();
-  }, [
-    loadContacts,
-    loadQueueCounts,
-  ]);
+  }, [loadContacts]);
 
   useEffect(() => {
     activeChatJidRef.current =
@@ -2591,8 +2596,8 @@ const loadContacts =
        * O historico da conversa deixa de ser
        * resincronizado inteiro a cada 2 segundos.
        */
-      await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
-    }, [loadChats, loadQueueCounts]);
+      await loadChats(false, "refresh");
+    }, [loadChats]);
 
   useAutoRefresh({
     callback: refreshChat,
