@@ -1445,6 +1445,12 @@ const loadContacts =
       };
     }, [messages]);
 
+  const conversationGallery = useMemo(
+    () => reactionData.visibleMessages.filter(
+      (item) => item.messageType === "imageMessage" || item.messageType === "videoMessage",
+    ),
+    [reactionData.visibleMessages],
+  );
   const photoAlbums = useMemo(
     () => groupConversationPhotos(reactionData.visibleMessages, reactionData.reactionsByMessageId),
     [reactionData],
@@ -4621,7 +4627,7 @@ const loadContacts =
                                   <div key={photo.key.id || photo.id} className="group relative min-w-0">
                                     <MessageRenderer
                                       message={photo}
-                                      galleryMessages={album}
+                                      galleryMessages={conversationGallery}
                                       albumThumbnail
                                       additionalPhotos={expandedPhotoAlbum !== messageId && index === 3 ? album.length - 4 : 0}
                                       onForward={handleForwardMessage}
@@ -4751,15 +4757,7 @@ const loadContacts =
                             message={
                               message
                             }
-                            galleryMessages={
-                              reactionData.visibleMessages.filter(
-                                (item) =>
-                                  item.messageType ===
-                                    "imageMessage" ||
-                                  item.messageType ===
-                                    "videoMessage",
-                              )
-                            }
+                            galleryMessages={conversationGallery}
                             onForward={
                               handleForwardMessage
                             }

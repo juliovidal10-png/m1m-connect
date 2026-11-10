@@ -2,11 +2,11 @@
 
 import {
   useEffect,
-  useRef,
   useState,
 } from "react";
 
 import useMediaLoader from "@/hooks/useMediaLoader";
+import useNearViewport from "@/hooks/useNearViewport";
 import ImageViewer from "./ImageViewer";
 import ConversationMediaViewer from "./ConversationMediaViewer";
 
@@ -162,68 +162,6 @@ type MessageRendererProps = {
     messageId: string,
   ) => void;
 };
-
-function useNearViewport(
-  rootMargin = "600px 0px",
-) {
-  const elementRef =
-    useRef<HTMLDivElement | null>(null);
-
-  const [
-    shouldLoad,
-    setShouldLoad,
-  ] = useState(false);
-
-  useEffect(() => {
-    const element =
-      elementRef.current;
-
-    if (!element || shouldLoad) {
-      return;
-    }
-
-    if (
-      typeof IntersectionObserver ===
-      "undefined"
-    ) {
-      setShouldLoad(true);
-      return;
-    }
-
-    const observer =
-      new IntersectionObserver(
-        (entries) => {
-          const entry = entries[0];
-
-          if (
-            entry?.isIntersecting
-          ) {
-            setShouldLoad(true);
-            observer.disconnect();
-          }
-        },
-        {
-          root: null,
-          rootMargin,
-          threshold: 0.01,
-        },
-      );
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [
-    rootMargin,
-    shouldLoad,
-  ]);
-
-  return {
-    elementRef,
-    shouldLoad,
-  };
-}
 
 const LINK_PATTERN =
   /((?:https?:\/\/|www\.)[^\s]+|(?:[a-z0-9-]+\.)+(?:com\.br|net\.br|org\.br|com|net|org|io|me|app|dev|co)(?:\/[^\s]*)?)/gi;
@@ -1081,17 +1019,15 @@ function LoadedImageMessage({
 
       </div>
 
-      <ConversationMediaViewer
-        isOpen={isViewerOpen}
-        currentMessage={message}
-        galleryMessages={
-          galleryMessages
-        }
-        onClose={() =>
-          setIsViewerOpen(false)
-        }
-        onForward={onForward}
-      />
+      {isViewerOpen && (
+        <ConversationMediaViewer
+          isOpen
+          currentMessage={message}
+          galleryMessages={galleryMessages}
+          onClose={() => setIsViewerOpen(false)}
+          onForward={onForward}
+        />
+      )}
     </>
   );
 }

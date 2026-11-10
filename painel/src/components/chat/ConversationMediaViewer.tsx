@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import useMediaLoader from "@/hooks/useMediaLoader";
+import useNearViewport from "@/hooks/useNearViewport";
 import type { ChatMessage } from "./MessageRenderer";
 
 type ConversationMediaViewerProps = {
@@ -159,13 +160,11 @@ function GalleryThumbnail({
   activeRef?: React.Ref<HTMLButtonElement>;
   onSelect: (index: number) => void;
 }) {
-  const {
-    media,
-    loading,
-    error,
-  } = useMediaLoader(
-    message.id,
-    message,
+  const { elementRef, shouldLoad } = useNearViewport("0px");
+  const loadImage = message.messageType === "imageMessage" && shouldLoad;
+  const { media, loading, error } = useMediaLoader(
+    loadImage ? message.id : undefined,
+    loadImage ? message : null,
   );
 
   const videoThumbnail =
@@ -182,73 +181,75 @@ function GalleryThumbnail({
       : null;
 
   return (
-    <button
-      ref={activeRef}
-      aria-current={isActive ? "true" : undefined}
-      type="button"
-      onClick={() =>
-        onSelect(index)
-      }
-      aria-label={`Abrir m\u00eddia ${index + 1}`}
-      title={`M\u00eddia ${index + 1}`}
-      className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-black/30 transition ${
-        isActive
-          ? "border-[#0A9090] ring-2 ring-[#0A9090]/25"
-          : "border-white/15 hover:border-white/40"
-      }`}
-    >
-      {message.messageType ===
-      "videoMessage" ? (
-        videoThumbnail ? (
+    <div ref={elementRef} className="shrink-0">
+      <button
+        ref={activeRef}
+        aria-current={isActive ? "true" : undefined}
+        type="button"
+        onClick={() =>
+          onSelect(index)
+        }
+        aria-label={`Abrir m\u00eddia ${index + 1}`}
+        title={`M\u00eddia ${index + 1}`}
+        className={`relative block h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-black/30 transition ${
+          isActive
+            ? "border-[#0A9090] ring-2 ring-[#0A9090]/25"
+            : "border-white/15 hover:border-white/40"
+        }`}
+      >
+        {message.messageType ===
+        "videoMessage" ? (
+          videoThumbnail ? (
+            <img
+              src={
+                videoThumbnail
+              }
+              alt=""
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-white/70">              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 5v14l11-7z"
+                  fill="currentColor"
+                />
+              </svg>            </div>
+          )
+        ) : !shouldLoad || loading ? (
+          <div className="h-full w-full animate-pulse bg-white/10" />
+        ) : error || !source ? (
+          <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
+            {"m\u00eddia"}
+          </div>
+        ) : (
           <img
-            src={
-              videoThumbnail
-            }
+            src={source}
             alt=""
             className="h-full w-full object-cover"
           />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-white/70">              <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <path
-                d="M8 5v14l11-7z"
-                fill="currentColor"
-              />
-            </svg>            </div>
-        )
-      ) : loading ? (
-        <div className="h-full w-full animate-pulse bg-white/10" />
-      ) : error || !source ? (
-        <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
-          {"m\u00eddia"}
-        </div>
-      ) : (
-        <img
-          src={source}
-          alt=""
-          className="h-full w-full object-cover"
-        />
-      )}
+        )}
 
-      {message.messageType ===
-        "videoMessage" && (
-        <span className="absolute inset-0 flex items-center justify-center">            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-            <svg
-              viewBox="0 0 24 24"
-              className="h-3 w-3"
-              aria-hidden="true"
-            >
-              <path
-                d="M8 5v14l11-7z"
-                fill="currentColor"
-              />
-            </svg>
-          </span>          </span>
-      )}
-    </button>
+        {message.messageType ===
+          "videoMessage" && (
+          <span className="absolute inset-0 flex items-center justify-center">            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-3 w-3"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 5v14l11-7z"
+                  fill="currentColor"
+                />
+              </svg>
+            </span>          </span>
+        )}
+      </button>
+    </div>
   );
 }
 
@@ -371,46 +372,11 @@ export default function ConversationMediaViewer({
   }
 
   function goPrevious() {
-    if (activeIndex <= 0) {
-      return;
-    }
-
-    const previous =
-      gallery[activeIndex - 1];
-
-    if (!previous) {
-      return;
-    }
-
-    resetView();
-    activeMessageRef.current =
-      previous;
-    setActiveMessageId(
-      previous.id,
-    );
+    goToMedia(activeIndex - 1);
   }
 
   function goNext() {
-    if (
-      activeIndex >=
-      gallery.length - 1
-    ) {
-      return;
-    }
-
-    const next =
-      gallery[activeIndex + 1];
-
-    if (!next) {
-      return;
-    }
-
-    resetView();
-    activeMessageRef.current =
-      next;
-    setActiveMessageId(
-      next.id,
-    );
+    goToMedia(activeIndex + 1);
   }
 
   function goToMedia(
@@ -471,30 +437,27 @@ export default function ConversationMediaViewer({
       return;
     }
 
-    function handleKeyDown(
-      event: KeyboardEvent,
-    ) {
-      if (
-        event.key ===
-        "Escape"
-      ) {
-        onClose();
-        return;
-      }
-
-      if (
-        event.key ===
-        "ArrowLeft"
-      ) {
-        goPrevious();
-        return;
-      }
-
-      if (
-        event.key ===
-        "ArrowRight"
-      ) {
-        goNext();
+    function handleKeyDown(event: KeyboardEvent) {
+      switch (event.key) {
+        case "Escape":
+          onClose();
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          goPrevious();
+          break;
+        case "ArrowRight":
+          event.preventDefault();
+          goNext();
+          break;
+        case "Home":
+          event.preventDefault();
+          goToMedia(0);
+          break;
+        case "End":
+          event.preventDefault();
+          goToMedia(gallery.length - 1);
+          break;
       }
     }
 
@@ -826,6 +789,7 @@ export default function ConversationMediaViewer({
         </button>
 
           <MediaContent
+            key={activeMessage.id}
             message={
               activeMessage
             }
