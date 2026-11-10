@@ -23,7 +23,7 @@ type ConversationMediaViewerProps = {
 function MediaContent({
   message,
   zoom,
-  position,
+  offsetY,
   isDragging,
   onImageLoad,
   onPointerDown,
@@ -33,7 +33,7 @@ function MediaContent({
 }: {
   message: ChatMessage;
   zoom: number;
-  position: { x: number; y: number };
+  offsetY: number;
   isDragging: boolean;
   onImageLoad: () => void;
   onPointerDown: (
@@ -137,7 +137,7 @@ function MediaContent({
           : "cursor-zoom-in"
       }`}
       style={{
-        transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${zoom})`,
+        transform: `translate3d(0, ${offsetY}px, 0) scale(${zoom})`,
         transformOrigin:
           "center center",
         touchAction: "none",
@@ -203,13 +203,7 @@ export default function ConversationMediaViewer({
   const [zoom, setZoom] =
     useState(1);
 
-  const [
-    position,
-    setPosition,
-  ] = useState({
-    x: 0,
-    y: 0,
-  });
+  const [offsetY, setOffsetY] = useState(0);
 
   const [
     isDragging,
@@ -218,9 +212,7 @@ export default function ConversationMediaViewer({
 
   const dragStartRef =
     useRef({
-      pointerX: 0,
       pointerY: 0,
-      imageX: 0,
       imageY: 0,
     });
 
@@ -276,10 +268,7 @@ export default function ConversationMediaViewer({
 
   function resetView() {
     setZoom(1);
-    setPosition({
-      x: 0,
-      y: 0,
-    });
+    setOffsetY(0);
     setIsDragging(false);
   }
 
@@ -463,10 +452,7 @@ export default function ConversationMediaViewer({
           );
 
         if (next <= 1) {
-          setPosition({
-            x: 0,
-            y: 0,
-          });
+          setOffsetY(0);
         }
 
         return next;
@@ -500,10 +486,7 @@ export default function ConversationMediaViewer({
 
     if (zoom > 1) {
       setZoom(1);
-      setPosition({
-        x: 0,
-        y: 0,
-      });
+      setOffsetY(0);
       return;
     }
 
@@ -528,14 +511,8 @@ export default function ConversationMediaViewer({
       );
 
     dragStartRef.current = {
-      pointerX:
-        event.clientX,
-      pointerY:
-        event.clientY,
-      imageX:
-        position.x,
-      imageY:
-        position.y,
+      pointerY: event.clientY,
+      imageY: offsetY,
     };
 
     setIsDragging(true);
@@ -551,20 +528,8 @@ export default function ConversationMediaViewer({
       return;
     }
 
-    setPosition({
-      x:
-        dragStartRef.current
-          .imageX +
-        event.clientX -
-        dragStartRef.current
-          .pointerX,
-      y:
-        dragStartRef.current
-          .imageY +
-        event.clientY -
-        dragStartRef.current
-          .pointerY,
-    });
+    const { pointerY, imageY } = dragStartRef.current;
+    setOffsetY(imageY + event.clientY - pointerY);
   }
 
   function handlePointerUp(
@@ -873,7 +838,7 @@ export default function ConversationMediaViewer({
               activeMessage
             }
             zoom={zoom}
-            position={position}
+            offsetY={offsetY}
             isDragging={
               isDragging
             }
