@@ -146,6 +146,112 @@ function MediaContent({
   );
 }
 
+function GalleryThumbnail({
+  message,
+  index,
+  isActive,
+  activeRef,
+  onSelect,
+}: {
+  message: ChatMessage;
+  index: number;
+  isActive: boolean;
+  activeRef?: React.Ref<HTMLButtonElement>;
+  onSelect: (index: number) => void;
+}) {
+  const {
+    media,
+    loading,
+    error,
+  } = useMediaLoader(
+    message.id,
+    message,
+  );
+
+  const videoThumbnail =
+    message.message
+      ?.videoMessage
+      ?.jpegThumbnail
+      ? `data:image/jpeg;base64,${message.message.videoMessage.jpegThumbnail}`
+      : null;
+
+  const source =
+    media?.base64 &&
+    media.mimetype
+      ? `data:${media.mimetype};base64,${media.base64}`
+      : null;
+
+  return (
+    <button
+      ref={activeRef}
+      aria-current={isActive ? "true" : undefined}
+      type="button"
+      onClick={() =>
+        onSelect(index)
+      }
+      aria-label={`Abrir m\u00eddia ${index + 1}`}
+      title={`M\u00eddia ${index + 1}`}
+      className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-black/30 transition ${
+        isActive
+          ? "border-[#0A9090] ring-2 ring-[#0A9090]/25"
+          : "border-white/15 hover:border-white/40"
+      }`}
+    >
+      {message.messageType ===
+      "videoMessage" ? (
+        videoThumbnail ? (
+          <img
+            src={
+              videoThumbnail
+            }
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-white/70">              <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 5v14l11-7z"
+                fill="currentColor"
+              />
+            </svg>            </div>
+        )
+      ) : loading ? (
+        <div className="h-full w-full animate-pulse bg-white/10" />
+      ) : error || !source ? (
+        <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
+          {"m\u00eddia"}
+        </div>
+      ) : (
+        <img
+          src={source}
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      )}
+
+      {message.messageType ===
+        "videoMessage" && (
+        <span className="absolute inset-0 flex items-center justify-center">            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3 w-3"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 5v14l11-7z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>          </span>
+      )}
+    </button>
+  );
+}
+
 export default function ConversationMediaViewer({
   isOpen,
   currentMessage,
@@ -189,6 +295,7 @@ export default function ConversationMediaViewer({
         currentMessage,
     );
 
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
   const activeThumbnailRef =
     useRef<HTMLButtonElement | null>(
       null,
@@ -231,36 +338,27 @@ export default function ConversationMediaViewer({
     gallery,
   ]);
 
-  /*
-   * Miniatura ativa acompanha automaticamente a midia aberta.
-   * O requestAnimationFrame garante que o botao ativo ja esteja
-   * renderizado antes do deslocamento horizontal.
-   */
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    const frame =
-      window.requestAnimationFrame(
-        () => {
-          activeThumbnailRef.current?.scrollIntoView({
-            behavior: "auto",
-            block: "nearest",
-            inline: "center",
-          });
-        },
-      );
+    const frame = window.requestAnimationFrame(() => {
+      const strip = thumbnailStripRef.current;
+      const thumbnail = activeThumbnailRef.current;
+      if (!strip || !thumbnail) {
+        return;
+      }
 
-    return () => {
-      window.cancelAnimationFrame(
-        frame,
-      );
-    };
-  }, [
-    isOpen,
-    activeMessageId,
-  ]);
+      const stripBounds = strip.getBoundingClientRect();
+      const thumbnailBounds = thumbnail.getBoundingClientRect();
+      strip.scrollLeft +=
+        thumbnailBounds.left + thumbnailBounds.width / 2 -
+        (stripBounds.left + strip.clientWidth / 2);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [isOpen, activeMessageId, activeIndex, gallery.length]);
 
   const isImage =
     activeMessage.messageType ===
@@ -557,112 +655,6 @@ export default function ConversationMediaViewer({
     activeIndex <
     gallery.length - 1;
 
-  function GalleryThumbnail({
-    message,
-    index,
-  }: {
-    message: ChatMessage;
-    index: number;
-  }) {
-    const {
-      media,
-      loading,
-      error,
-    } = useMediaLoader(
-      message.id,
-      message,
-    );
-
-    const isActive =
-      index === activeIndex;
-
-    const videoThumbnail =
-      message.message
-        ?.videoMessage
-        ?.jpegThumbnail
-        ? `data:image/jpeg;base64,${message.message.videoMessage.jpegThumbnail}`
-        : null;
-
-    const source =
-      media?.base64 &&
-      media.mimetype
-        ? `data:${media.mimetype};base64,${media.base64}`
-        : null;
-
-    return (
-      <button
-        ref={
-          isActive
-            ? activeThumbnailRef
-            : undefined
-        }
-        type="button"
-        onClick={() =>
-          goToMedia(index)
-        }
-        aria-label={`Abrir m\u00eddia ${index + 1}`}
-        title={`M\u00eddia ${index + 1}`}
-        className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-black/30 transition ${
-          isActive
-            ? "border-[#0A9090] ring-2 ring-[#0A9090]/25"
-            : "border-white/15 hover:border-white/40"
-        }`}
-      >
-        {message.messageType ===
-        "videoMessage" ? (
-          videoThumbnail ? (
-            <img
-              src={
-                videoThumbnail
-              }
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-white/70">              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5"
-                aria-hidden="true"
-              >
-                <path
-                  d="M8 5v14l11-7z"
-                  fill="currentColor"
-                />
-              </svg>            </div>
-          )
-        ) : loading ? (
-          <div className="h-full w-full animate-pulse bg-white/10" />
-        ) : error || !source ? (
-          <div className="flex h-full w-full items-center justify-center text-[10px] text-white/40">
-            {"m\u00eddia"}
-          </div>
-        ) : (
-          <img
-            src={source}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        )}
-
-        {message.messageType ===
-          "videoMessage" && (
-          <span className="absolute inset-0 flex items-center justify-center">            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-3 w-3"
-                aria-hidden="true"
-              >
-                <path
-                  d="M8 5v14l11-7z"
-                  fill="currentColor"
-                />
-              </svg>
-            </span>          </span>
-        )}
-      </button>
-    );
-  }
-
   return (
     <div className="fixed inset-0 z-[130] flex flex-col bg-[#111315]">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/[0.06] px-4 sm:px-6">
@@ -860,25 +852,20 @@ export default function ConversationMediaViewer({
 
         {gallery.length > 1 && (
           <div className="shrink-0 border-t border-white/[0.06] bg-[#111315] px-3 py-3 sm:px-5">
-            <div className="mx-auto flex max-w-[calc(100vw-2rem)] gap-2 overflow-x-auto pb-1">
-              {gallery.map(
-                (
-                  item,
-                  index,
-                ) => (
-                  <GalleryThumbnail
-                    key={
-                      item.id
-                    }
-                    message={
-                      item
-                    }
-                    index={
-                      index
-                    }
-                  />
-                ),
-              )}
+            <div
+              ref={thumbnailStripRef}
+              className="flex w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain p-1"
+            >
+              {gallery.map((item, index) => (
+                <GalleryThumbnail
+                  key={item.id}
+                  message={item}
+                  index={index}
+                  isActive={index === activeIndex}
+                  activeRef={index === activeIndex ? activeThumbnailRef : undefined}
+                  onSelect={goToMedia}
+                />
+              ))}
             </div>
           </div>
         )}
