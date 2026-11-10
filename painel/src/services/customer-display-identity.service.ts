@@ -4,13 +4,22 @@ import { resolveChatHistoryIdentities } from '@/lib/chat-history-identity';
 import { confirmedCustomerPhone, presentCustomerIdentity, usefulIdentityName, normalizeIdentityJid,
   type IdentityCustomer, type IdentityContact, type IdentityLink } from '@/lib/customer-display-identity';
 
-const contactCache = new Map<string, { expiresAt: number; contacts: IdentityContact[] }>();
-const contactPending = new Map<string, Promise<IdentityContact[]>>();
-async function getContacts(companyId: string, instanceName: string, base: string, apiKey: string): Promise<IdentityContact[]> {
-  if (!base || !apiKey) return [];
+type DirectoryContact = IdentityContact & {
+  id: string | null;
+  isGroup: boolean;
+  type: string | null;
+};
+
+const contactCache = new Map<string, { expiresAt: number; contacts: DirectoryContact[] }>();
+const contactPending = new Map<string, Promise<DirectoryContact[] | null>>();
+
+export async function getWhatsAppContactDirectory(
+  companyId: string, instanceName: string, base: string, apiKey: string, fresh = false,
+): Promise<DirectoryContact[] | null> {
+  if (!base || !apiKey) return null;
   const key = JSON.stringify([base, companyId, instanceName]);
   const cached = contactCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) return cached.contacts;
+  if (!fresh && cached && cached.expiresAt > Date.now()) return cached.contacts;
   if (contactPending.has(key)) return contactPending.get(key)!;
   const task = (async () => {
     try {
@@ -18,18 +27,21 @@ async function getContacts(companyId: string, instanceName: string, base: string
         method: 'POST', headers: { apikey: apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ where: {} }), cache: 'no-store', signal: AbortSignal.timeout(4000),
       });
-      if (!response.ok) return cached?.contacts || [];
+      if (!response.ok) return null;
       const data = await response.json();
       const rows = Array.isArray(data) ? data : data?.value;
-      if (!Array.isArray(rows)) return cached?.contacts || [];
-      const contacts: IdentityContact[] = rows.filter(row => row && typeof row.remoteJid === 'string').map(row => ({
+      if (!Array.isArray(rows)) return null;
+      const contacts: DirectoryContact[] = rows.filter(row => row && typeof row.remoteJid === 'string').map(row => ({
+        id: typeof row.id === 'string' ? row.id : null,
+        isGroup: Boolean(row.isGroup),
+        type: typeof row.type === 'string' ? row.type : null,
         remoteJid: row.remoteJid, pushName: typeof row.pushName === 'string' ? row.pushName : null,
         profilePicUrl: typeof row.profilePicUrl === 'string' ? row.profilePicUrl : null, isSaved: row.isSaved === true,
       }));
       contactCache.set(key, { contacts, expiresAt: Date.now() + 30000 });
       while (contactCache.size > 100) contactCache.delete(contactCache.keys().next().value!);
       return contacts;
-    } catch { return cached?.contacts || []; }
+    } catch { return null; }
   })();
   contactPending.set(key, task);
   try { return await task; } finally { contactPending.delete(key); }
@@ -107,7 +119,8 @@ export async function enrichCustomerDisplayIdentities<T extends IdentityCustomer
   if (!instanceName) return customers.map(customer => presentCustomerIdentity({ ...customer, alternativeRemoteJid: null }));
   const base = process.env.EVOLUTION_API_URL || '', apiKey = process.env.EVOLUTION_API_KEY || '';
   const ids = customers.map(customer => customer.id);
-  const contactsTask = getContacts(companyId, instanceName, base, apiKey);
+  const contactsTask = getWhatsAppContactDirectory(companyId, instanceName, base, apiKey)
+    .then(contacts => contacts ?? contactCache.get(JSON.stringify([base, companyId, instanceName]))?.contacts ?? []);
   const hints = getHints(companyId, instanceName, ids);
   let hintsTimer: ReturnType<typeof setTimeout> | undefined;
   const defer = options.deferHints ? options.deferProvider : undefined;

@@ -24,7 +24,7 @@ function downloadCsv(contacts: CsvContact[], filename: string) {
 }
 
 async function loadWhatsAppContacts(): Promise<CsvContact[]> {
-  const response = await fetch('/api/chat/contacts', { cache: 'no-store' });
+  const response = await fetch('/api/chat/contacts?fresh=1', { cache: 'no-store' });
   const rows = await response.json();
   if (!response.ok || !Array.isArray(rows)) {
     throw new Error('Não foi possível consultar a conexão do WhatsApp.');

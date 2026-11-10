@@ -276,12 +276,13 @@ export default function ClientsPageContent() {
     useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadCustomers() {
       if (contactsVersion === 0) setIsLoading(true);
       setError(null);
 
       try {
-        const customersResponse = await fetch("/api/customers", { cache: "no-store" });
+        const customersResponse = await fetch("/api/customers", { cache: "no-store", signal: controller.signal });
 
         const customersData =
           await customersResponse.json();
@@ -304,6 +305,7 @@ export default function ClientsPageContent() {
                 )
             : [];
 
+        if (controller.signal.aborted) return;
         setCustomers(loadedCustomers);
 
         setSelectedCustomerId(
@@ -316,17 +318,19 @@ export default function ClientsPageContent() {
               : null,
         );
       } catch (loadError) {
+        if (controller.signal.aborted) return;
         setError(
           loadError instanceof Error
             ? loadError.message
             : "Erro ao carregar os contatos.",
         );
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }
 
     void loadCustomers();
+    return () => controller.abort();
   }, [contactsVersion]);
 
   const requestedRemoteJid =

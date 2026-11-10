@@ -21,7 +21,7 @@ export default function useAutoRefresh({
     let cancelled = false;
 
     const runCallback = async () => {
-      if (cancelled || isRunningRef.current) {
+      if (cancelled || document.hidden || isRunningRef.current) {
         return;
       }
 
@@ -38,8 +38,12 @@ export default function useAutoRefresh({
       void runCallback();
     }, interval);
 
+    const resume = () => { if (!document.hidden) void runCallback(); };
+    document.addEventListener("visibilitychange", resume);
+
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", resume);
       clearInterval(timer);
     };
   }, [callback, interval, enabled]);

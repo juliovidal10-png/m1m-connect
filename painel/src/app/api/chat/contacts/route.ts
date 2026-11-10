@@ -1,3 +1,4 @@
+import { getWhatsAppContactDirectory } from "@/services/customer-display-identity.service";
 import { NextResponse } from "next/server";
 
 import {
@@ -13,42 +14,11 @@ const API_URL =
 const API_KEY =
   process.env.EVOLUTION_API_KEY;
 
-type EvolutionContact = {
-  id?: string;
-  remoteJid?: string;
-  pushName?: string | null;
-  profilePicUrl?: string | null;
-  isGroup?: boolean;
-  isSaved?: boolean;
-  type?: string;
-};
-
 type EvolutionInstance = {
   name?: string | null;
   ownerJid?: string | null;
   profileName?: string | null;
 };
-
-function normalizeContactsResponse(
-  data: unknown,
-): EvolutionContact[] {
-  if (Array.isArray(data)) {
-    return data;
-  }
-
-  if (
-    data &&
-    typeof data === "object" &&
-    "value" in data &&
-    Array.isArray(
-      (data as { value?: EvolutionContact[] }).value,
-    )
-  ) {
-    return (data as { value: EvolutionContact[] }).value;
-  }
-
-  return [];
-}
 
 function normalizeInstancesResponse(
   data: unknown,
@@ -131,6 +101,7 @@ async function getCurrentInstance(
             apikey: API_KEY,
           },
           cache: "no-store",
+          signal: AbortSignal.timeout(2500),
         },
       );
 
@@ -153,7 +124,28 @@ async function getCurrentInstance(
   }
 }
 
-export async function GET() {
+const instanceCache = new Map<string, { expires: number; data: EvolutionInstance | null }>();
+const instancePending = new Map<string, Promise<EvolutionInstance | null>>();
+
+async function cachedCurrentInstance(companyId: string, instanceName: string) {
+  const key = JSON.stringify([companyId, instanceName]);
+  const cached = instanceCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.data;
+  const pending = instancePending.get(key);
+  if (pending) return pending;
+  const task = getCurrentInstance(instanceName);
+  instancePending.set(key, task);
+  try {
+    const data = await task;
+    instanceCache.set(key, { data, expires: Date.now() + (data ? 60000 : 5000) });
+    while (instanceCache.size > 100) instanceCache.delete(instanceCache.keys().next().value!);
+    return data;
+  } finally {
+    instancePending.delete(key);
+  }
+}
+
+export async function GET(request: Request) {
   try {
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
@@ -202,43 +194,13 @@ export async function GET() {
       );
     }
 
-    const [
-      response,
-      currentInstance,
-    ] = await Promise.all([
-      fetch(
-        `${API_URL}/chat/findContacts/${instanceName}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: API_KEY,
-          },
-          body: JSON.stringify({
-            where: {},
-          }),
-          cache: "no-store",
-        },
-      ),
-      getCurrentInstance(instanceName),
+    const fresh = new URL(request.url).searchParams.get("fresh") === "1";
+    const [directory, currentInstance] = await Promise.all([
+      getWhatsAppContactDirectory(companyId, instanceName, API_URL, API_KEY, fresh),
+      cachedCurrentInstance(companyId, instanceName),
     ]);
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          error:
-            "Não foi possível buscar os contatos.",
-          details:
-            data,
-          instanceName,
-        },
-        {
-          status: response.status,
-        },
-      );
+    if (!directory) {
+      return NextResponse.json({ error: "Não foi possível buscar os contatos." }, { status: 502 });
     }
 
     const ownerJid =
@@ -252,7 +214,7 @@ export async function GET() {
       );
 
     const contacts =
-      normalizeContactsResponse(data)
+      directory
         .filter(
           (contact) =>
             typeof contact.remoteJid === "string" &&
