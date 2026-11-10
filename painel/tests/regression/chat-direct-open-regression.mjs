@@ -11,7 +11,7 @@ vm.runInNewContext(compile(fs.readFileSync('src/lib/customer-display-identity.ts
 const jid = '5565999990123@s.whatsapp.net';
 const companyId = 'empresa-a';
 const instanceName = 'wa-a';
-const customer = { id: 'cliente-a', remoteJid: jid, name: 'Cliente A', attendances: [] };
+const customer = { id: 'cliente-a', remoteJid: jid, name: 'Cliente A', createdAt: new Date('2026-11-08T13:00:00Z'), crmManuallyAddedAt: null, attendances: [] };
 let directMode = true;
 const queueRules = { exports: {} };
 vm.runInNewContext(compile(fs.readFileSync('src/lib/conversation-queue.ts', 'utf8')), queueRules);
@@ -99,6 +99,21 @@ assert.match(response.options.headers['Server-Timing'], /direct;dur=/);
 assert.equal((await open('invalido')).options.status, 400);
 messageAvailable = false;
 assert.equal((await open()).data.items.length, 0);
+customer.crmManuallyAddedAt = new Date('2026-11-08T13:00:00Z');
+const firstConversation = await open();
+assert.equal(firstConversation.data.items.length, 1);
+assert.equal(firstConversation.data.items[0].crmCustomerId, customer.id);
+assert.equal(firstConversation.data.items[0].remoteJid, jid);
+assert.equal(firstConversation.data.items[0].lastMessage, undefined);
+assert.equal(firstConversation.data.items[0].updatedAt, customer.createdAt.toISOString());
+assert.equal(providerCalls, 0);
+deleted = true;
+assert.equal((await open()).data.items.length, 0, 'A manual contact does not bypass deletion visibility');
+deleted = false;
+permitted = false;
+assert.equal((await open()).data.items.length, 0, 'A manual contact does not bypass sector visibility');
+permitted = true;
+customer.crmManuallyAddedAt = null;
 messageAvailable = true;
 deleted = true;
 assert.equal((await open()).data.items.length, 0);
@@ -143,11 +158,15 @@ const frontend = {
   mergeDuplicateChats: rows => rows,
   fetch: async url => {
     requests.push(url);
-    return { ok: true, json: async () => ({ items: miss && url.includes('directJid=') ? [] : [{ remoteJid: jid }] }) };
+    const items = url.includes('directJid=') ? (miss ? [] : firstConversation.data.items) : [{ remoteJid: jid }];
+    return { ok: true, json: async () => ({ items }) };
   },
 };
 vm.runInNewContext(compile(inbox.slice(start, end) + '\nthis.resolve = resolveChatByRemoteJid;'), frontend);
-assert.equal((await frontend.resolve(jid)).remoteJid, jid);
+const opened = await frontend.resolve(jid);
+assert.equal(opened.remoteJid, jid);
+assert.equal(opened.crmCustomerId, customer.id);
+assert.equal(opened.lastMessage, undefined);
 assert.equal(requests.length, 1);
 assert.match(requests[0], /directJid=/);
 miss = true;
@@ -155,4 +174,4 @@ requests = [];
 assert.equal((await frontend.resolve(jid)).remoteJid, jid);
 assert.equal(requests.length, 2);
 assert.match(requests[1], /search=/);
-console.log('TF8 PASS: exact direct open, local history, deletion, tenant, sector, assignee and normal search fallback.');
+console.log('TF8 PASS: exact direct open, first conversation for a manual contact, local history, deletion, tenant, sector, assignee and normal search fallback.');

@@ -895,14 +895,15 @@ export async function GET(request: Request) {
 
     if (directJid) {
       const customer = storedCustomers[0];
-      const items = customer && directLatest
+      const isManualPhoneContact = Boolean(customer?.crmManuallyAddedAt) && isPhoneIdentity(directJid);
+      const items = customer && (directLatest || isManualPhoneContact)
         ? visible(await enrich([{
             id: null,
             remoteJid: directJid,
             pushName: customer.name,
-            updatedAt: directLatest.sentAt.toISOString(),
+            updatedAt: (directLatest?.sentAt ?? customer.createdAt).toISOString(),
             unreadCount: null,
-            lastMessage: directLatest.rawPayload as EvolutionChat["lastMessage"],
+            lastMessage: directLatest?.rawPayload as EvolutionChat["lastMessage"],
           }], false), false)
         : [];
       return NextResponse.json({ items, hasMore: false }, {
