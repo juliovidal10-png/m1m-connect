@@ -1,4 +1,4 @@
-import { getConversationQueue, isConversationQueue, isManualWhatsAppTakeover } from "@/lib/conversation-queue";
+import { getConversationQueue, isConversationQueue, isManualWhatsAppTakeover, type ConversationQueue } from "@/lib/conversation-queue";
 import { authorizationService } from "@/services/auth/authorization.service";
 import { M1MUserPermission } from "@/generated/prisma/enums";
 import { after, NextResponse } from "next/server";
@@ -451,6 +451,10 @@ async function fetchAllEvolutionChats(instanceName: string) {
 const tf3InventoryCache = new Map<string, { expiresAt: number; chats: EvolutionChat[] }>();
 const tf3InventoryRefresh = new Map<string, Promise<EvolutionChat[]>>();
 const TF3_INVENTORY_CACHE_MS = 60000;
+// Keep the last inventory usable while the provider refreshes. Authorization
+// and attendance are always evaluated from the current request.
+const OPERATIONAL_INVENTORY_GRACE_MS = 4 * 60000;
+const QUEUE_PREVIEW_SIZE = 12;
 
 async function getTf3CompleteInventory(companyId: string, instanceName: string): Promise<EvolutionChat[]> {
   const key = JSON.stringify([companyId, instanceName]);
@@ -561,7 +565,7 @@ async function getOperationalInventory(companyId: string, instanceName: string):
   const now = Date.now();
 
   // A cold instance still needs the complete inventory for correct queue pagination.
-  if (!cached || cached.expiresAt + TF3_INVENTORY_CACHE_MS <= now) {
+  if (!cached || cached.expiresAt + OPERATIONAL_INVENTORY_GRACE_MS <= now) {
     return getTf3CompleteInventory(companyId, instanceName);
   }
 
@@ -611,6 +615,7 @@ export async function GET(request: Request) {
     const wantsQueueCounts = url.searchParams.get("queueCounts") === "1";
     const includeCounts = url.searchParams.get("includeCounts") === "1";
     const queue = url.searchParams.get("queue");
+    const includeQueuePages = url.searchParams.get("includeQueuePages") === "1";
     const directJid = normalizeJid(url.searchParams.get("directJid"));
     if (directJid && !/^(?:[0-9]+@(s[.]whatsapp[.]net|lid)|[0-9-]+@g[.]us)$/.test(directJid)) {
       return NextResponse.json({ error: "Identificador de conversa inválido." }, { status: 400 });
@@ -968,10 +973,19 @@ export async function GET(request: Request) {
       const page = matches.slice(offset, offset + limit);
       const items = search ? page : await enrich(page, true, true);
       if (request.signal.aborted) return new NextResponse(null, { status: 499 });
+      let queuePages: Partial<Record<ConversationQueue, { items: EnrichedChat[]; hasMore: boolean }>> | undefined;
+      if (includeQueuePages && !search && offset === 0) {
+        queuePages = {};
+        for (const otherQueue of ["OPEN", "WAITING", "IN_SERVICE"] as const) {
+          if (otherQueue === queue) continue;
+          const matching = dedupeEnrichedChats(visibleChats.filter(chat => getConversationQueue(chat) === otherQueue));
+          queuePages[otherQueue] = { items: matching.slice(0, QUEUE_PREVIEW_SIZE), hasMore: matching.length > QUEUE_PREVIEW_SIZE };
+        }
+      }
       const counts = await countsTask;
       const totalMs = Date.now() - perfStartedAt;
       perfLog("queue-page", { queue, inventoryMs, matched: matches.length, returned: items.length, offset, limit });
-      return NextResponse.json({ items, hasMore: matches.length > offset + limit, counts }, {
+      return NextResponse.json({ items, hasMore: matches.length > offset + limit, counts, queuePages }, {
         headers: {
           "Server-Timing": `inventory;dur=${inventoryMs}, total;dur=${totalMs}`,
           "X-M1M-List-State": items.length ? "ready" : "empty",

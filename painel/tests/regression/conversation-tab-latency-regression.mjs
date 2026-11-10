@@ -94,9 +94,19 @@ async function benchmark(text, label) {
     assert.ok(identityDiscoveries > 0, 'Identity discovery continues after the response');
     assert.ok(rows[1].chatCalls <= 1); assert.equal(rows[1].groupCalls, 0);
     assert.equal(rows[2].chatCalls, 0); assert.equal(rows[2].groupCalls, 0);
-    const empty = await get('queue=WAITING&search=inexistente');
+    const snapshot = await (await get('queue=WAITING&includeQueuePages=1')).json();
+    assert.equal(snapshot.queuePages.WAITING, undefined);
+    assert.equal(snapshot.queuePages.OPEN.items.length, 12);
+    assert.equal(snapshot.queuePages.OPEN.hasMore, true);
+    assert.equal(snapshot.queuePages.IN_SERVICE.items.length, 1);
+    for (const [queueName, page] of Object.entries(snapshot.queuePages)) {
+      assert.ok(page.items.every(chat => queue.getConversationQueue(chat) === queueName));
+    }
+    const empty = await get('queue=WAITING&search=inexistente&includeQueuePages=1');
     assert.equal(empty.headers.get('x-m1m-list-state'), 'empty');
-    assert.equal((await empty.json()).items.length, 0);
+    const emptyData = await empty.json();
+    assert.equal(emptyData.items.length, 0);
+    assert.equal(emptyData.queuePages, undefined);
     // Contador continua consultando o estado atual, e nao um valor calculado da pagina.
     attendances[0].responsibleId = 'user1';
     const totals = await (await get('queueCounts=1')).json();
