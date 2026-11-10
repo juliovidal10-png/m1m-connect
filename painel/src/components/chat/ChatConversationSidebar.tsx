@@ -178,9 +178,31 @@ export default function ChatConversationSidebar({
         </div>
       )}
       {!isLoading && !error && hasLoaded && items.length === 0 && (
-        <p className="p-4 text-sm text-black/45">
-          {searchQuery.trim() ? "Nenhuma conversa encontrada nesta aba." : "Nenhuma conversa nesta aba."}
-        </p>
+        searchQuery.trim() ? (
+          <p className="p-4 text-sm text-black/45">Nenhuma conversa encontrada nesta aba.</p>
+        ) : (
+          <div className="flex min-h-[229px] flex-col items-center bg-[#f5f6f6] px-6 py-12 text-center">
+            <div className="grid size-11 place-items-center rounded-full bg-white text-slate-600">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-6"
+              >
+                <path d="M13.5 17.5a6 6 0 0 0 5.2.3L22 19l-1.2-2.6A5.1 5.1 0 0 0 17 8.5" />
+                <path d="M2 9a6 6 0 0 0 1.5 3.9L2 16l3.5-1.3A7 7 0 0 0 8.5 15C12.1 15 15 12.3 15 9s-2.9-6-6.5-6S2 5.7 2 9Z" />
+              </svg>
+            </div>
+            <p className="mt-3 text-[15px] leading-5 font-bold text-black">Nenhuma conversa encontrada.</p>
+            <p className="mt-3 max-w-[290px] text-[13px] leading-[18px] text-slate-600">
+              Quando chegarem mensagens, elas aparecerão aqui.
+            </p>
+          </div>
+        )
       )}
 
       {items.map(renderItem)}
