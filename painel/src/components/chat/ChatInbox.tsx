@@ -1568,11 +1568,19 @@ const loadContacts =
           const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
           if (offset === 0) params.set("includeCounts", "1");
           const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store", signal: controller.signal });
-          const data = await response.json();
+          if (response.status >= 500) {
+            throw new Error("Conversas temporariamente indisponíveis. Tente novamente.");
+          }
+          const data = await response.json().catch(() => null);
           if (!isCurrent()) return;
-          if (!response.ok) throw new Error(data.error || "Erro ao carregar conversas.");
-          applyQueueCounts(data?.counts);
-          const page: Chat[] = Array.isArray(data?.items) ? data.items : [];
+          if (!response.ok) {
+            throw new Error(typeof data?.error === "string" ? data.error : "Erro ao carregar conversas.");
+          }
+          if (!Array.isArray(data?.items)) {
+            throw new Error("Não foi possível atualizar as conversas. Tente novamente.");
+          }
+          applyQueueCounts(data.counts);
+          const page: Chat[] = data.items;
           items = [...items, ...page];
           offset += page.length;
           hasMore = Boolean(data.hasMore);
@@ -1619,7 +1627,9 @@ const loadContacts =
         }
       } catch (error) {
         if (isCurrent() && !controller.signal.aborted) {
-          setChatListError(error instanceof Error ? error.message : "Erro ao carregar conversas.");
+          setChatListError(error instanceof TypeError
+            ? "Não foi possível conectar. Tente novamente."
+            : error instanceof Error ? error.message : "Erro ao carregar conversas.");
         }
       } finally {
         // A resposta cancelada nao pode encerrar o carregamento da nova aba.
@@ -2598,16 +2608,14 @@ const loadContacts =
   const refreshChat =
     useCallback(async () => {
       /*
-       * O refresh frequente atualiza apenas a lista.
-       * O historico da conversa deixa de ser
-       * resincronizado inteiro a cada 2 segundos.
+       * O refresh da lista é independente das mensagens da conversa aberta.
        */
       await loadChats(false, "refresh");
     }, [loadChats]);
 
   useAutoRefresh({
     callback: refreshChat,
-    interval: 2000,
+    interval: 5000,
     enabled: true,
   });
 
@@ -4254,6 +4262,7 @@ const loadContacts =
         isLoading={isLoadingChats}
         hasLoaded={hasLoadedChatList}
         error={chatListError}
+        onRetry={() => void loadChats(false, "refresh")}
         isLoadingMore={isLoadingMoreChats}
         hasMore={hasMoreChats}
         onLoadMore={loadMoreChats}

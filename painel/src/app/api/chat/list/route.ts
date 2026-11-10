@@ -759,8 +759,17 @@ export async function GET(request: Request) {
     async function enrich(rawChats: EvolutionChat[], resolveSubjects = true, deferSubjects = false): Promise<EnrichedChat[]> {
       const allowDiscovery = !directJid && !historyDiscoveryStarted;
       historyDiscoveryStarted = true;
+      const identityScope = {
+        companyId, instanceName: instanceName!, apiUrl: API_URL || "", apiKey: API_KEY || "",
+      };
+      const deferDiscovery = !search && Boolean(queue || wantsQueueCounts || wantsWaitingCount);
+      if (deferDiscovery && allowDiscovery) {
+        after(async () => {
+          await resolveChatHistoryIdentities(rawChats, identityScope).catch(() => {});
+        });
+      }
       const identityChats = await resolveChatHistoryIdentities(rawChats, {
-        companyId, instanceName: instanceName!, apiUrl: API_URL || "", apiKey: API_KEY || "", allowDiscovery,
+        ...identityScope, allowDiscovery: allowDiscovery && !deferDiscovery,
       });
       const groupJids: string[] = Array.from(
         new Set(
