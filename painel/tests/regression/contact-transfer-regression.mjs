@@ -121,3 +121,71 @@ assert.equal(writes[0].crmManuallyAddedAt, undefined, 'CSV import retains its co
 assert.equal((await create(request({ name: 'Novo', phone: '(65) 99999-7777' }))).status, 409);
 assert.equal(writes.length, 2);
 console.log('TF9 PASS: validated manual registration, permission, tenant scope, no overwrite and CRM entry.');
+
+assert.equal(writes[0].createdViaNewContact, false);
+assert.equal(writes[1].createdViaNewContact, true);
+
+const manual = { id: 'manual-a', companyId: 'empresa-a', createdViaNewContact: true };
+const rows = new Map([
+  [manual.id, manual],
+  ['legacy-a', { ...manual, id: 'legacy-a', createdViaNewContact: false, crmManuallyAddedAt: new Date() }],
+  ['manual-b', { ...manual, id: 'manual-b', companyId: 'empresa-b' }],
+]);
+let linked = null;
+let transactions = 0;
+const { DELETE: remove } = load('src/app/api/customers/[customerId]/route.ts', {
+  'next/server': { NextResponse: { json: (body, { status = 200 } = {}) => ({ body, status }) } },
+  '@/generated/prisma/enums': { M1MUserPermission: { EDIT_CRM: 'EDIT_CRM' } },
+  '@/services/auth/authorization.service': {
+    AuthorizationError,
+    authorizationService: { requirePermission: async permission => {
+      assert.equal(permission, 'EDIT_CRM');
+      if (!permitted) throw new AuthorizationError('Sem permissão');
+      return { companyId: 'empresa-a' };
+    } },
+  },
+  '@/lib/prisma': { prisma: {
+    async $transaction(action, options) {
+      transactions++;
+      assert.equal(options.isolationLevel, 'ReadCommitted');
+      let lockedId = null;
+      return action({
+        async $queryRaw(sql, id, companyId) {
+          assert.match(sql.join(' '), /"createdViaNewContact"\s+FOR UPDATE/);
+          const row = rows.get(id);
+          if (!row?.createdViaNewContact || row.companyId !== companyId) return [];
+          lockedId = row.id;
+          return [{ id }];
+        },
+        m1MCustomer: { async deleteMany({ where }) {
+          assert.equal(where.id, lockedId);
+          assert.equal(where.companyId, 'empresa-a');
+          assert.equal(where.createdViaNewContact, true);
+          for (const relation of ['messages', 'attendances', 'reminders', 'paymentReceipts']) {
+            assert.equal(Object.keys(where[relation].none).length, 0);
+          }
+          if (linked && where[linked].none) return { count: 0 };
+          return { count: rows.delete(where.id) ? 1 : 0 };
+        } },
+      });
+    },
+  } },
+});
+const deleteContact = customerId => remove({}, { params: Promise.resolve({ customerId }) });
+permitted = false;
+assert.equal((await deleteContact(manual.id)).status, 403);
+assert.equal(transactions, 0);
+permitted = true;
+assert.equal((await deleteContact('invalid/id')).status, 400);
+assert.equal((await deleteContact('legacy-a')).status, 404);
+assert.equal((await deleteContact('manual-b')).status, 404);
+for (const relation of ['messages', 'attendances', 'reminders', 'paymentReceipts']) {
+  linked = relation;
+  assert.equal((await deleteContact(manual.id)).status, 409);
+  assert.equal(rows.has(manual.id), true);
+}
+linked = null;
+assert.equal((await deleteContact(manual.id)).body.removed, true);
+assert.equal((await deleteContact(manual.id)).status, 404);
+assert.deepEqual([...rows.keys()], ['legacy-a', 'manual-b']);
+console.log('TF20 PASS: origem manual, autorização, isolamento e bloqueio dos quatro tipos de vínculo.');

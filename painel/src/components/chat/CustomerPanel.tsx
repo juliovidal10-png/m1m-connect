@@ -39,6 +39,7 @@ type CustomerPanelProps = {
   messages?: ChatMessage[];
   conversationHref?: string;
   initialTab?: CustomerTab;
+  manualContactAction?: React.ReactNode;
 };
 
 type CustomerTab =
@@ -142,6 +143,7 @@ export default function CustomerPanel({
   messages = [],
   conversationHref,
   initialTab = "cliente",
+  manualContactAction,
 }: CustomerPanelProps) {
   const [effectivePermissions, setEffectivePermissions] =
     useState<string[]>([]);
@@ -972,6 +974,12 @@ export default function CustomerPanel({
               </>
             )}
           </div>
+
+          {canEditCrm && activeTab === "cliente" && manualContactAction && (
+            <div className="shrink-0 border-t border-black/5 px-6 py-3">
+              {manualContactAction}
+            </div>
+          )}
 
           {shouldShowCustomerFooter && (
             <CustomerActions
