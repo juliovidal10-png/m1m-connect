@@ -181,7 +181,7 @@ export default function ChatConversationSidebar({
         searchQuery.trim() ? (
           <p className="p-4 text-sm text-black/45">Nenhuma conversa encontrada nesta aba.</p>
         ) : (
-          <div className="flex min-h-[229px] flex-col items-center bg-[#f5f6f6] px-6 py-12 text-center">
+          <div className="m-4 flex flex-col items-center rounded-2xl border border-black/5 bg-[#f5f6f6] px-5 py-8 text-center">
             <div className="grid size-11 place-items-center rounded-full bg-white text-slate-600">
               <svg
                 aria-hidden="true"
