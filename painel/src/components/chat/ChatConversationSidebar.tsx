@@ -69,12 +69,12 @@ export default function ChatConversationSidebar({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-3">
-          <p className="truncate text-[15px] font-semibold text-[#171717]">
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 [overflow-wrap:anywhere] text-[15px] leading-5 font-semibold text-[#171717]">
             {item.name}
           </p>
 
-          <span className="shrink-0 text-[11px] font-medium text-black/35">
+          <span className="shrink-0 text-[11px] leading-5 font-medium text-black/35">
             {item.updatedAt}
           </span>
         </div>
@@ -104,11 +104,12 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
         {administrativeReview}
-          <div className="mt-4 flex flex-wrap gap-1 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 flex gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
+              aria-pressed={activeQueue === "OPEN"}
               onClick={() => onQueueChange("OPEN")}
-              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
+              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
                 activeQueue === "OPEN"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -119,8 +120,9 @@ export default function ChatConversationSidebar({
 
             <button
               type="button"
+              aria-pressed={activeQueue === "WAITING"}
               onClick={() => onQueueChange("WAITING")}
-              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
+              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
                 activeQueue === "WAITING"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
@@ -131,8 +133,9 @@ export default function ChatConversationSidebar({
 
             <button
               type="button"
+              aria-pressed={activeQueue === "IN_SERVICE"}
               onClick={() => onQueueChange("IN_SERVICE")}
-              className={`max-w-full grow shrink-0 whitespace-normal rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-normal transition ${
+              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
                 activeQueue === "IN_SERVICE"
                   ? "bg-white text-[#0A9090] shadow-sm"
                   : "text-black/45 hover:text-black/70"
