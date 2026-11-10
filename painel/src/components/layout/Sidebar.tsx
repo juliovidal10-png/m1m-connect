@@ -406,7 +406,8 @@ export default function Sidebar() {
       }
     };
 
-    void refreshWaitingCount();
+    // Give the destination page priority when the sidebar remounts.
+    const initialRefresh = window.setTimeout(() => void refreshWaitingCount(), 1200);
 
     const timer = window.setInterval(() => {
       void refreshWaitingCount();
@@ -419,6 +420,7 @@ export default function Sidebar() {
       document.removeEventListener("visibilitychange", resume);
       cancelled = true;
       controller.abort();
+      window.clearTimeout(initialRefresh);
       window.clearInterval(timer);
     };
   }, [pathname]);

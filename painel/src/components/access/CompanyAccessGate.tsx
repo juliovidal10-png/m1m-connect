@@ -56,88 +56,45 @@ export default function CompanyAccessGate({
 
   useEffect(() => {
     if (pathname === "/login" || pathname === "/primeiro-acesso" || pathname === "/esqueci-senha" || pathname === "/redefinir-senha" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
-      setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    const controller = new AbortController();
+    const options: RequestInit = { cache: "no-store", signal: controller.signal };
 
     async function loadAccess() {
-      try {
-        const response =
-          await fetch(
-            "/api/company/access-status",
-            {
-              cache:
-                "no-store",
-            },
-          );
+      const [access, legal] = await Promise.allSettled([
+        fetch("/api/company/access-status", options).then(async response => {
+          if (!response.ok) throw new Error("Falha ao verificar acesso");
+          return await response.json() as AccessResponse;
+        }),
+        fetch("/api/legal-acceptance", options).then(async response => {
+          if (!response.ok) throw new Error("Falha ao verificar aceite");
+          return await response.json() as { required?: boolean; accepted?: boolean };
+        }),
+      ]);
+      if (controller.signal.aborted) return;
 
-        if (!response.ok) {
-          if (!cancelled) {
-            setData(null);
-          }
-
-          return;
-        }
-
-        const json =
-          (await response.json()) as AccessResponse;
-
-        if (!cancelled) {
-          setData(json);
-        }
-
-        const legalResponse =
-          await fetch(
-            "/api/legal-acceptance",
-            {
-              cache: "no-store",
-            },
-          );
-
-        if (legalResponse.ok) {
-          const legalJson =
-            (await legalResponse.json()) as {
-              required?: boolean;
-              accepted?: boolean;
-            };
-
-          if (!cancelled) {
-            setLegalAcceptanceRequired(
-              legalJson.required === true &&
-                legalJson.accepted === false,
-            );
-          }
-        }
-
-        if (!cancelled) {
-          setLegalAcceptanceChecked(true);
-        }
-      } catch {
-        if (!cancelled) {
-          setData(null);
-          setLegalAcceptanceChecked(true);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (access.status === "fulfilled" && typeof access.value?.accessAllowed === "boolean") {
+        setData(access.value);
       }
+      if (legal.status === "fulfilled" && typeof legal.value?.required === "boolean" &&
+          typeof legal.value.accepted === "boolean") {
+        setLegalAcceptanceRequired(legal.value.required && !legal.value.accepted);
+        setLegalAcceptanceChecked(true);
+      }
+      setLoading(false);
     }
 
     void loadAccess();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, [pathname]);
 
   if (pathname === "/login" || pathname === "/primeiro-acesso" || pathname === "/esqueci-senha" || pathname === "/redefinir-senha" || pathname === "/aceite" || pathname === "/termos" || pathname === "/privacidade" || pathname === "/lgpd" || pathname === "/whatsapp" || pathname.startsWith("/m1m-admin")) {
     return children;
   }
 
-  if (loading || !legalAcceptanceChecked) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f7f7f8] px-6 text-[#191919]">
         <div className="text-center">
@@ -146,6 +103,17 @@ export default function CompanyAccessGate({
             Carregando sua conta...
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (!data || !legalAcceptanceChecked) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+        <p role="alert">Não foi possível verificar o acesso à sua conta.</p>
+        <button type="button" onClick={() => window.location.reload()} className="font-semibold text-[#087B7B] hover:underline">
+          Tentar novamente
+        </button>
       </div>
     );
   }

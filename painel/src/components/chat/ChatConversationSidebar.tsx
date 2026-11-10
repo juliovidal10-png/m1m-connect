@@ -24,6 +24,7 @@ type ChatConversationSidebarProps = {
   isLoading: boolean;
   hasLoaded: boolean;
   error: string | null;
+  onRetry?: () => void;
   isLoadingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
@@ -40,6 +41,7 @@ export default function ChatConversationSidebar({
   isLoading,
   hasLoaded,
   error,
+  onRetry,
   isLoadingMore,
   hasMore,
   onLoadMore,
@@ -166,7 +168,14 @@ export default function ChatConversationSidebar({
       )}
 
       {!isLoading && error && (
-        <p role="alert" className="p-4 text-sm text-red-700">{error}</p>
+        <div className="space-y-2 p-4 text-sm">
+          <p role="alert" className="text-red-700">{error}</p>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="font-semibold text-[#087B7B] hover:underline">
+              Tentar novamente
+            </button>
+          )}
+        </div>
       )}
       {!isLoading && !error && hasLoaded && items.length === 0 && (
         <p className="p-4 text-sm text-black/45">

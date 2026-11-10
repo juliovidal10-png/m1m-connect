@@ -31,7 +31,26 @@ for (let n = 0; n < 564; n++) {
 for (const c of customers) c.attendances = attendances.filter(a => a.customerId === c.id);
 async function benchmark(text, label) {
   let chatCalls = 0, groupCalls = 0;
+  const deferred = [];
+  let identityDiscoveries = 0;
   const route = moduleTS(text, {
+    'next/server': {...require('next/server'), after: task => deferred.push(task)},
+    '@/lib/chat-history-identity': {
+      resolveChatHistoryIdentities: async (chats, scope) => {
+        if (scope.allowDiscovery !== false) {
+          identityDiscoveries++;
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        return chats;
+      },
+    },
+    '@/lib/legacy-greeting-list-filter': {createLegacyGreetingListFilter: () => () => false, legacyGreetingScope: () => false},
+    '@/services/customer-display-identity.service': {enrichCustomerDisplayIdentities: async (_companyId, rows) => rows},
+    '@/lib/customer-display-identity': {
+      isPhoneIdentity: jid => typeof jid === 'string' && jid.endsWith('@s.whatsapp.net'),
+      presentCustomerIdentity: row => row,
+      usefulIdentityName: value => value || null,
+    },
     '@/services/conversation-deletion.service': {deletionStorageAvailable: async () => false, deletionListSnapshot: async () => []},
     '@/lib/conversation-queue': queue,
     '@/generated/prisma/enums': {M1MUserPermission: {VIEW_ALL_CONVERSATIONS: 'all'}},
@@ -70,6 +89,9 @@ async function benchmark(text, label) {
     rows.push({version: label, queue: selected, status: response.status, items: data.items.length, ms: Math.round((performance.now()-start)*10)/10, chatCalls: chatCalls-beforeChat, groupCalls: groupCalls-beforeGroup});
   }
   if(label === 'candidate') {
+    assert.equal(identityDiscoveries, 0, 'List and counts use only cached identity evidence before responding');
+    for (const task of deferred.splice(0)) await task();
+    assert.ok(identityDiscoveries > 0, 'Identity discovery continues after the response');
     assert.ok(rows[1].chatCalls <= 1); assert.equal(rows[1].groupCalls, 0);
     assert.equal(rows[2].chatCalls, 0); assert.equal(rows[2].groupCalls, 0);
     const empty = await get('queue=WAITING&search=inexistente');
