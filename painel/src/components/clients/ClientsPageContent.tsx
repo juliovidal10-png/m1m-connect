@@ -530,7 +530,7 @@ export default function ClientsPageContent() {
       <ContactTransfer
         customers={customers}
         customersAvailable={!isLoading && !error}
-        onImported={() => setContactsVersion(version => version + 1)}
+        onContactsChanged={() => setContactsVersion(version => version + 1)}
       />
     </header>
   );

@@ -2,7 +2,16 @@ import { prisma } from '@/lib/prisma';
 import { confirmedCustomerPhone } from '@/lib/customer-display-identity';
 import type { CsvContact } from '@/lib/contact-csv';
 
-export async function importCustomerContacts(companyId: string, contacts: CsvContact[]) {
+export function importCustomerContacts(companyId: string, contacts: CsvContact[]) {
+  return insertCustomerContacts(companyId, contacts);
+}
+
+export async function createManualCustomer(companyId: string, contact: CsvContact) {
+  const result = await insertCustomerContacts(companyId, [contact], new Date());
+  return result.imported === 1;
+}
+
+async function insertCustomerContacts(companyId: string, contacts: CsvContact[], crmManuallyAddedAt?: Date) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await prisma.$transaction(async (transaction) => {
@@ -32,6 +41,7 @@ export async function importCustomerContacts(companyId: string, contacts: CsvCon
             phone: digits,
             name: name || null,
             nameManuallySet: Boolean(name),
+            crmManuallyAddedAt,
           });
         }
         if (additions.length) await transaction.m1MCustomer.createMany({ data: additions });

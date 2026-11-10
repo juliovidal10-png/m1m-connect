@@ -48,7 +48,7 @@ assert.throws(() => csv.parseContactCsv('Nome;Telefone\n"Ana;+5565999990123'), c
 const existing = [{ remoteJid: '12345678901234@lid', phone: null, contactPhone: '+5565999990123', customerCode: 7 }];
 const writes = [];
 let attempts = 0;
-const { importCustomerContacts } = load('src/services/contact-import.service.ts', {
+const { importCustomerContacts, createManualCustomer } = load('src/services/contact-import.service.ts', {
   '@/lib/customer-display-identity': load('src/lib/customer-display-identity.ts'),
   '@/lib/prisma': { prisma: {
     async $transaction(action, options) {
@@ -87,3 +87,37 @@ assert.equal(updated.contactPhone, '+5565999990123');
 assert.equal(updated.remoteJid, '12345678901234@lid');
 assert.equal(updated.phone, undefined);
 console.log('TF6/TF7 PASS: telefone manual separado da identidade, CSV Excel, validação, deduplicação, escopo e reimportação.');
+
+class AuthorizationError extends Error { statusCode = 403; }
+let permitted = true;
+const { POST: create } = load('src/app/api/customers/new/route.ts', {
+  'next/server': { NextResponse: { json: (body, { status }) => ({ body, status }) } },
+  '@/generated/prisma/enums': { M1MUserPermission: { EDIT_CRM: 'EDIT_CRM' } },
+  '@/lib/contact-phone': phone,
+  '@/services/auth/authorization.service': {
+    AuthorizationError,
+    authorizationService: { requirePermission: async permission => {
+      assert.equal(permission, 'EDIT_CRM');
+      if (!permitted) throw new AuthorizationError('Sem permissão');
+      return { companyId: 'empresa-a' };
+    } },
+  },
+  '@/services/contact-import.service': { createManualCustomer },
+});
+const request = body => ({ json: async () => body });
+assert.equal((await create(request({ name: '  ' , phone: '(65) 99999-7777' }))).status, 400);
+assert.equal((await create(request({ name: 'Novo', phone: '(65) 999' }))).status, 400);
+assert.equal((await create(request({ name: 'Outro nome', phone: '(65) 99999-0123' }))).status, 409);
+assert.equal(writes.length, 1, 'No existing contact is overwritten');
+permitted = false;
+assert.equal((await create(request({ name: 'Novo', phone: '(65) 99999-7777' }))).status, 403);
+permitted = true;
+assert.equal((await create(request({ name: ' Novo ', phone: '(65) 99999-7777', companyId: 'empresa-b' }))).status, 201);
+assert.equal(writes[1].companyId, 'empresa-a');
+assert.equal(writes[1].name, 'Novo');
+assert.equal(writes[1].remoteJid, '5565999997777@s.whatsapp.net');
+assert.ok(writes[1].crmManuallyAddedAt, 'Explicit registration is visible in CRM');
+assert.equal(writes[0].crmManuallyAddedAt, undefined, 'CSV import retains its contact-only behavior');
+assert.equal((await create(request({ name: 'Novo', phone: '(65) 99999-7777' }))).status, 409);
+assert.equal(writes.length, 2);
+console.log('TF9 PASS: validated manual registration, permission, tenant scope, no overwrite and CRM entry.');
