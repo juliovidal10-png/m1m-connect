@@ -400,6 +400,7 @@ model M1MCustomer {
   nameManuallySet Boolean   @default(false)
   crmCardRemovedAt DateTime?
   crmManuallyAddedAt DateTime?
+  createdViaNewContact Boolean @default(false)
   aiEnabled       Boolean   @default(true)
   phone           String?
   contactPhone    String?

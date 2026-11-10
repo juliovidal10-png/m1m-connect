@@ -12,6 +12,7 @@ import {
 } from "next/navigation";
 
 import ContactTransfer from "./ContactTransfer";
+import ManualContactRemoval from "./ManualContactRemoval";
 import CustomerPanel from "@/components/chat/CustomerPanel";
 
 type CustomerStatus =
@@ -22,6 +23,7 @@ type CustomerStatus =
 type CustomerRecord = {
   id: string;
   customerCode: number | null;
+  createdViaNewContact?: boolean;
   remoteJid: string;
   name: string | null;
   displayName: string;
@@ -1257,6 +1259,18 @@ export default function ClientsPageContent() {
             selectedCustomer.remoteJid,
           )}`}
           initialTab={requestedTab}
+          manualContactAction={selectedCustomer.createdViaNewContact && (
+            <ManualContactRemoval
+              key={selectedCustomer.id}
+              customerId={selectedCustomer.id}
+              name={selectedCustomer.displayName}
+              onRemoved={(customerId) => {
+                setCustomers(current => current.filter(customer => customer.id !== customerId));
+                setSelectedCustomerId(current => current === customerId ? null : current);
+                setContactsVersion(version => version + 1);
+              }}
+            />
+          )}
         />
       )}
     </div>

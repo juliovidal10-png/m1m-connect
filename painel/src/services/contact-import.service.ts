@@ -42,6 +42,7 @@ async function insertCustomerContacts(companyId: string, contacts: CsvContact[],
             name: name || null,
             nameManuallySet: Boolean(name),
             crmManuallyAddedAt,
+            createdViaNewContact: crmManuallyAddedAt !== undefined,
           });
         }
         if (additions.length) await transaction.m1MCustomer.createMany({ data: additions });
