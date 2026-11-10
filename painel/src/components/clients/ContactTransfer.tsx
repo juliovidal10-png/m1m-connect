@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { contactsToCsv, MAX_CONTACT_CSV_BYTES, type CsvContact } from '@/lib/contact-csv';
-import { InvalidContactPhone, normalizeContactPhone } from '@/lib/contact-phone';
+import { InvalidContactPhone, maskContactPhoneInput, normalizeContactPhone, normalizeCustomerContactPhone } from '@/lib/contact-phone';
 
 type ExportSource = 'platform' | 'whatsapp';
+type Mode = 'import' | 'export' | 'create';
 
 type PlatformContact = {
   displayName: string;
@@ -74,17 +75,19 @@ function TransferIcon({ direction }: { direction: 'up' | 'down' }) {
 export default function ContactTransfer({
   customers,
   customersAvailable,
-  onImported,
+  onContactsChanged,
 }: {
   customers: PlatformContact[];
   customersAvailable: boolean;
-  onImported: () => void;
+  onContactsChanged: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
-  const [mode, setMode] = useState<'import' | 'export' | null>(null);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [source, setSource] = useState<ExportSource>('platform');
-  const [canImport, setCanImport] = useState(false);
+  const [canEditCrm, setCanEditCrm] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -94,7 +97,7 @@ export default function ContactTransfer({
     const controller = new AbortController();
     void fetch('/api/auth/me', { cache: 'no-store', signal: controller.signal })
       .then(response => response.ok ? response.json() : null)
-      .then(data => setCanImport(data?.user?.effectivePermissions?.includes('EDIT_CRM') === true))
+      .then(data => setCanEditCrm(data?.user?.effectivePermissions?.includes('EDIT_CRM') === true))
       .catch(() => {});
     return () => controller.abort();
   }, []);
@@ -103,7 +106,9 @@ export default function ContactTransfer({
     if (mode && dialog.current && !dialog.current.open) dialog.current.showModal();
   }, [mode]);
 
-  function open(nextMode: 'import' | 'export') {
+  function open(nextMode: Mode) {
+    setName('');
+    setPhone('');
     setFile(null);
     setError('');
     setMessage('');
@@ -131,7 +136,7 @@ export default function ContactTransfer({
   }
 
   async function importContacts() {
-    if (!file || !canImport || busy) return;
+    if (!file || !canEditCrm || busy) return;
     setError('');
     setMessage('');
     if (file.size > MAX_CONTACT_CSV_BYTES) {
@@ -149,7 +154,7 @@ export default function ContactTransfer({
       setMessage(`${data.imported} adicionados · ${data.existing} já cadastrados · ${data.duplicates} repetidos no CSV · ${data.invalid} sem telefone válido.`);
       setFile(null);
       if (fileInput.current) fileInput.current.value = '';
-      if (data.imported > 0) onImported();
+      if (data.imported > 0) onContactsChanged();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Falha ao importar contatos.');
     } finally {
@@ -157,12 +162,38 @@ export default function ContactTransfer({
     }
   }
 
+  async function saveNewCustomer() {
+    if (!name.trim() || !phone || !canEditCrm || busy) return;
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const normalizedPhone = normalizeCustomerContactPhone(phone);
+      const response = await fetch('/api/customers/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), phone: normalizedPhone }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Não foi possível cadastrar o cliente.');
+      setName('');
+      setPhone('');
+      setMessage('Cliente cadastrado em Contatos e no CRM.');
+      onContactsChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao cadastrar cliente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const importing = mode === 'import';
-  const title = importing ? 'Importar contatos' : 'Exportar contatos';
+  const creating = mode === 'create';
+  const title = creating ? 'Novo cliente' : importing ? 'Importar contatos' : 'Exportar contatos';
 
   return (
     <div className="flex flex-wrap gap-2">
-      {canImport && (
+      {canEditCrm && (
         <button type="button" onClick={() => open('import')} className={outlineButton}>
           <TransferIcon direction="up" /> Importar
         </button>
@@ -170,6 +201,16 @@ export default function ContactTransfer({
       <button type="button" onClick={() => open('export')} className={outlineButton}>
         <TransferIcon direction="down" /> Exportar
       </button>
+
+      {canEditCrm && (
+        <button type="button" onClick={() => open('create')} className={primaryButton + ' gap-2'}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden="true">
+            <circle cx="9" cy="7" r="4" />
+            <path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2m3-13v6m-3-3h6" />
+          </svg>
+          Novo cliente
+        </button>
+      )}
 
       {mode && (
         <dialog
@@ -184,7 +225,7 @@ export default function ContactTransfer({
               <p className="text-[10px] font-bold uppercase tracking-widest text-[#087B7B]">Contatos</p>
               <h2 id="contact-transfer-title" className="mt-1 text-lg font-bold">{title}</h2>
               <p className="mt-1 text-sm text-black/55">
-                {importing ? 'Adicione contatos à empresa atual a partir de um arquivo CSV.' : 'Escolha a origem dos contatos que deseja baixar.'}
+                {creating ? 'Cadastre um cliente na empresa atual.' : importing ? 'Adicione contatos à empresa atual a partir de um arquivo CSV.' : 'Escolha a origem dos contatos que deseja baixar.'}
               </p>
             </div>
             <button type="button" aria-label="Fechar" disabled={busy} onClick={() => dialog.current?.close()}
@@ -192,7 +233,29 @@ export default function ContactTransfer({
           </div>
 
           <div className="space-y-4 px-6 py-5">
-            {importing ? (
+            {creating ? (
+              <form id="new-customer-form" className="space-y-4" onSubmit={event => {
+                event.preventDefault();
+                void saveNewCustomer();
+              }}>
+                <label className="block text-sm font-semibold">
+                  Nome do cliente
+                  <input autoComplete="name" required maxLength={160} disabled={busy}
+                    value={name} onChange={event => setName(event.target.value)}
+                    className="mt-2 block w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm font-normal focus:border-[#0A9090]" />
+                </label>
+                <label className="block text-sm font-semibold">
+                  Telefone
+                  <input type="tel" autoComplete="tel" required disabled={busy} placeholder="(65) 99999-0000"
+                    value={phone} onChange={event => {
+                      const masked = maskContactPhoneInput(event.target.value);
+                      if (masked !== null) setPhone(masked);
+                    }}
+                    className="mt-2 block w-full rounded-xl border border-black/10 px-3 py-2.5 text-sm font-normal focus:border-[#0A9090]" />
+                  <span className="mt-1 block text-xs font-normal text-black/55">Informe o DDD. Para telefone internacional, use + e DDI.</span>
+                </label>
+              </form>
+            ) : importing ? (
               <>
                 <div className="rounded-xl bg-[#0A9090]/10 px-4 py-3 text-sm">
                   <p className="font-semibold">CSV para Excel</p>
@@ -239,10 +302,16 @@ export default function ContactTransfer({
             <button type="button" disabled={busy} onClick={() => dialog.current?.close()} className={outlineButton}>
               {message ? 'Fechar' : 'Cancelar'}
             </button>
-            <button type="button" disabled={busy || (importing ? !file : source === 'platform' && !customersAvailable)}
-              onClick={() => void (importing ? importContacts() : exportContacts())} className={primaryButton}>
-              {busy ? (importing ? 'Importando…' : 'Exportando…') : (importing ? 'Importar arquivo' : 'Baixar CSV')}
-            </button>
+            {creating ? (
+              <button type="submit" form="new-customer-form" disabled={busy || !name.trim() || !phone} className={primaryButton}>
+                {busy ? 'Salvando…' : 'Salvar cliente'}
+              </button>
+            ) : (
+              <button type="button" disabled={busy || (importing ? !file : source === 'platform' && !customersAvailable)}
+                onClick={() => void (importing ? importContacts() : exportContacts())} className={primaryButton}>
+                {busy ? (importing ? 'Importando…' : 'Exportando…') : (importing ? 'Importar arquivo' : 'Baixar CSV')}
+              </button>
+            )}
           </div>
         </dialog>
       )}
