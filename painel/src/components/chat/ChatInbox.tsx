@@ -1998,8 +1998,8 @@ const loadContacts =
   );
 
   useEffect(() => {
-    loadContacts();
-  }, [loadContacts]);
+    if (hasLoadedChatList) void loadContacts();
+  }, [hasLoadedChatList, loadContacts]);
 
   useEffect(() => {
     activeChatJidRef.current =
@@ -2630,7 +2630,7 @@ const loadContacts =
   useAutoRefresh({
     callback: refreshContacts,
     interval: 30000,
-    enabled: true,
+    enabled: hasLoadedChatList,
   });
 
   const scrollToBottom = useCallback(

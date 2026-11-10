@@ -145,3 +145,33 @@ const warmList = await slow.enrichCustomerDisplayIdentities('tenant-a', [anonymo
 assert.equal(warmList[0].displayName, 'Maria Silva');
 assert.equal(warmList[0].profilePicUrl, contacts[0].profilePicUrl);
 console.log('TF8 PASS: list returns local data while provider is pending, and reuses the completed scoped cache.');
+
+let directoryCalls = 0;
+let respond;
+const directoryService = load('src/services/customer-display-identity.service.ts', {
+  require: name => deps[name],
+  fetch: () => {
+    directoryCalls++;
+    return new Promise(resolve => { respond = resolve; });
+  },
+});
+const directory = (company = 'a', fresh = false) =>
+  directoryService.getWhatsAppContactDirectory(company, 'wa-a', 'https://provider.invalid', 'key', fresh);
+const firstDirectory = directory();
+const overlappingDirectory = directory();
+assert.equal(directoryCalls, 1, 'Open inbox and identity lookup share one provider request');
+respond({ ok: true, json: async () => [{ ...contacts[0], id: 'c', isGroup: false, type: 'contact' }] });
+const [initial, overlap] = await Promise.all([firstDirectory, overlappingDirectory]);
+assert.equal(initial[0].id, 'c');
+assert.equal(initial[0].type, 'contact');
+assert.equal(overlap, initial);
+assert.equal(await directory(), initial, 'Reopening uses the scoped directory cache');
+const otherCompany = directory('b');
+assert.equal(directoryCalls, 2);
+respond({ ok: true, json: async () => [] });
+assert.equal((await otherCompany).length, 0);
+const exportDirectory = directory('a', true);
+assert.equal(directoryCalls, 3, 'Explicit export requests fresh data');
+respond({ ok: false });
+assert.equal(await exportDirectory, null, 'Provider failures cannot masquerade as empty exports');
+console.log('TF8 PASS: shared contact directory, tenant isolation and fresh export.');

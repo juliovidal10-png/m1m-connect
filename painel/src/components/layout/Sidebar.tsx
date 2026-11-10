@@ -376,7 +376,7 @@ export default function Sidebar() {
     let cancelled = false;
     let inFlight = false;
     const refreshWaitingCount = async () => {
-      if (cancelled || inFlight) return;
+      if (cancelled || document.hidden || inFlight) return;
 
       inFlight = true;
 
@@ -411,7 +411,11 @@ export default function Sidebar() {
       void refreshWaitingCount();
     }, 5000);
 
+    const resume = () => { if (!document.hidden) void refreshWaitingCount(); };
+    document.addEventListener("visibilitychange", resume);
+
     return () => {
+      document.removeEventListener("visibilitychange", resume);
       cancelled = true;
       controller.abort();
       window.clearInterval(timer);

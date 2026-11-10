@@ -97,6 +97,7 @@ export async function GET(
 
     const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
     const presented = await enrichCustomerDisplayIdentities(companyId, customers, search ? {} : {
+      deferHints: true,
       deferProvider: task => after(async () => { await task; }),
     });
     return NextResponse.json(search ? presented.filter(customer => [
