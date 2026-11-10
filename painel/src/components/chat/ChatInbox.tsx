@@ -88,6 +88,9 @@ type Contact = {
 
 type Message = ChatMessage;
 
+type QueuePage = { items: Chat[]; hasMore: boolean };
+const QUEUE_PREVIEW_MAX_AGE_MS = 15000;
+
 type MediaType =
   | "image"
   | "document"
@@ -915,6 +918,8 @@ export default function ChatInbox() {
   const [queueCounts, setQueueCounts] = useState<{ waiting: number; inService: number } | null>(null);
   const listScopeRef = useRef({ queue: "OPEN" as ConversationQueue, search: "", revision: 0 });
 
+  const queuePreviewsRef = useRef<Partial<Record<ConversationQueue, QueuePage & { fetchedAt: number }>>>({});
+
   const [hasMoreChats, setHasMoreChats] =
     useState(true);
 
@@ -1105,13 +1110,15 @@ export default function ChatInbox() {
     listRequestRef.current.id += 1;
     loadChatsInFlightRef.current = false;
     confirmedReadRefreshPendingRef.current = false;
-    chatsRef.current = [];
-    setChats([]);
-    setIsLoadingChats(true);
+    const cached = !search.trim() ? queuePreviewsRef.current[queue] : undefined;
+    const preview = cached && Date.now() - cached.fetchedAt < QUEUE_PREVIEW_MAX_AGE_MS ? cached : undefined;
+    chatsRef.current = preview?.items ?? [];
+    setChats(chatsRef.current);
+    setIsLoadingChats(!preview);
     setIsLoadingMoreChats(false);
-    setHasLoadedChatList(false);
+    setHasLoadedChatList(Boolean(preview));
     setChatListError(null);
-    setHasMoreChats(true);
+    setHasMoreChats(preview?.hasMore ?? true);
     setErrorMessage("");
     setActiveQueue(queue);
     setSearchQuery(search);
@@ -1541,7 +1548,7 @@ const loadContacts =
   }, [applyQueueCounts]);
 
   const loadChats = useCallback(
-    async (showLoading = false, mode: "replace" | "append" | "refresh" = "replace") => {
+    async (mode: "replace" | "append" | "refresh" = "replace") => {
       const scope = { ...listScopeRef.current };
       const attendanceRevision = attendanceRevisionRef.current;
       const previous = listRequestRef.current;
@@ -1555,7 +1562,6 @@ const loadContacts =
       const isCurrent = () => listRequestRef.current.id === requestId &&
         scope.revision === listScopeRef.current.revision &&
         attendanceRevision === attendanceRevisionRef.current;
-      if (showLoading) setIsLoadingChats(true);
       if (mode === "append") setIsLoadingMoreChats(true);
       try {
         // Atualiza somente a quantidade ja carregada, em paginas de no maximo 100.
@@ -1563,10 +1569,14 @@ const loadContacts =
         let offset = mode === "append" ? chatsRef.current.length : 0;
         let items: Chat[] = [];
         let hasMore = false;
+        let firstPages: Partial<Record<ConversationQueue, QueuePage>> | undefined;
         do {
           const limit = Math.min(wanted - items.length, 100);
           const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
-          if (offset === 0) params.set("includeCounts", "1");
+          if (offset === 0) {
+            params.set("includeCounts", "1");
+            if (!scope.search.trim()) params.set("includeQueuePages", "1");
+          }
           const response = await fetch(`/api/chat/list?${params}`, { cache: "no-store", signal: controller.signal });
           if (response.status >= 500) {
             throw new Error("Conversas temporariamente indisponíveis. Tente novamente.");
@@ -1574,6 +1584,13 @@ const loadContacts =
           const data = await response.json().catch(() => null);
           if (!isCurrent()) return;
           if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              queuePreviewsRef.current = {};
+              chatsRef.current = [];
+              setChats([]);
+              setHasLoadedChatList(false);
+              setHasMoreChats(false);
+            }
             throw new Error(typeof data?.error === "string" ? data.error : "Erro ao carregar conversas.");
           }
           if (!Array.isArray(data?.items)) {
@@ -1581,11 +1598,31 @@ const loadContacts =
           }
           applyQueueCounts(data.counts);
           const page: Chat[] = data.items;
+          if (offset === 0 && !scope.search.trim()) {
+            firstPages = {
+              ...data.queuePages,
+              [scope.queue]: { items: page.slice(0, 30), hasMore: page.length > 30 || Boolean(data.hasMore) },
+            };
+          }
           items = [...items, ...page];
           offset += page.length;
           hasMore = Boolean(data.hasMore);
           if (!page.length) break;
         } while (mode === "refresh" && hasMore && items.length < wanted);
+        if (firstPages) {
+          const fetchedAt = Date.now();
+          const previews: typeof queuePreviewsRef.current = {};
+          for (const queue of ["OPEN", "WAITING", "IN_SERVICE"] as const) {
+            const page = firstPages[queue];
+            if (!Array.isArray(page?.items)) continue;
+            previews[queue] = {
+              items: mergeDuplicateChats(page.items).filter(chat => getConversationQueue(chat) === queue),
+              hasMore: page.hasMore === true,
+              fetchedAt,
+            };
+          }
+          queuePreviewsRef.current = previews;
+        }
         const nextItems = mergeDuplicateChats(mode === "append" ? [...chatsRef.current, ...items] : items)
           .filter((chat) => getConversationQueue(chat) === scope.queue);
         const selectedJid = activeChatJidRef.current;
@@ -1639,7 +1676,7 @@ const loadContacts =
           setIsLoadingMoreChats(false);
           if (confirmedReadRefreshPendingRef.current) {
             confirmedReadRefreshPendingRef.current = false;
-            queueMicrotask(() => { void loadChats(false, "refresh"); });
+            queueMicrotask(() => { void loadChats("refresh"); });
           }
         }
       }
@@ -1670,22 +1707,23 @@ const loadContacts =
           crmResponsibleId: assignment.responsibleId,
         };
       };
+      queuePreviewsRef.current = {};
       attendanceRevisionRef.current += 1;
       chatsRef.current = chatsRef.current.map(update)
         .filter((chat) => getConversationQueue(chat) === listScopeRef.current.queue);
       setChats(chatsRef.current);
       setSelectedChat((current) => current ? update(current) : current);
     }
-    await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
+    await Promise.all([loadChats("refresh"), loadQueueCounts()]);
   };
 
   const loadMoreChats = useCallback(async () => {
     if (!hasMoreChats) return;
-    await loadChats(false, "append");
+    await loadChats("append");
   }, [hasMoreChats, loadChats]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { void loadChats(true, "replace"); }, searchQuery.trim() ? 300 : 0);
+    const timer = window.setTimeout(() => { void loadChats("replace"); }, searchQuery.trim() ? 300 : 0);
     return () => window.clearTimeout(timer);
   }, [activeQueue, searchQuery, loadChats]);
 
@@ -1895,7 +1933,7 @@ const loadContacts =
                       if (loadChatsInFlightRef.current) {
                         confirmedReadRefreshPendingRef.current = true;
                       } else {
-                        await loadChats(false, "refresh");
+                        await loadChats("refresh");
                       }
                     }
                   } else if (readResponse.ok && readResult?.state === "ACCEPTED_UNCONFIRMED") {
@@ -1932,7 +1970,7 @@ const loadContacts =
                             if (loadChatsInFlightRef.current) {
                               confirmedReadRefreshPendingRef.current = true;
                             } else {
-                              await loadChats(false, "refresh");
+                              await loadChats("refresh");
                             }
                           } else {
                             // Reabrir permite nova tentativa; nao declarar leitura.
@@ -2610,7 +2648,7 @@ const loadContacts =
       /*
        * O refresh da lista é independente das mensagens da conversa aberta.
        */
-      await loadChats(false, "refresh");
+      await loadChats("refresh");
     }, [loadChats]);
 
   useAutoRefresh({
@@ -2996,7 +3034,7 @@ const loadContacts =
         );
       }
 
-      await loadChats(false, "refresh");
+      await loadChats("refresh");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -3252,7 +3290,7 @@ const loadContacts =
         )}.`,
       );
 
-      await loadChats(false, "refresh");
+      await loadChats("refresh");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -4262,7 +4300,7 @@ const loadContacts =
         isLoading={isLoadingChats}
         hasLoaded={hasLoadedChatList}
         error={chatListError}
-        onRetry={() => void loadChats(false, "refresh")}
+        onRetry={() => void loadChats("refresh")}
         isLoadingMore={isLoadingMoreChats}
         hasMore={hasMoreChats}
         onLoadMore={loadMoreChats}
@@ -4334,6 +4372,7 @@ const loadContacts =
               }
               onConversationDeleted={async () => {
                 const removed = selectedChat;
+                queuePreviewsRef.current = {};
                 attendanceRevisionRef.current += 1;
                 listRequestRef.current.controller?.abort();
                 listRequestRef.current.id += 1;
@@ -4346,7 +4385,7 @@ const loadContacts =
                 setSelectedFiles([]);
                 setIsMobileConversationOpen(false);
                 setChats(current => current.filter(chat => chat.remoteJid !== removed.remoteJid));
-                await Promise.all([loadChats(false, "refresh"), loadQueueCounts()]);
+                await Promise.all([loadChats("refresh"), loadQueueCounts()]);
               }}
               onAttendanceChanged={handleAttendanceChanged}
               lastInteraction={
