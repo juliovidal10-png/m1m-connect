@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import CentralPendencias from "./CentralPendencias";
+import styles from "./Sidebar.module.css";
 
 type MenuItem = {
   label: string;
@@ -461,7 +462,8 @@ export default function Sidebar() {
       {mobileOpen && (
         <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/30 md:hidden" />
       )}
-      <aside id="m1m-sidebar-navigation" className={`fixed inset-y-0 left-0 z-50 grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className={styles.slot}>
+      <aside id="m1m-sidebar-navigation" className={`${styles.panel} fixed inset-y-0 left-0 z-50 grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-black/60 transition hover:bg-black/[0.04] hover:text-black md:hidden">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
         </button>
@@ -469,16 +471,17 @@ export default function Sidebar() {
         <img
           src="/m1m-sidebar-logo.svg"
           alt="M1M Connect"
-          className="block h-auto w-full max-w-[256px] object-contain object-center"
+          className={`${styles.fullLogo} block h-auto w-full max-w-[256px] object-contain object-center`}
         />
+        <span aria-hidden="true" className={`${styles.compactLogo} text-sm font-bold text-[#0A9090]`}>M1M</span>
       </div>
       <div className="h-px w-full shrink-0 bg-[#d9dde2]" aria-hidden="true" />
 
-      <nav className="min-h-0 overflow-y-auto overscroll-contain px-3 py-4">
+      <nav aria-label="Menu principal" className="min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4">
         <div className="space-y-5">
           {menuSections.map((section) => (
             <section key={section.title}>
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-black/35">
+              <p className={`${styles.sectionTitle} mb-2 whitespace-nowrap px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-black/35`}>
                 {section.title}
               </p>
 
@@ -491,7 +494,7 @@ export default function Sidebar() {
                     );
 
                   const baseClassName =
-                    "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition";
+                    `${styles.item} flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition`;
 
                   if (
                     item.disabled ||
@@ -508,11 +511,11 @@ export default function Sidebar() {
                           type={item.icon}
                         />
 
-                        <span className="min-w-0 flex-1">
+                        <span className={`${styles.label} min-w-0 flex-1 truncate`}>
                           {item.label}
                         </span>
 
-                        <span className="rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black/30">
+                        <span className={`${styles.badge} shrink-0 whitespace-nowrap rounded-md bg-black/[0.04] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-black/30`}>
                           Em breve
                         </span>
                       </div>
@@ -523,6 +526,9 @@ export default function Sidebar() {
                     <Link
                       key={item.label}
                       href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      aria-label={item.label}
+                      title={item.label}
                       onClick={() => setMobileOpen(false)}
                       className={
                         active
@@ -534,7 +540,7 @@ export default function Sidebar() {
                         type={item.icon}
                       />
 
-                      <span className="min-w-0 flex-1">
+                      <span className={`${styles.label} min-w-0 flex-1 truncate`}>
                         {item.label}
                       </span>
 
@@ -556,7 +562,7 @@ export default function Sidebar() {
                                   }`
                                 : ""
                             }`}
-                            className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                            className={`${styles.badge} flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
                               agendaSummary.overdue >
                               0
                                 ? "bg-red-600 text-white"
@@ -584,6 +590,8 @@ export default function Sidebar() {
       <div className="shrink-0 space-y-1 px-3 pb-3">
         <button
           type="button"
+          aria-label="Ajuda"
+          title="Ajuda"
           onClick={() => {
             setMobileOpen(false);
 
@@ -596,8 +604,8 @@ export default function Sidebar() {
           }}
           className={
             isItemActive(pathname, "/ajuda")
-              ? "flex w-full items-center gap-3 rounded-xl bg-black/[0.07] px-3 py-2.5 text-sm font-semibold text-black transition"
-              : "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black"
+              ? `${styles.item} flex w-full items-center gap-3 rounded-xl bg-black/[0.07] px-3 py-2.5 text-sm font-semibold text-black transition`
+              : `${styles.item} flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black`
           }
         >
           <svg
@@ -611,13 +619,15 @@ export default function Sidebar() {
             <circle cx="12" cy="16.8" r=".9" fill="currentColor" />
           </svg>
 
-          <span className="min-w-0 flex-1 text-left">Ajuda</span>
+          <span className={`${styles.label} min-w-0 flex-1 text-left`}>Ajuda</span>
         </button>
 
         <button
           type="button"
+          aria-label="Sair"
+          title="Sair"
           onClick={() => void handleLogout()}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black"
+          className={`${styles.item} flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-black/60 transition hover:bg-black/[0.04] hover:text-black`}
         >
           <svg
             viewBox="0 0 24 24"
@@ -640,7 +650,7 @@ export default function Sidebar() {
             />
           </svg>
 
-          <span className="min-w-0 flex-1 text-left">Sair</span>
+          <span className={`${styles.label} min-w-0 flex-1 text-left`}>Sair</span>
         </button>
       </div>
       <div className="border-t border-black/10">
@@ -651,6 +661,7 @@ export default function Sidebar() {
         />
       </div>
       </aside>
+      </div>
       {/* TF2_AVISO_VISUAL_PERSISTENTE: unico portal fora do link de navegacao */}
                       {(conversationsWaitingCount ?? 0) > 0 &&
         typeof document !== "undefined" &&
