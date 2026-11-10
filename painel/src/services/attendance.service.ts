@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import {
   M1MAttendanceActorType,
   M1MAttendanceEventType,
@@ -52,11 +53,13 @@ export const attendanceService = {
   async startAttendance(
     companyId: string,
     customerId: string,
+    db?: Prisma.TransactionClient,
   ) {
     const activeAttendance =
       await attendanceRepository.findActiveAttendance(
         companyId,
         customerId,
+        db,
       );
 
     if (activeAttendance) {
@@ -67,7 +70,7 @@ export const attendanceService = {
       await attendanceRepository.createAttendance({
         companyId,
         customerId,
-      });
+      }, db);
 
     await attendanceRepository.createEvent({
       attendanceId: attendance.id,
@@ -75,18 +78,20 @@ export const attendanceService = {
         M1MAttendanceEventType.STARTED_BY_AI,
       actorType:
         M1MAttendanceActorType.AI,
-    });
+    }, db);
 
     return attendance;
   },
 
   async transferAttendanceToSector(
     input: TransferAttendanceToSectorInput,
+    db?: Prisma.TransactionClient,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
         input.companyId,
         input.attendanceId,
+        db,
       );
 
     if (!attendance) {
@@ -108,6 +113,7 @@ export const attendanceService = {
       await attendanceRepository.findSector(
         input.companyId,
         input.sectorId,
+        db,
       );
 
     if (!sector) {
@@ -126,6 +132,7 @@ export const attendanceService = {
       await customerRepository.releaseResponsible(
         input.companyId,
         attendance.customerId,
+        db,
       );
 
       return attendance;
@@ -146,7 +153,7 @@ export const attendanceService = {
               attendance.id,
             sectorId:
               sector.id,
-          })
+          }, db)
         : await attendanceRepository.transferToSector({
             companyId:
               input.companyId,
@@ -154,17 +161,19 @@ export const attendanceService = {
               attendance.id,
             sectorId:
               sector.id,
-          });
+          }, db);
 
     await customerRepository.releaseResponsible(
       input.companyId,
       attendance.customerId,
+      db,
     );
 
     if (!isAIRouting) {
       await customerRepository.markAsHuman(
         input.companyId,
         attendance.customerId,
+        db,
       );
     }
 
@@ -185,7 +194,7 @@ export const attendanceService = {
         sectorName:
           sector.name,
       },
-    });
+    }, db);
 
     return updatedAttendance;
   },
@@ -287,11 +296,13 @@ export const attendanceService = {
     attendanceId: string,
     responsibleId: string,
     metadata?: CreateAttendanceEventData["metadata"],
+    db?: Prisma.TransactionClient,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
         companyId,
         attendanceId,
+        db,
       );
 
     if (!attendance) {
@@ -330,13 +341,14 @@ export const attendanceService = {
         companyId,
         attendanceId,
         responsibleId,
-      });
+      }, db);
 
     if (!updatedAttendance) {
       const currentAttendance =
         await attendanceRepository.findAttendanceById(
           companyId,
           attendanceId,
+          db,
         );
 
       if (
@@ -364,7 +376,7 @@ export const attendanceService = {
       actorId:
         responsibleId,
       metadata,
-    });
+    }, db);
 
     return {
       attendance:
@@ -445,11 +457,13 @@ export const attendanceService = {
     companyId: string,
     attendanceId: string,
     actorId?: string | null,
+    db?: Prisma.TransactionClient,
   ) {
     const attendance =
       await attendanceRepository.findAttendanceById(
         companyId,
         attendanceId,
+        db,
       );
 
     if (!attendance) {
@@ -464,11 +478,11 @@ export const attendanceService = {
     ) {
       return attendance;
     }
-const updatedAttendance =
+    const updatedAttendance =
       await attendanceRepository.finishAttendance({
         companyId,
         attendanceId,
-      });
+      }, db);
 
     await attendanceRepository.createEvent({
       attendanceId,
@@ -480,11 +494,12 @@ const updatedAttendance =
         attendance.responsibleId ??
         actorId ??
         null,
-    });
+    }, db);
 
     await customerRepository.releaseResponsible(
       companyId,
       attendance.customerId,
+      db,
     );
 
     return updatedAttendance;

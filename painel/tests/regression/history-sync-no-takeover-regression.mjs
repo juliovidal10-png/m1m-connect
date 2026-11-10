@@ -15,7 +15,7 @@ function load(path, deps, globals={}) {
     if(name==='@/generated/prisma/enums')return enums;
     if(name in deps)return deps[name];
     // Este cenário simula instalações sem as tabelas de exclusão.
-    if(name==='@/services/conversation-deletion.service')return {deletionStorageAvailable:async()=>false};
+    if(name==='@/services/conversation-deletion.service')return {deletionStorageAvailable:async()=>false,isConversationBusy:()=>false};
     if(name==='next/server')return runtimeRequire(name);
     throw Error('Dependencia inesperada: '+name);
   },console:{log(){},info(){},warn(){},error(){}},Date,Map,Set,Buffer,File,process:{env:{EVOLUTION_API_URL:"http://synthetic-evolution",EVOLUTION_API_KEY:"synthetic-key"}},...globals});
@@ -187,12 +187,17 @@ console.log('PASS: sync real sem takeover em particulares/grupos e 4 estados; id
 {
   const callbacks = [];
   let reconciliationRuns = 0;
+  let lockTimeout = false;
   const history = [{key: {id: 'first'}}];
   const route = load('app/api/chat/messages/route.ts', {
     'next/server': {...runtimeRequire('next/server'), after: callback => callbacks.push(callback)},
+    '@/lib/postgres-lock': load('lib/postgres-lock.ts', {}),
     '@/services/auth/authorization.service': {authorizationService: {getCurrentUser: async () => ({companyId: 'synthetic-A'})}},
     '@/repositories/company.repository': {companyRepository: {findById: async () => ({whatsappInstanceName: 'instance-A'})}},
-    '@/services/conversation-sync.service': {conversationSyncService: {syncConversation: async () => history}},
+    '@/services/conversation-sync.service': {conversationSyncService: {syncConversation: async () => {
+      if (lockTimeout) throw Object.assign(new Error('canceling statement due to lock timeout'), {code:'55P03'});
+      return history;
+    }}},
     '@/services/message-reconciliation.service': {messageReconciliationService: {reconcileReceiptMediaForConversation: async (...args) => {
       assert.deepEqual(args, ['synthetic-A', 'instance-A', '123@lid']);
       reconciliationRuns++;
@@ -206,6 +211,11 @@ console.log('PASS: sync real sem takeover em particulares/grupos e 4 estados; id
   assert.equal(callbacks.length, 1);
   await callbacks[0]();
   assert.equal(reconciliationRuns, 1);
+  lockTimeout = true;
+  const busy = await route.GET({nextUrl: new URL('http://test/api/chat/messages?remoteJid=123@lid')});
+  assert.equal(busy.status, 409);
+  assert.equal((await busy.json()).code, 'CONVERSATION_BUSY');
+  assert.equal(callbacks.length, 1);
 }
 
 {

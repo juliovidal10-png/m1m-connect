@@ -1,3 +1,9 @@
+import { isPostgresLockTimeout } from "@/lib/postgres-lock";
+import {
+  ATTENDANCE_BUSY_MESSAGE,
+  runAttendanceMutation,
+} from "@/services/attendance-mutation";
+
 import {
   NextRequest,
   NextResponse,
@@ -108,18 +114,25 @@ async function postWithoutDeletionGuard(
       );
     }
 
-    const attendance =
-      await attendanceService.finishAttendance(
-        authorizedUser.companyId,
-        attendanceId,
-        authorizedUser.userId,
-      );
+    const attendance = await runAttendanceMutation(
+      authorizedUser.companyId,
+      { attendanceId },
+      db => attendanceService.finishAttendance(
+        authorizedUser.companyId, attendanceId, authorizedUser.userId, db,
+      ),
+    );
 
     return NextResponse.json({
       success: true,
       attendance,
     });
   } catch (error) {
+    if (isPostgresLockTimeout(error)) {
+      return NextResponse.json(
+        { code: "ATTENDANCE_LOCK_TIMEOUT", error: ATTENDANCE_BUSY_MESSAGE },
+        { status: 409 },
+      );
+    }
     console.error(
       "ERRO ATTENDANCE FINISH POST:",
       error,

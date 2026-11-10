@@ -17,6 +17,7 @@ import {
   messageReconciliationService,
 } from "@/services/message-reconciliation.service";
 
+import { isPostgresLockTimeout } from "@/lib/postgres-lock";
 import { isConversationBusy } from "@/services/conversation-deletion.service";
 
 function getErrorMessage(
@@ -123,7 +124,7 @@ export async function GET(
       messages,
     );
   } catch (error) {
-    if (isConversationBusy(error)) {
+    if (isConversationBusy(error) || isPostgresLockTimeout(error)) {
       return NextResponse.json(
         { code: "CONVERSATION_BUSY", error: "A conversa está sendo atualizada. Tente novamente em instantes." },
         { status: 409 },
