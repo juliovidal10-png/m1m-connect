@@ -1714,7 +1714,8 @@ const loadContacts =
       setChats(chatsRef.current);
       setSelectedChat((current) => current ? update(current) : current);
     }
-    await Promise.all([loadChats("refresh"), loadQueueCounts()]);
+    const refresh = Promise.all([loadChats("refresh"), loadQueueCounts()]);
+    if (!assignment) await refresh;
   };
 
   const loadMoreChats = useCallback(async () => {

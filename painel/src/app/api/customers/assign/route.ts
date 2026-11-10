@@ -1,4 +1,11 @@
+import { isPostgresLockTimeout } from "@/lib/postgres-lock";
 import {
+  ATTENDANCE_BUSY_MESSAGE,
+  runAttendanceMutation,
+} from "@/services/attendance-mutation";
+
+import {
+  after,
   NextRequest,
   NextResponse,
 } from "next/server";
@@ -254,6 +261,7 @@ async function sendHumanIntroduction(input: {
           "Content-Type": "application/json",
           apikey: API_KEY,
         },
+        signal: AbortSignal.timeout(4000),
         body: JSON.stringify({
           number:
             input.remoteJid,
@@ -298,33 +306,36 @@ async function sendHumanIntroduction(input: {
     messageAuthorName,
   );
 
-  await conversationSyncService.syncConversation(
-    input.remoteJid,
-    instanceName,
-    input.companyId,
-  );
-
-  await prisma.m1MMessage.updateMany({
-    where: {
-      companyId:
-        input.companyId,
+  return async () => {
+    await conversationSyncService.syncConversation(
+      input.remoteJid,
       instanceName,
-      evolutionMessageId,
-      fromMe: true,
-    },
-    data: {
-      authorType:
-        M1MMessageAuthorType.HUMAN,
-      authorId:
-        input.responsibleId,
-      authorName:
-        messageAuthorName,
-    },
-  });
+      input.companyId,
+    );
+
+    await prisma.m1MMessage.updateMany({
+      where: {
+        companyId:
+          input.companyId,
+        instanceName,
+        evolutionMessageId,
+        fromMe: true,
+      },
+      data: {
+        authorType:
+          M1MMessageAuthorType.HUMAN,
+        authorId:
+          input.responsibleId,
+        authorName:
+          messageAuthorName,
+      },
+    });
+  };
 }
 
 async function postWithoutDeletionGuard(
   request: NextRequest,
+  deferSync: (task: () => Promise<void>) => void,
 ) {
   try {
     const authorizedUser =
@@ -371,49 +382,29 @@ async function postWithoutDeletionGuard(
       customerId = materializedCustomer.id;
     }
 
-    const existingAttendance =
-      await attendanceService.getOpenAttendanceByCustomer(
-        companyId,
-        customerId,
-      );
-
-    const attendance =
-      existingAttendance ??
-      (await attendanceService.startAttendance(
-        companyId,
-        customerId,
-      ));
-
-    const assumption =
-      await attendanceService.assumeAttendanceWithAcquisitionResult(
-        companyId,
-        attendance.id,
-        responsibleId,
-        sourceSurface
-          ? {
-              source:
-                "CUSTOMERS_ASSIGN",
-              surface:
-                sourceSurface,
-            }
-          : undefined,
-      );
-
-    const assumedAttendance =
-      assumption.attendance;
-
-    const customer =
-      await customerService.assignResponsible({
-        companyId,
-        customerId,
-        responsibleId,
-      });
+    const { assumption, customer } = await runAttendanceMutation(
+      companyId,
+      { customerId },
+      async db => {
+        const attendance = await attendanceService.startAttendance(companyId, customerId, db);
+        const assumption = await attendanceService.assumeAttendanceWithAcquisitionResult(
+          companyId,
+          attendance.id,
+          responsibleId,
+          sourceSurface ? { source: "CUSTOMERS_ASSIGN", surface: sourceSurface } : undefined,
+          db,
+        );
+        const customer = await customerService.assignResponsible({ companyId, customerId, responsibleId }, db);
+        return { assumption, customer };
+      },
+    );
+    const assumedAttendance = assumption.attendance;
 
     let introductionSent = false;
 
     if (assumption.acquiredNow) {
       try {
-        await sendHumanIntroduction({
+        const sync = await sendHumanIntroduction({
           companyId,
           attendanceId:
             assumedAttendance.id,
@@ -422,6 +413,7 @@ async function postWithoutDeletionGuard(
             customer.remoteJid,
         });
 
+        deferSync(sync);
         introductionSent = true;
       } catch (error) {
         console.error(
@@ -438,6 +430,12 @@ async function postWithoutDeletionGuard(
       introductionSent,
     });
   } catch (error) {
+    if (isPostgresLockTimeout(error)) {
+      return NextResponse.json(
+        { code: "ATTENDANCE_LOCK_TIMEOUT", error: ATTENDANCE_BUSY_MESSAGE },
+        { status: 409 },
+      );
+    }
     console.error(
       "ERRO CUSTOMERS ASSIGN POST:",
       error,
@@ -457,7 +455,22 @@ async function postWithoutDeletionGuard(
   }
 }
 export async function POST(request: NextRequest) {
-  if(!await (await import("@/services/conversation-deletion.service")).deletionStorageAvailable())return postWithoutDeletionGuard(request);
-  const {guardDeletionMutation}=await import("@/services/conversation-deletion-route-guard");
-  return guardDeletionMutation(request,()=>postWithoutDeletionGuard(request),"customer",false);
+  const syncTasks: Array<() => Promise<void>> = [];
+  const worker = () => postWithoutDeletionGuard(request, task => syncTasks.push(task));
+  const { deletionStorageAvailable } = await import("@/services/conversation-deletion.service");
+  const response = await (await deletionStorageAvailable()
+    ? (await import("@/services/conversation-deletion-route-guard")).guardDeletionMutation(request, worker, "customer", false)
+    : worker());
+
+  // Schedule outside the deletion guard, after its advisory lock is released.
+  for (const sync of syncTasks) {
+    after(async () => {
+      try {
+        await sync();
+      } catch (error) {
+        console.error("ERRO AO SINCRONIZAR APRESENTAÇÃO DO ATENDENTE:", error);
+      }
+    });
+  }
+  return response;
 }

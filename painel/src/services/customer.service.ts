@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { normalizeCustomerContactPhone } from '@/lib/contact-phone';
 import {
   customerRepository,
@@ -250,6 +251,7 @@ export const customerService = {
 
   async assignResponsible(
     input: AssignResponsibleInput,
+    db?: Prisma.TransactionClient,
   ) {
     const companyId =
       requireText(
@@ -273,6 +275,7 @@ export const customerService = {
       companyId,
       customerId,
       responsibleId,
+      db,
     );
   },
 };

@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { confirmedCustomerPhone, formatConfirmedPhone } from "@/lib/customer-display-identity";
 
@@ -802,9 +803,10 @@ export const customerRepository = {
   async markAsHuman(
     companyId: string,
     customerId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const customer =
-      await prisma.m1MCustomer.findFirst({
+      await db.m1MCustomer.findFirst({
         where: {
           id: customerId,
           companyId,
@@ -817,7 +819,7 @@ export const customerRepository = {
       );
     }
 
-    return prisma.m1MCustomer.update({
+    return db.m1MCustomer.update({
       where: {
         id: customer.id,
       },
@@ -832,9 +834,10 @@ export const customerRepository = {
   async releaseResponsible(
     companyId: string,
     customerId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const customer =
-      await prisma.m1MCustomer.findFirst({
+      await db.m1MCustomer.findFirst({
         where: {
           id: customerId,
           companyId,
@@ -847,7 +850,7 @@ export const customerRepository = {
       );
     }
 
-    return prisma.m1MCustomer.update({
+    return db.m1MCustomer.update({
       where: {
         id: customer.id,
       },
@@ -865,9 +868,10 @@ export const customerRepository = {
     companyId: string,
     customerId: string,
     responsibleId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const customer =
-      await prisma.m1MCustomer.findFirst({
+      await db.m1MCustomer.findFirst({
         where: {
           id: customerId,
           companyId,
@@ -881,7 +885,7 @@ export const customerRepository = {
     }
 
     const user =
-      await prisma.m1MUser.findFirst({
+      await db.m1MUser.findFirst({
         where: {
           id: responsibleId,
           companyId,
@@ -904,7 +908,7 @@ export const customerRepository = {
       ) ||
       user.id;
 
-    return prisma.m1MCustomer.update({
+    return db.m1MCustomer.update({
       where: {
         id: customer.id,
       },

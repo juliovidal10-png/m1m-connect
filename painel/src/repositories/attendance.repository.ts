@@ -60,9 +60,10 @@ const activeAttendanceStates: M1MAttendanceState[] = [
 async function requireAttendance(
   companyId: string,
   attendanceId: string,
+  db: Prisma.TransactionClient = prisma,
 ) {
   const attendance =
-    await prisma.m1MAttendance.findFirst({
+    await db.m1MAttendance.findFirst({
       where: {
         id: attendanceId,
         companyId,
@@ -85,8 +86,9 @@ async function requireAttendance(
 export const attendanceRepository = {
   async createAttendance(
     data: CreateAttendanceData,
+    db: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.m1MAttendance.create({
+    return db.m1MAttendance.create({
       data: {
         companyId: data.companyId,
         customerId: data.customerId,
@@ -100,8 +102,9 @@ export const attendanceRepository = {
   async findActiveAttendance(
     companyId: string,
     customerId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.m1MAttendance.findFirst({
+    return db.m1MAttendance.findFirst({
       where: {
         companyId,
         customerId,
@@ -118,8 +121,9 @@ export const attendanceRepository = {
   async findAttendanceById(
     companyId: string,
     attendanceId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.m1MAttendance.findFirst({
+    return db.m1MAttendance.findFirst({
       where: {
         id: attendanceId,
         companyId,
@@ -134,8 +138,9 @@ export const attendanceRepository = {
   async findSector(
     companyId: string,
     sectorId: string,
+    db: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.m1MSector.findFirst({
+    return db.m1MSector.findFirst({
       where: {
         id: sectorId,
         companyId,
@@ -152,12 +157,13 @@ export const attendanceRepository = {
 
   async assignAttendance(
     data: AssignAttendanceData,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const assignedAt =
       data.assignedAt ?? new Date();
 
     const result =
-      await prisma.m1MAttendance.updateMany({
+      await db.m1MAttendance.updateMany({
         where: {
           id: data.attendanceId,
           companyId: data.companyId,
@@ -182,7 +188,7 @@ export const attendanceRepository = {
       return null;
     }
 
-    return prisma.m1MAttendance.findFirst({
+    return db.m1MAttendance.findFirst({
       where: {
         id: data.attendanceId,
         companyId: data.companyId,
@@ -219,14 +225,16 @@ export const attendanceRepository = {
 
   async transferToSector(
     data: TransferAttendanceToSectorData,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const attendance =
       await requireAttendance(
         data.companyId,
         data.attendanceId,
+        db,
       );
 
-    return prisma.m1MAttendance.update({
+    return db.m1MAttendance.update({
       where: {
         id: attendance.id,
       },
@@ -247,14 +255,16 @@ export const attendanceRepository = {
 
   async routeToSectorByAI(
     data: RouteAttendanceToSectorByAIData,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const attendance =
       await requireAttendance(
         data.companyId,
         data.attendanceId,
+        db,
       );
 
-    return prisma.m1MAttendance.update({
+    return db.m1MAttendance.update({
       where: {
         id: attendance.id,
       },
@@ -275,14 +285,16 @@ export const attendanceRepository = {
 
   async finishAttendance(
     data: FinishAttendanceData,
+    db: Prisma.TransactionClient = prisma,
   ) {
     const attendance =
       await requireAttendance(
         data.companyId,
         data.attendanceId,
+        db,
       );
 
-    return prisma.m1MAttendance.update({
+    return db.m1MAttendance.update({
       where: {
         id: attendance.id,
       },
@@ -297,8 +309,9 @@ export const attendanceRepository = {
 
   async createEvent(
     data: CreateAttendanceEventData,
+    db: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.m1MAttendanceEvent.create({
+    return db.m1MAttendanceEvent.create({
       data: {
         attendanceId:
           data.attendanceId,
