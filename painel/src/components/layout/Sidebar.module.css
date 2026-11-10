@@ -1,0 +1,49 @@
+.slot {
+  display: contents;
+}
+
+.compactLogo {
+  display: none;
+}
+
+@media (min-width: 48rem) and (hover: hover) and (pointer: fine) {
+  .slot {
+    display: block;
+    position: relative;
+    flex: 0 0 4.5rem;
+  }
+
+  .slot .panel {
+    position: absolute;
+    z-index: 30;
+    width: 4.5rem;
+    transition: width 180ms ease;
+  }
+
+  .panel:is(:hover, :has(:focus-visible)) {
+    width: 18rem;
+    box-shadow: 4px 0 16px rgb(0 0 0 / 10%);
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) :is(.label, .badge, .fullLogo) {
+    display: none;
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) .sectionTitle {
+    visibility: hidden;
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) .item {
+    justify-content: center;
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) .compactLogo {
+    display: block;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slot .panel {
+      transition: none;
+    }
+  }
+}
