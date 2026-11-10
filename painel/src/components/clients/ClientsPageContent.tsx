@@ -284,7 +284,7 @@ export default function ClientsPageContent() {
       setError(null);
 
       try {
-        const customersResponse = await fetch("/api/customers", { cache: "no-store", signal: controller.signal });
+        const customersResponse = await fetch("/api/customers?view=contacts", { cache: "no-store", signal: controller.signal });
 
         const customersData =
           await customersResponse.json();

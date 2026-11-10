@@ -50,7 +50,8 @@ export async function GET(
     const companyId =
       await getAuthenticatedCompanyId();
 
-    if (request.nextUrl.searchParams.get("view") === "dashboard") {
+    const view = request.nextUrl.searchParams.get("view");
+    if (view === "dashboard") {
       const statuses = await prisma.m1MCustomer.findMany({
         where: { companyId },
         select: { id: true, status: true },
@@ -95,8 +96,12 @@ export async function GET(
           ),
       });
 
+    const hiddenContact = view === "contacts" ? process.env.M1M_CONTACTS_HIDDEN_CUSTOMER?.trim() : undefined;
+    const visibleCustomers = hiddenContact
+      ? customers.filter(customer => `${companyId}/${customer.id}` !== hiddenContact)
+      : customers;
     const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
-    const presented = await enrichCustomerDisplayIdentities(companyId, customers, search ? {} : {
+    const presented = await enrichCustomerDisplayIdentities(companyId, visibleCustomers, search ? {} : {
       deferHints: true,
       deferProvider: task => after(async () => { await task; }),
     });

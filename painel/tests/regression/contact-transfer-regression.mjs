@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 
 function load(file, dependencies = {}) {
-  const context = { exports: {}, require: name => {
+  const context = { exports: {}, process, require: name => {
     assert.ok(Object.hasOwn(dependencies, name), name);
     return dependencies[name];
   } };
@@ -89,6 +89,42 @@ assert.equal(updated.phone, undefined);
 console.log('TF6/TF7 PASS: telefone manual separado da identidade, CSV Excel, validação, deduplicação, escopo e reimportação.');
 
 class AuthorizationError extends Error { statusCode = 403; }
+const contactList = [{ id: 'manual-a' }, { id: 'original-a' }];
+let company = 'empresa-a';
+const { GET: listCustomers } = load('src/app/api/customers/route.ts', {
+  'next/server': { NextResponse: { json: body => body } },
+  '@/lib/prisma': {},
+  '@/lib/tenant': { getAuthenticatedCompanyId: async () => company },
+  '@/generated/prisma/enums': {},
+  '@/lib/contact-phone': phone,
+  '@/services/auth/authorization.service': { AuthorizationError },
+  '@/services/crm.service': {},
+  '@/services/customer.service': { customerService: {
+    listCustomers: async () => contactList,
+    findCustomer: async () => contactList[0],
+  } },
+  '@/services/customer-display-identity.service': {
+    enrichCustomerDisplayIdentities: async (_, customers) => customers,
+  },
+});
+const listRequest = query => listCustomers({ nextUrl: new URL(`https://example.com/api/customers${query}`) });
+const listIds = async query => Array.from(await listRequest(query), customer => customer.id);
+const hideContactKey = 'M1M_CONTACTS_HIDDEN_CUSTOMER';
+const previousHiddenContact = process.env[hideContactKey];
+try {
+  delete process.env[hideContactKey];
+  assert.deepEqual(await listIds('?view=contacts'), ['manual-a', 'original-a']);
+  process.env[hideContactKey] = 'empresa-a/manual-a';
+  assert.deepEqual(await listIds('?view=contacts'), ['original-a']);
+  assert.deepEqual(await listIds(''), ['manual-a', 'original-a']);
+  assert.equal(await listRequest('?view=contacts&remoteJid=123@s.whatsapp.net'), contactList[0]);
+  company = 'empresa-b';
+  assert.deepEqual(await listIds('?view=contacts'), ['manual-a', 'original-a']);
+} finally {
+  if (previousHiddenContact === undefined) delete process.env[hideContactKey];
+  else process.env[hideContactKey] = previousHiddenContact;
+}
+
 let permitted = true;
 const { POST: create } = load('src/app/api/customers/new/route.ts', {
   'next/server': { NextResponse: { json: (body, { status }) => ({ body, status }) } },
