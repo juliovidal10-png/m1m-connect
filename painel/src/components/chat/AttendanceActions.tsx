@@ -61,6 +61,7 @@ export default function AttendanceActions({
     useState(false);
   const [busy, setBusy] =
     useState(false);
+  const [transferPending, setTransferPending] = useState(false);
   const [error, setError] =
     useState("");
 
@@ -201,37 +202,42 @@ export default function AttendanceActions({
     }
   }
 
-  async function transferTo(
-    sector: Sector,
-  ) {
+  async function transferTo(sector: Sector) {
     if (!attendanceId || busy) return;
 
     setBusy(true);
+    setTransferPending(true);
     setError("");
 
     try {
-      const response = await fetch(
-        "/api/attendance/transfer",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            attendanceId,
-            sectorId: sector.id,
-          }),
-        },
-      );
+      const requestTransfer = () => fetch("/api/attendance/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attendanceId, sectorId: sector.id }),
+      });
 
-      const data = await response.json();
+      let response = await requestTransfer();
+      let data = await response.json().catch(() => null);
+
+      // The guard returns this specific conflict before the transfer runs.
+      for (const delay of [350, 750, 1250]) {
+        if (response.status !== 409 || data?.code !== "CONVERSATION_BUSY") break;
+        await new Promise<void>(resolve => window.setTimeout(resolve, delay));
+        response = await requestTransfer();
+        data = await response.json().catch(() => null);
+      }
 
       if (!response.ok) {
         throw new Error(
-          data?.error ||
-            "Não foi possível transferir o atendimento.",
+          typeof data?.error === "string" && data.error
+            ? data.error
+            : "Não foi possível confirmar a transferência. Confira o setor da conversa antes de tentar novamente.",
         );
+      }
+
+      if (data?.attendance?.id !== attendanceId || data.attendance.sectorId !== sector.id) {
+        if (onChanged) await onChanged();
+        throw new Error("O servidor não confirmou o setor de destino. Confira a conversa antes de tentar novamente.");
       }
 
       setOpen(false);
@@ -244,6 +250,7 @@ export default function AttendanceActions({
           : "Erro ao transferir atendimento.",
       );
     } finally {
+      setTransferPending(false);
       setBusy(false);
     }
   }
@@ -334,7 +341,7 @@ export default function AttendanceActions({
             }
             className="inline-flex h-11 items-center justify-center whitespace-nowrap rounded-xl border border-black/10 bg-white px-3 text-[11px] font-bold text-black/60 transition hover:border-[#0A9090]/30 hover:bg-[#F2FAFA] hover:text-[#087B7B] disabled:opacity-50 md:h-9 md:px-2.5 xl:h-10 xl:px-3 xl:text-xs"
           >
-            Transferir
+            {transferPending ? "Transferindo..." : "Transferir"}
           </button>
 
           {open && (
