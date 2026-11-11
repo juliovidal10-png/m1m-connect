@@ -948,7 +948,7 @@ export default function ChatInbox() {
   const [activeTab, setActiveTab] =
     useState<ConversationListTab>(initialConversationTab);
   const [queueCounts, setQueueCounts] = useState<{ waiting: number; inService: number } | null>(null);
-  const listScopeRef = useRef({ tab: initialConversationTab, search: "", revision: 0 });
+  const listScopeRef = useRef<{ tab: ConversationListTab; search: string; revision: number }>({ tab: initialConversationTab, search: "", revision: 0 });
 
   const queuePreviewsRef = useRef<Partial<Record<ConversationQueue, QueuePage & { fetchedAt: number }>>>({});
 
