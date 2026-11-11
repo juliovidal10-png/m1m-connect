@@ -3375,7 +3375,7 @@ const loadContacts =
       (currentMessages) =>
         currentMessages.filter(
           (message) =>
-            message.id !== messageId,
+            (message.key?.id || message.id) !== messageId,
         ),
     );
   }
