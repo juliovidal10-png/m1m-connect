@@ -697,6 +697,17 @@ export default function Sidebar() {
                                   Atendimento humano necessário
                                 </p>
                               </div>
+                              <button
+                                type="button"
+                                onPointerDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  router.push("/?conversationTab=WAITING");
+                                }}
+                                className="ml-auto shrink-0 rounded-lg bg-teal-50 px-2.5 py-2 text-xs font-semibold text-teal-700 transition hover:bg-teal-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                              >
+                                Ver Aguardando
+                              </button>
                             </div>
                           </div>,
                           document.body,

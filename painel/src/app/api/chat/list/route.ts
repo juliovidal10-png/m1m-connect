@@ -101,6 +101,15 @@ function isGroupJid(value?: string | null) {
   return normalizeJid(value).endsWith("@g.us");
 }
 
+function isGroupConversation(chat: EvolutionChat) {
+  return [
+    chat.remoteJid,
+    chat.canonicalJid,
+    chat.lastMessage?.key?.remoteJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+  ].some((jid) => isGroupJid(jid));
+}
+
 function getPrimaryRemoteJid(chat: EvolutionChat) {
   const possibleValues = [
     chat.remoteJid,
@@ -616,6 +625,7 @@ export async function GET(request: Request) {
     const wantsQueueCounts = url.searchParams.get("queueCounts") === "1";
     const includeCounts = url.searchParams.get("includeCounts") === "1";
     const queue = url.searchParams.get("queue");
+    const groupOnly = url.searchParams.get("groupOnly") === "1";
     const includeQueuePages = url.searchParams.get("includeQueuePages") === "1";
     const directJid = normalizeJid(url.searchParams.get("directJid"));
     if (directJid && !/^(?:[0-9]+@(s[.]whatsapp[.]net|lid)|[0-9-]+@g[.]us)$/.test(directJid)) {
@@ -873,6 +883,7 @@ export async function GET(request: Request) {
         return resumed?{...chat,lastMessage:resumed.lastMessage as EnrichedChat["lastMessage"]}:chat;
       }).filter((chat) => {
         if (getPrimaryRemoteJid(chat).endsWith("@newsletter")) return false;
+        if (groupOnly && !isGroupConversation(chat)) return false;
         if (!directJid && hiddenJids.has(normalizeJid(chat.remoteJid))) return false;
         if (hideLegacyGreeting(chat, search)) return false;
         if(hiddenAfterDeletion.has(chat.remoteJid||"")||hiddenAfterDeletion.has(chat.canonicalJid||""))return false;
@@ -1012,6 +1023,7 @@ export async function GET(request: Request) {
        */
       const matchingCustomers = customers.filter((customer) => {
         if (normalizeJid(customer.remoteJid).endsWith("@newsletter")) return false;
+        if (groupOnly && !isGroupJid(customer.remoteJid)) return false;
         const haystack = normalizeSearch([
           customer.name,
           customer.phone,

@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import type { ConversationQueue } from "@/lib/conversation-queue";
+export type ConversationListTab = "ALL" | "WAITING" | "IN_SERVICE" | "GROUPS";
+
 export type ChatConversationSidebarItem = {
   key: string;
   name: string;
@@ -16,8 +18,8 @@ export type ChatConversationSidebarItem = {
 
 type ChatConversationSidebarProps = {
   administrativeReview?: ReactNode;
-  activeQueue: ConversationQueue;
-  onQueueChange: (queue: ConversationQueue) => void;
+  activeTab: ConversationListTab;
+  onTabChange: (tab: ConversationListTab) => void;
   queueCounts: { waiting: number; inService: number } | null;
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -33,8 +35,8 @@ type ChatConversationSidebarProps = {
 
 export default function ChatConversationSidebar({
   administrativeReview,
-  activeQueue,
-  onQueueChange,
+  activeTab,
+  onTabChange,
   queueCounts,
   searchQuery,
   onSearchChange,
@@ -106,44 +108,41 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
         {administrativeReview}
-          <div className="mt-4 flex gap-1 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
-              aria-pressed={activeQueue === "OPEN"}
-              onClick={() => onQueueChange("OPEN")}
-              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
-                activeQueue === "OPEN"
-                  ? "bg-white text-[#0A9090] shadow-sm"
-                  : "text-black/45 hover:text-black/70"
-              }`}
+              aria-pressed={activeTab === "ALL"}
+              onClick={() => onTabChange("ALL")}
+              className={activeTab === "ALL" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
             >
-              Abertas
+              Tudo
             </button>
 
             <button
               type="button"
-              aria-pressed={activeQueue === "WAITING"}
-              onClick={() => onQueueChange("WAITING")}
-              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
-                activeQueue === "WAITING"
-                  ? "bg-white text-[#0A9090] shadow-sm"
-                  : "text-black/45 hover:text-black/70"
-              }`}
+              aria-pressed={activeTab === "WAITING"}
+              onClick={() => onTabChange("WAITING")}
+              className={activeTab === "WAITING" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
             >
               Aguardando{queueCounts ? ` (${queueCounts.waiting})` : ""}
             </button>
 
             <button
               type="button"
-              aria-pressed={activeQueue === "IN_SERVICE"}
-              onClick={() => onQueueChange("IN_SERVICE")}
-              className={`min-w-0 grow whitespace-normal rounded-lg px-1.5 py-2 text-[11px] leading-tight font-bold uppercase tracking-normal transition ${
-                activeQueue === "IN_SERVICE"
-                  ? "bg-white text-[#0A9090] shadow-sm"
-                  : "text-black/45 hover:text-black/70"
-              }`}
+              aria-pressed={activeTab === "IN_SERVICE"}
+              onClick={() => onTabChange("IN_SERVICE")}
+              className={activeTab === "IN_SERVICE" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
             >
-              Em atendimento{queueCounts ? ` (${queueCounts.inService})` : ""}
+              Atendendo{queueCounts ? ` (${queueCounts.inService})` : ""}
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={activeTab === "GROUPS"}
+              onClick={() => onTabChange("GROUPS")}
+              className={activeTab === "GROUPS" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
+            >
+              Grupos
             </button>
           </div>
 

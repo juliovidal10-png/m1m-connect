@@ -25,6 +25,7 @@ import MessageRenderer, {
 import MessageContextMenu from "./MessageContextMenu";
 import ChatConversationSidebar, {
   type ChatConversationSidebarItem,
+  type ConversationListTab,
 } from "./ChatConversationSidebar";
 import ChatConversationHeader from "./ChatConversationHeader";
 import type { AttendanceAssignment } from "./AttendanceActions";
@@ -193,6 +194,32 @@ function formatFileSize(size: number) {
 
 function isGroupChat(chat: Chat) {
   return chat.remoteJid.endsWith("@g.us");
+}
+
+function isGroupConversation(chat: Chat) {
+  return [
+    chat.remoteJid,
+    chat.canonicalJid,
+    chat.lastMessage?.key?.remoteJid,
+    chat.lastMessage?.key?.remoteJidAlt,
+  ].some((jid) => jid?.trim().toLowerCase().endsWith("@g.us"));
+}
+
+function getOperationalQueueForTab(
+  tab: ConversationListTab,
+): ConversationQueue | null {
+  if (tab === "WAITING") return "WAITING";
+  if (tab === "IN_SERVICE") return "IN_SERVICE";
+  return null;
+}
+
+function matchesConversationTab(
+  chat: Chat,
+  tab: ConversationListTab,
+) {
+  if (tab === "ALL") return true;
+  if (tab === "GROUPS") return isGroupConversation(chat);
+  return getConversationQueue(chat) === tab;
 }
 
 function getLastMessagePreview(chat: Chat) {
@@ -914,9 +941,14 @@ export default function ChatInbox() {
     setIsMobileConversationOpen,
   ] = useState(false);
 
-  const [activeQueue, setActiveQueue] = useState<ConversationQueue>("OPEN");
+  const initialConversationTab: ConversationListTab =
+    searchParams.get("conversationTab") === "WAITING"
+      ? "WAITING"
+      : "ALL";
+  const [activeTab, setActiveTab] =
+    useState<ConversationListTab>(initialConversationTab);
   const [queueCounts, setQueueCounts] = useState<{ waiting: number; inService: number } | null>(null);
-  const listScopeRef = useRef({ queue: "OPEN" as ConversationQueue, search: "", revision: 0 });
+  const listScopeRef = useRef<{ tab: ConversationListTab; search: string; revision: number }>({ tab: initialConversationTab, search: "", revision: 0 });
 
   const queuePreviewsRef = useRef<Partial<Record<ConversationQueue, QueuePage & { fetchedAt: number }>>>({});
 
@@ -1103,30 +1135,50 @@ export default function ChatInbox() {
     [contacts],
   );
 
-  const changeListScope = (queue: ConversationQueue, search: string) => {
-    if (listScopeRef.current.queue === queue && listScopeRef.current.search === search) return;
-    listScopeRef.current = { queue, search, revision: listScopeRef.current.revision + 1 };
-    listRequestRef.current.controller?.abort();
-    listRequestRef.current.id += 1;
-    loadChatsInFlightRef.current = false;
-    confirmedReadRefreshPendingRef.current = false;
-    const cached = !search.trim() ? queuePreviewsRef.current[queue] : undefined;
-    const preview = cached && Date.now() - cached.fetchedAt < QUEUE_PREVIEW_MAX_AGE_MS ? cached : undefined;
-    chatsRef.current = preview?.items ?? [];
-    setChats(chatsRef.current);
-    setIsLoadingChats(!preview);
-    setIsLoadingMoreChats(false);
-    setHasLoadedChatList(Boolean(preview));
-    setChatListError(null);
-    setHasMoreChats(preview?.hasMore ?? true);
-    setErrorMessage("");
-    setActiveQueue(queue);
-    setSearchQuery(search);
-  };
+  const changeListScope = useCallback(
+    (tab: ConversationListTab, search: string) => {
+      if (
+        listScopeRef.current.tab === tab &&
+        listScopeRef.current.search === search
+      ) return;
+
+      listScopeRef.current = {
+        tab,
+        search,
+        revision: listScopeRef.current.revision + 1,
+      };
+      listRequestRef.current.controller?.abort();
+      listRequestRef.current.id += 1;
+      loadChatsInFlightRef.current = false;
+      confirmedReadRefreshPendingRef.current = false;
+
+      const queue = getOperationalQueueForTab(tab);
+      const cached =
+        queue && !search.trim()
+          ? queuePreviewsRef.current[queue]
+          : undefined;
+      const preview =
+        cached && Date.now() - cached.fetchedAt < QUEUE_PREVIEW_MAX_AGE_MS
+          ? cached
+          : undefined;
+
+      chatsRef.current = preview?.items ?? [];
+      setChats(chatsRef.current);
+      setIsLoadingChats(!preview);
+      setIsLoadingMoreChats(false);
+      setHasLoadedChatList(Boolean(preview));
+      setChatListError(null);
+      setHasMoreChats(preview?.hasMore ?? true);
+      setErrorMessage("");
+      setActiveTab(tab);
+      setSearchQuery(search);
+    },
+    [],
+  );
 
   const filteredChats = useMemo(
-    () => chats.filter((chat) => getConversationQueue(chat) === activeQueue),
-    [chats, activeQueue],
+    () => chats.filter((chat) => matchesConversationTab(chat, activeTab)),
+    [chats, activeTab],
   );
 
   const conversationSidebarItems =
@@ -1572,7 +1624,10 @@ const loadContacts =
         let firstPages: Partial<Record<ConversationQueue, QueuePage>> | undefined;
         do {
           const limit = Math.min(wanted - items.length, 100);
-          const params = new URLSearchParams({ queue: scope.queue, search: scope.search.trim(), limit: String(limit), offset: String(offset) });
+          const params = new URLSearchParams({ search: scope.search.trim(), limit: String(limit), offset: String(offset) });
+          const queue = getOperationalQueueForTab(scope.tab);
+          if (queue) params.set("queue", queue);
+          if (scope.tab === "GROUPS") params.set("groupOnly", "1");
           if (offset === 0) {
             params.set("includeCounts", "1");
             if (!scope.search.trim()) params.set("includeQueuePages", "1");
@@ -1598,10 +1653,11 @@ const loadContacts =
           }
           applyQueueCounts(data.counts);
           const page: Chat[] = data.items;
-          if (offset === 0 && !scope.search.trim()) {
+          const previewQueue = getOperationalQueueForTab(scope.tab);
+          if (offset === 0 && !scope.search.trim() && previewQueue) {
             firstPages = {
               ...data.queuePages,
-              [scope.queue]: { items: page.slice(0, 30), hasMore: page.length > 30 || Boolean(data.hasMore) },
+              [previewQueue]: { items: page.slice(0, 30), hasMore: page.length > 30 || Boolean(data.hasMore) },
             };
           }
           items = [...items, ...page];
@@ -1624,7 +1680,7 @@ const loadContacts =
           queuePreviewsRef.current = previews;
         }
         const nextItems = mergeDuplicateChats(mode === "append" ? [...chatsRef.current, ...items] : items)
-          .filter((chat) => getConversationQueue(chat) === scope.queue);
+          .filter((chat) => matchesConversationTab(chat, scope.tab));
         const selectedJid = activeChatJidRef.current;
         const previousSelection = selectedJid
           ? findChatByRequestedJid(chatsRef.current, selectedJid)
@@ -1710,7 +1766,7 @@ const loadContacts =
       queuePreviewsRef.current = {};
       attendanceRevisionRef.current += 1;
       chatsRef.current = chatsRef.current.map(update)
-        .filter((chat) => getConversationQueue(chat) === listScopeRef.current.queue);
+        .filter((chat) => matchesConversationTab(chat, listScopeRef.current.tab));
       setChats(chatsRef.current);
       setSelectedChat((current) => current ? update(current) : current);
     }
@@ -1726,7 +1782,7 @@ const loadContacts =
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadChats("replace"); }, searchQuery.trim() ? 300 : 0);
     return () => window.clearTimeout(timer);
-  }, [activeQueue, searchQuery, loadChats]);
+  }, [activeTab, searchQuery, loadChats]);
 
   const loadMessages = useCallback(
     async (
@@ -2157,6 +2213,23 @@ const loadContacts =
     },
     [],
   );
+
+  useEffect(() => {
+    if (
+      searchParams.get("conversationTab") !== "WAITING"
+    ) {
+      return;
+    }
+
+    if (
+      listScopeRef.current.tab !== "WAITING" ||
+      listScopeRef.current.search
+    ) {
+      changeListScope("WAITING", "");
+    }
+
+    router.replace("/");
+  }, [changeListScope, router, searchParams]);
 
   useEffect(() => {
     const requestedRemoteJid =
@@ -4293,11 +4366,11 @@ const loadContacts =
       >
         <ChatConversationSidebar
         administrativeReview={<ConversationReviewAccess compact pendingCount={reviewPendingCount}/>}
-        activeQueue={activeQueue}
-        onQueueChange={(queue) => changeListScope(queue, searchQuery)}
+        activeTab={activeTab}
+        onTabChange={(tab) => changeListScope(tab, searchQuery)}
         queueCounts={queueCounts}
         searchQuery={searchQuery}
-        onSearchChange={(query) => changeListScope(activeQueue, query)}
+        onSearchChange={(query) => changeListScope(activeTab, query)}
         isLoading={isLoadingChats}
         hasLoaded={hasLoadedChatList}
         error={chatListError}
