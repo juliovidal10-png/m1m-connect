@@ -872,6 +872,7 @@ export async function GET(request: Request) {
         const resumed=deletionSnapshot.find(row=>row.state==='RESUMED'&&(row.aliases as string[]).some(jid=>jid===chat.remoteJid||jid===chat.canonicalJid));
         return resumed?{...chat,lastMessage:resumed.lastMessage as EnrichedChat["lastMessage"]}:chat;
       }).filter((chat) => {
+        if (getPrimaryRemoteJid(chat).endsWith("@newsletter")) return false;
         if (!directJid && hiddenJids.has(normalizeJid(chat.remoteJid))) return false;
         if (hideLegacyGreeting(chat, search)) return false;
         if(hiddenAfterDeletion.has(chat.remoteJid||"")||hiddenAfterDeletion.has(chat.canonicalJid||""))return false;
@@ -1010,6 +1011,7 @@ export async function GET(request: Request) {
        *    completo para grupos, pushName e texto da ultima mensagem.
        */
       const matchingCustomers = customers.filter((customer) => {
+        if (normalizeJid(customer.remoteJid).endsWith("@newsletter")) return false;
         const haystack = normalizeSearch([
           customer.name,
           customer.phone,
