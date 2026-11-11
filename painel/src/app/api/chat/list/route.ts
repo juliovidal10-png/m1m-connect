@@ -10,6 +10,7 @@ import { isPhoneIdentity, presentCustomerIdentity, usefulIdentityName } from "@/
 
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { hiddenCustomerIds } from "@/lib/hidden-customers";
 import { companyRepository } from "@/repositories/company.repository";
 
 const API_URL = process.env.EVOLUTION_API_URL;
@@ -733,8 +734,12 @@ export async function GET(request: Request) {
       ? storedCustomers.map(customer => presentCustomerIdentity(customer))
       : await enrichCustomerDisplayIdentities(companyId, storedCustomers, {
           allowHistoryDiscovery: false,
+          deferHints: true,
           deferProvider: task => after(async () => { await task; }),
         });
+    const hiddenIds = new Set(hiddenCustomerIds(companyId));
+    const hiddenJids = new Set(storedCustomers.filter(customer => hiddenIds.has(customer.id))
+      .map(customer => normalizeJid(customer.remoteJid)));
     const hideLegacyGreeting = createLegacyGreetingListFilter(companyId, instanceName, legacyGreetingCustomers);
     perfLog("database", {
       customers: customers.length,
@@ -867,6 +872,7 @@ export async function GET(request: Request) {
         const resumed=deletionSnapshot.find(row=>row.state==='RESUMED'&&(row.aliases as string[]).some(jid=>jid===chat.remoteJid||jid===chat.canonicalJid));
         return resumed?{...chat,lastMessage:resumed.lastMessage as EnrichedChat["lastMessage"]}:chat;
       }).filter((chat) => {
+        if (!directJid && hiddenJids.has(normalizeJid(chat.remoteJid))) return false;
         if (hideLegacyGreeting(chat, search)) return false;
         if(hiddenAfterDeletion.has(chat.remoteJid||"")||hiddenAfterDeletion.has(chat.canonicalJid||""))return false;
         if (applyQueue && queue && getConversationQueue(chat) !== queue) return false;

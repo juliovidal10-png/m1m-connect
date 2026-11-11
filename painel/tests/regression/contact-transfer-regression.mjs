@@ -89,14 +89,24 @@ assert.equal(updated.phone, undefined);
 console.log('TF6/TF7 PASS: telefone manual separado da identidade, CSV Excel, validação, deduplicação, escopo e reimportação.');
 
 class AuthorizationError extends Error { statusCode = 403; }
-const contactList = [{ id: 'manual-a' }, { id: 'original-a' }];
+const contactList = [
+  { id: 'manual-a', customerCode: 398, name: 'Gabriel Barber' },
+  { id: 'original-a', customerCode: 140, name: 'Gabriel Vagmaker' },
+];
+const hiddenCustomers = load('src/lib/hidden-customers.ts');
 let company = 'empresa-a';
 const { GET: listCustomers } = load('src/app/api/customers/route.ts', {
   'next/server': { NextResponse: { json: body => body } },
-  '@/lib/prisma': {},
+  '@/lib/prisma': { prisma: { m1MCustomer: { findMany: async args => {
+    assert.equal(args.where.companyId, company);
+    assert.equal(args.include, undefined, 'Lookup avoids attendance and message-count relations');
+    assert.equal(args.select.customerCode, true);
+    return contactList.filter(customer => !args.where.id.notIn.includes(customer.id));
+  } } } },
   '@/lib/tenant': { getAuthenticatedCompanyId: async () => company },
   '@/generated/prisma/enums': {},
   '@/lib/contact-phone': phone,
+  '@/lib/hidden-customers': hiddenCustomers,
   '@/services/auth/authorization.service': { AuthorizationError },
   '@/services/crm.service': {},
   '@/services/customer.service': { customerService: {
@@ -104,7 +114,13 @@ const { GET: listCustomers } = load('src/app/api/customers/route.ts', {
     findCustomer: async () => contactList[0],
   } },
   '@/services/customer-display-identity.service': {
-    enrichCustomerDisplayIdentities: async (_, customers) => customers,
+    enrichCustomerDisplayIdentities: async (_, customers, options) => {
+      if (options) {
+        assert.equal(options?.deferHints, true, 'List/search does not wait on full identity refresh');
+        assert.equal(typeof options?.deferProvider, 'function');
+      }
+      return customers;
+    },
   },
 });
 const listRequest = query => listCustomers({ nextUrl: new URL(`https://example.com/api/customers${query}`) });
@@ -116,14 +132,34 @@ try {
   assert.deepEqual(await listIds('?view=contacts'), ['manual-a', 'original-a']);
   process.env[hideContactKey] = 'empresa-a/manual-a';
   assert.deepEqual(await listIds('?view=contacts'), ['original-a']);
-  assert.deepEqual(await listIds(''), ['manual-a', 'original-a']);
-  assert.equal(await listRequest('?view=contacts&remoteJid=123@s.whatsapp.net'), contactList[0]);
+  assert.deepEqual(await listIds(''), ['original-a']);
+  assert.deepEqual(await listIds('?view=lookup&search=Gabriel'), ['original-a']);
+  assert.deepEqual(await listIds('?view=lookup&search=Cliente%20%23000140'), ['original-a']);
+  assert.deepEqual(await listIds('?view=lookup&search=398'), []);
+  assert.equal(await listRequest('?remoteJid=123@s.whatsapp.net'), contactList[0], 'Existing attendance detail remains accessible');
   company = 'empresa-b';
   assert.deepEqual(await listIds('?view=contacts'), ['manual-a', 'original-a']);
+  process.env[hideContactKey] = 'empresa-a/manual-a,empresa-a/manual-c\nempresa-b/manual-b,empresa-a/invalid/entry';
+  assert.deepEqual(Array.from(hiddenCustomers.hiddenCustomerIds('empresa-a')), ['manual-a', 'manual-c']);
+  assert.deepEqual(Array.from(hiddenCustomers.hiddenCustomerIds('empresa-b')), ['manual-b']);
 } finally {
   if (previousHiddenContact === undefined) delete process.env[hideContactKey];
   else process.env[hideContactKey] = previousHiddenContact;
 }
+
+let repositoryWhere;
+const { customerRepository } = load('src/repositories/customer.repository.ts', {
+  '@/lib/hidden-customers': { hiddenCustomerIds: () => ['manual-a'] },
+  '@/lib/customer-display-identity': load('src/lib/customer-display-identity.ts'),
+  '@/lib/prisma': { prisma: { m1MCustomer: { findMany: async ({ where }) => {
+    repositoryWhere = where;
+    return [];
+  } } } },
+});
+await customerRepository.listByCompany('empresa-a', { customerIds: ['manual-a', 'original-a'] });
+assert.equal(repositoryWhere.companyId, 'empresa-a');
+assert.deepEqual(Array.from(repositoryWhere.id.notIn), ['manual-a']);
+assert.deepEqual(Array.from(repositoryWhere.id.in), ['manual-a', 'original-a']);
 
 let permitted = true;
 const { POST: create } = load('src/app/api/customers/new/route.ts', {
