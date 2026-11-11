@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import { M1MMessageAuthorType, M1MUserPermission } from "@/generated/prisma/enums";
 import { authorizationService } from "@/services/auth/authorization.service";
@@ -345,35 +345,34 @@ async function postWithoutDeletionGuard(
         responsibleId: authenticatedUser.userId,
       });
 
-      /*
-       * A rota de envio nao pode depender de a tela disparar um sync depois.
-       * Sincronizamos a conversa imediatamente para persistir a mensagem OUT
-       * no banco usando o fluxo oficial ja existente do M1M Connect.
-       */
-      await conversationSyncService.syncConversation(
-        remoteJid,
-        instanceName,
-        companyId,
-      );
+      // A Evolution confirmou o envio. A sincronizacao do historico e a
+      // confirmacao final da autoria continuam pelo fluxo oficial em segundo
+      // plano, para nao atrasar a resposta de sucesso ao usuario.
+      after(async () => {
+        try {
+          await conversationSyncService.syncConversation(
+            remoteJid,
+            instanceName,
+            companyId,
+          );
 
-      /*
-       * Camada final de seguranca: se o sync persistiu a mensagem antes de
-       * consumir a autoria do registry, completamos a autoria pelo ID exato
-       * devolvido pela Evolution.
-       */
-      await prisma.m1MMessage.updateMany({
-        where: {
-          companyId,
-          instanceName,
-          evolutionMessageId,
-          fromMe: true,
-        },
-        data: {
-          attendanceId: takeover.attendanceId,
-          authorType: M1MMessageAuthorType.HUMAN,
-          authorId: authenticatedUser.userId,
-          authorName: messageAuthorName,
-        },
+          await prisma.m1MMessage.updateMany({
+            where: {
+              companyId,
+              instanceName,
+              evolutionMessageId,
+              fromMe: true,
+            },
+            data: {
+              attendanceId: takeover.attendanceId,
+              authorType: M1MMessageAuthorType.HUMAN,
+              authorId: authenticatedUser.userId,
+              authorName: messageAuthorName,
+            },
+          });
+        } catch (error) {
+          console.error("[ENVIO TEXTO] Falha ao sincronizar mensagem enviada:", error);
+        }
       });
     }
     return NextResponse.json({
