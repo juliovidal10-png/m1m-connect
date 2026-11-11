@@ -11,6 +11,7 @@ import {
 } from "@/repositories/customer.repository";
 import {
   messageService,
+  REVOKED_MESSAGE_CONTENT,
 } from "@/services/message.service";
 
 function getRecord(
@@ -98,7 +99,13 @@ export async function GET(
       );
 
     const messages =
-      storedMessages.flatMap(
+      storedMessages
+        .filter(
+          (storedMessage) =>
+            storedMessage.content !==
+            REVOKED_MESSAGE_CONTENT,
+        )
+        .flatMap(
         (storedMessage) => {
           const rawPayload =
             getRecord(
