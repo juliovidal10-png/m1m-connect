@@ -77,6 +77,70 @@ function fixture({jid='556500000001@s.whatsapp.net',company='synthetic-A',instan
   const message=(id,fromMe=true,sent='2026-01-01T00:00:00Z')=>({key:{id,remoteJid:jid,fromMe},messageType:'conversation',message:{conversation:'conteudo sintetico '+id},messageTimestamp:Math.floor(Date.parse(sent)/1000),pushName:'Contato sintetico'});
   return{rows,events,authors,customer,original,key,company,instance,jid,message,sync,attendances,takeover,prisma,get attendance(){return attendance;},setRaw(value){raw=value;}};
 }
+// O primeiro envio ao vivo de um contato novo deve assumir o atendimento.
+{
+  const path = 'services/incoming-message-pipeline.service.ts';
+  const source = fs.readFileSync(new URL(path, root), 'utf8');
+  const deps = Object.fromEntries(Array.from(source.matchAll(/from "([^"]+)"/g), match => [match[1], {}]));
+  let automatic = false;
+  let existingCustomer = false;
+  let storedAuthor = null;
+  let saved = 0;
+  let processed = false;
+  let takeovers = 0;
+  const pipeline = load(path, {
+    ...deps,
+    '@/repositories/company.repository': { companyRepository: { findByWhatsappInstanceName: async () => ({ id: 'empresa' }) } },
+    '@/services/company-access.service': { companyAccessService: { checkCompanyAccess: async () => ({ allowed: true }) } },
+    '@/services/conversation-sync.service': { conversationSyncService: {
+      normalizeMessage: raw => raw,
+      hasExistingCustomerForMessage: async () => existingCustomer,
+      syncIncomingMessage: async () => {
+        saved++;
+        return { id: 'message', customerId: 'customer', authorType: storedAuthor };
+      },
+    } },
+    '@/services/automatic-outgoing-registry.service': { automaticOutgoingRegistryService: { isAutomatic: () => automatic } },
+    '@/services/message.service': { messageService: {
+      claimProcessing: async () => !processed,
+      attachMessageToAttendance: async (message, attendance) => {
+        assert.equal(message, 'message');
+        assert.equal(attendance, 'human-attendance');
+      },
+      markAsProcessed: async () => { processed = true; },
+    } },
+    '@/services/human-takeover.service': { humanTakeoverService: { process: async input => {
+      assert.equal(input.companyId, 'empresa');
+      assert.equal(input.customerId, 'customer');
+      takeovers++;
+      return { attendanceId: 'human-attendance', attendanceState: 'HUMANO' };
+    } } },
+    '@/lib/prisma': { prisma: {
+      m1MAttendance: { findFirst: async () => null },
+      m1MMessage: { findUnique: async () => ({ processingStartedAt: new Date(), processedAt: processed ? new Date() : null }) },
+    } },
+  }).incomingMessagePipelineService;
+
+  const outgoing = { remoteJid: '556500000001@s.whatsapp.net', fromMe: true, type: 'TEXT', evolutionMessageId: 'out-1' };
+  const run = options => pipeline.processWithoutDeletionGuard(outgoing, 'instance', options);
+  const live = { authenticatedWebhook: true };
+  assert.equal((await run()).action, 'OUTGOING_WITHOUT_CUSTOMER_IGNORED');
+  assert.equal((await run({ ...live, dryRun: true })).action, 'OUTGOING_WITHOUT_CUSTOMER_IGNORED');
+  automatic = true;
+  assert.equal((await run(live)).action, 'OUTGOING_WITHOUT_CUSTOMER_IGNORED');
+  assert.equal(saved, 0);
+  automatic = false;
+  assert.equal((await run(live)).action, 'HUMAN_TAKEOVER_DETECTED');
+  assert.equal(processed, true);
+  assert.equal((await run(live)).action, 'ALREADY_PROCESSING_OR_PROCESSED');
+  assert.equal(takeovers, 1);
+  processed = false;
+  existingCustomer = true;
+  storedAuthor = 'AI';
+  assert.equal((await run(live)).action, 'AUTOMATIC_OUTGOING_MESSAGE_IGNORED');
+  assert.equal(takeovers, 1);
+}
+
 // Historico desconhecido, repetido e fora de ordem: particulares/grupos, sem atendimento, IA, HUMANO e finalizado.
 for(const jid of ['556500000001@s.whatsapp.net','120300000001@g.us']) {
  for(const state of [null,'IA','HUMANO','FINALIZADO']) {

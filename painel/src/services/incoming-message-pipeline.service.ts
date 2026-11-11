@@ -409,7 +409,19 @@ export const incomingMessagePipelineService = {
       return { processed: true, action: "GROUP_HISTORY_STORED" as const };
     }
 
-    if (normalizedMessage.fromMe) {
+    const isAutomaticOutgoing = normalizedMessage.fromMe &&
+      automaticOutgoingRegistryService.isAutomatic(
+        normalizedInstanceName,
+        normalizedMessage.remoteJid,
+        normalizedMessage.content ?? "",
+        normalizedMessage.evolutionMessageId,
+      );
+    const isLivePrivateOutgoing = options?.authenticatedWebhook === true &&
+      !options.dryRun && !options.receiptOnly &&
+      /^\d+@(?:s\.whatsapp\.net|lid)$/.test(normalizedMessage.remoteJid);
+
+    // A first manual WhatsApp message must create the contact and pause AI.
+    if (normalizedMessage.fromMe && (!isLivePrivateOutgoing || isAutomaticOutgoing)) {
       const hasExistingCustomer =
         await conversationSyncService.hasExistingCustomerForMessage(
           rawMessage,
@@ -878,15 +890,13 @@ export const incomingMessagePipelineService = {
 
     try {
       if (normalizedMessage.fromMe) {
-        const isAutomatic =
-          automaticOutgoingRegistryService.isAutomatic(
-            normalizedInstanceName,
-            normalizedMessage.remoteJid,
-            normalizedMessage.content ?? "",
-            normalizedMessage.evolutionMessageId,
-          );
-
-        if (isAutomatic) {
+        if (isAutomaticOutgoing || storedMessage.authorType === "AI" ||
+            automaticOutgoingRegistryService.isAutomatic(
+              normalizedInstanceName,
+              normalizedMessage.remoteJid,
+              normalizedMessage.content ?? "",
+              normalizedMessage.evolutionMessageId,
+            )) {
           return {
             processed: true,
             action:
