@@ -197,12 +197,7 @@ function isGroupChat(chat: Chat) {
 }
 
 function isGroupConversation(chat: Chat) {
-  return [
-    chat.remoteJid,
-    chat.canonicalJid,
-    chat.lastMessage?.key?.remoteJid,
-    chat.lastMessage?.key?.remoteJidAlt,
-  ].some((jid) => jid?.trim().toLowerCase().endsWith("@g.us"));
+  return chat.remoteJid.trim().toLowerCase().endsWith("@g.us");
 }
 
 function getOperationalQueueForTab(
