@@ -102,12 +102,7 @@ function isGroupJid(value?: string | null) {
 }
 
 function isGroupConversation(chat: EvolutionChat) {
-  return [
-    chat.remoteJid,
-    chat.canonicalJid,
-    chat.lastMessage?.key?.remoteJid,
-    chat.lastMessage?.key?.remoteJidAlt,
-  ].some((jid) => isGroupJid(jid));
+  return isGroupJid(chat.remoteJid);
 }
 
 function getPrimaryRemoteJid(chat: EvolutionChat) {
