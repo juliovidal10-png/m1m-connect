@@ -674,7 +674,7 @@ export async function GET(request: Request) {
 
     // After authorization/scope resolution, overlap provider I/O with local reads.
     // Capture rejection immediately so a DB failure cannot leave an unhandled promise.
-    const inventoryTask = !directJid && (queue || wantsQueueCounts || wantsWaitingCount)
+    const inventoryTask = !directJid && (queue || wantsQueueCounts || wantsWaitingCount || !search)
       ? getOperationalInventory(companyId, instanceName).then(
           chats => ({ chats }), error => ({ error }),
         ) : null;
@@ -961,7 +961,7 @@ export async function GET(request: Request) {
       ).length;
       return NextResponse.json({ waitingCount });
     }
-    if (queue) {
+    if (queue || (!search && !directJid)) {
       const inventoryStartedAt = Date.now();
       let rawChats: EvolutionChat[];
       try { rawChats = await operationalChats(); }
@@ -977,7 +977,9 @@ export async function GET(request: Request) {
       const countsTask = includeCounts
         ? queueCounts(dedupeEnrichedChats(visibleChats)).catch(() => undefined)
         : Promise.resolve(undefined);
-      let matches = dedupeEnrichedChats(visibleChats.filter(chat => getConversationQueue(chat) === queue));
+      let matches = dedupeEnrichedChats(visibleChats.filter(chat =>
+        queue ? getConversationQueue(chat) === queue : groupOnly ? isGroupConversation(chat) : true,
+      ));
       if (search) {
         matches = (await enrich(matches)).filter((chat) => normalizeSearch([
           chat.pushName, chat.groupSubject, chat.crmName, chat.crmPhone,
