@@ -1061,8 +1061,10 @@ export default function ChatInbox() {
     showScrollToBottomButton,
     setShowScrollToBottomButton,
   ] = useState(false);
-  const messagesEndRef =
+  const messagesScrollContainerRef =
     useRef<HTMLDivElement | null>(null);
+  const isMessagesAtBottomRef =
+    useRef(true);
 
   const conversationSearchInputRef =
     useRef<HTMLInputElement | null>(null);
@@ -2063,11 +2065,14 @@ const loadContacts =
            */
           window.requestAnimationFrame(() => {
             window.requestAnimationFrame(() => {
-              messagesEndRef.current?.scrollIntoView({
-                behavior: "auto",
-                block: "end",
-              });
-
+              const container = messagesScrollContainerRef.current;
+              if (container) {
+                container.scrollTo({
+                  top: container.scrollHeight,
+                  behavior: "auto",
+                });
+                isMessagesAtBottomRef.current = true;
+              }
               setShowScrollToBottomButton(false);
             });
           });
@@ -2754,50 +2759,36 @@ const loadContacts =
     enabled: hasLoadedChatList,
   });
 
+  const updateScrollToBottomButton = useCallback(() => {
+    const container = messagesScrollContainerRef.current;
+    if (!container) return;
+
+    const distanceToBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isAtBottom = distanceToBottom <= 80;
+    isMessagesAtBottomRef.current = isAtBottom;
+    setShowScrollToBottomButton(!isAtBottom);
+  }, []);
+
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = "smooth") => {
-      messagesEndRef.current?.scrollIntoView({
+      const container = messagesScrollContainerRef.current;
+      if (!container) return;
+
+      container.scrollTo({
+        top: container.scrollHeight,
         behavior,
-        block: "end",
       });
-      setShowScrollToBottomButton(false);
+      if (behavior === "auto") {
+        isMessagesAtBottomRef.current = true;
+        setShowScrollToBottomButton(false);
+      } else {
+        window.requestAnimationFrame(updateScrollToBottomButton);
+      }
     },
-    [],
+    [updateScrollToBottomButton],
   );
 
-  useEffect(() => {
-    const element =
-      messagesEndRef.current;
-
-    if (
-      !element ||
-      typeof IntersectionObserver ===
-        "undefined"
-    ) {
-      return;
-    }
-
-    const observer =
-      new IntersectionObserver(
-        ([entry]) => {
-          setShowScrollToBottomButton(
-            !entry.isIntersecting,
-          );
-        },
-        {
-          threshold: 0.01,
-        },
-      );
-
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [
-    selectedChat?.remoteJid,
-    selectedChatListSignature,
-  ]);
   useEffect(() => {
     const currentChatJid =
       selectedChat?.remoteJid ??
@@ -2811,28 +2802,21 @@ const loadContacts =
       previousLastMessageSignatureRef.current !==
       selectedChatListSignature;
 
-    if (
-      lastMessageSignature &&
-      (chatChanged ||
-        newMessageArrived)
-    ) {
-      messagesEndRef.current?.scrollIntoView(
-        {
-          behavior: chatChanged
-            ? "auto"
-            : "smooth",
-          block: "end",
-        },
-      );
+    const shouldFollowMessages =
+      chatChanged ||
+      (newMessageArrived && isMessagesAtBottomRef.current);
+
+    if (lastMessageSignature && shouldFollowMessages) {
+      window.requestAnimationFrame(() => {
+        scrollToBottom(chatChanged ? "auto" : "smooth");
+      });
+    } else {
+      window.requestAnimationFrame(updateScrollToBottomButton);
     }
 
     /*
-     * A lista de conversas continua sendo consultada
-     * a cada 2 segundos. O historico so e atualizado
-     * quando a assinatura da ultima mensagem muda.
-     *
-     * Na troca de conversa, o carregamento inicial
-     * continua sendo feito pelo efeito dedicado.
+     * A lista continua sendo consultada; mensagens novas atualizam o histórico.
+     * A posição manual só é mantida quando o usuário já estava no fim.
      */
     if (
       newMessageArrived &&
@@ -2857,6 +2841,8 @@ const loadContacts =
     lastMessageSignature,
     selectedChatListSignature,
     loadMessages,
+    scrollToBottom,
+    updateScrollToBottomButton,
   ]);
 
   function calculateEmojiPickerPosition(
@@ -4521,7 +4507,12 @@ const loadContacts =
               }
             />
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 lg:px-5">
+            <div
+              ref={messagesScrollContainerRef}
+              onScroll={updateScrollToBottomButton}
+              onLoadCapture={() => window.requestAnimationFrame(updateScrollToBottomButton)}
+              className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 lg:px-5"
+            >
               {isLoadingMessages ? (
                 <p className="text-sm text-black/45">
                   Carregando mensagens...
@@ -4977,9 +4968,6 @@ const loadContacts =
                 )
               )}
 
-              <div
-                ref={messagesEndRef}
-              />
               {showScrollToBottomButton && (
                 <button
                   type="button"
