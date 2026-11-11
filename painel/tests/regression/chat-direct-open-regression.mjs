@@ -88,7 +88,11 @@ const context = { exports: {}, URL, AbortSignal,
   fetch: async () => {
     assert.equal(directMode, false, 'Direct open should not request Evolution');
     providerCalls++;
-    return { ok: true, json: async () => [{ remoteJid: jid }] };
+    return { ok: true, json: async () => [
+      { remoteJid: jid },
+      { remoteJid: '120363000000000001@g.us', pushName: 'Sem Peneira' },
+      { remoteJid: '120363000000000002@newsletter', pushName: 'Sem Peneira' },
+    ] };
   },
   require: name => { assert.ok(Object.hasOwn(deps, name), name); return deps[name]; },
 };
@@ -139,10 +143,14 @@ permitted = true;
 attendance = [{ customerId: customer.id, state: 'HUMANO', sectorId: 'setor-a', events: [] }];
 const request = query => context.exports.GET({ url: 'https://panel.invalid/api/chat/list?' + query, signal: { aborted: false } });
 const combined = await request('queue=OPEN&includeCounts=1');
-assert.equal(combined.data.items.length, 0, 'Waiting item is outside the open tab');
+assert.deepEqual(Array.from(combined.data.items, chat => chat.remoteJid), ['120363000000000001@g.us'],
+  'Open tab shows the group, excludes the channel and leaves the waiting item in its own tab');
 assert.equal(combined.data.counts.waiting, 1, 'Totals cover all authorized tabs');
 assert.equal(combined.data.counts.inService, 0);
 assert.equal(providerCalls, 1, 'The page and totals share the inventory request');
+const searched = await request('queue=OPEN&search=Sem+Peneira');
+assert.deepEqual(Array.from(searched.data.items, chat => chat.remoteJid), ['120363000000000001@g.us'],
+  'Search returns a group and excludes a channel with the same name');
 const separate = await request('queueCounts=1');
 assert.equal(separate.data.waiting, combined.data.counts.waiting);
 const noCounts = await request('queue=WAITING&offset=1');
