@@ -3359,7 +3359,7 @@ const loadContacts =
         )}.`,
       );
 
-      await loadChats("refresh");
+      void loadChats("refresh");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
