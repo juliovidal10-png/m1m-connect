@@ -23,6 +23,7 @@ type ConversationMediaViewerProps = {
 
 function MediaContent({
   message,
+  mediaCacheKey,
   zoom,
   offsetY,
   isDragging,
@@ -33,6 +34,7 @@ function MediaContent({
   onDoubleClick,
 }: {
   message: ChatMessage;
+  mediaCacheKey: string;
   zoom: number;
   offsetY: number;
   isDragging: boolean;
@@ -53,7 +55,7 @@ function MediaContent({
     loading,
     error,
   } = useMediaLoader(
-    message.id,
+    mediaCacheKey,
     message,
   );
 
@@ -163,7 +165,7 @@ function GalleryThumbnail({
   const { elementRef, shouldLoad } = useNearViewport("0px");
   const loadImage = message.messageType === "imageMessage" && shouldLoad;
   const { media, loading, error } = useMediaLoader(
-    loadImage ? message.id : undefined,
+    loadImage ? `${message.id}:${index}` : undefined,
     loadImage ? message : null,
   );
 
@@ -282,13 +284,8 @@ export default function ConversationMediaViewer({
       ),
     );
 
-  const [
-    activeMessageId,
-    setActiveMessageId,
-  ] = useState(
-    gallery[initialIndex]?.id ??
-      currentMessage.id,
-  );
+  const [activeGalleryIndex, setActiveGalleryIndex] =
+    useState(initialIndex);
 
   const activeMessageRef =
     useRef<ChatMessage>(
@@ -302,11 +299,9 @@ export default function ConversationMediaViewer({
       null,
     );
 
-  const activeIndex =
-    gallery.findIndex(
-      (item) =>
-        item.id === activeMessageId,
-    );
+  const activeIndex = activeGalleryIndex < gallery.length
+    ? activeGalleryIndex
+    : -1;
 
   const [zoom, setZoom] =
     useState(1);
@@ -359,7 +354,7 @@ export default function ConversationMediaViewer({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [isOpen, activeMessageId, activeIndex, gallery.length]);
+  }, [isOpen, activeIndex, gallery.length]);
 
   const isImage =
     activeMessage.messageType ===
@@ -400,9 +395,7 @@ export default function ConversationMediaViewer({
     resetView();
     activeMessageRef.current =
       selected;
-    setActiveMessageId(
-      selected.id,
-    );
+    setActiveGalleryIndex(index);
   }
 
   useEffect(() => {
@@ -411,20 +404,15 @@ export default function ConversationMediaViewer({
       return;
     }
 
-    const openedMessage =
-      gallery.find(
-        (item) =>
-          item.id ===
-          currentMessage.id,
-      ) ??
-      currentMessage;
-
-    activeMessageRef.current =
-      openedMessage;
-
-    setActiveMessageId(
-      currentMessage.id,
+    const openedIndex = gallery.findIndex(
+      (item) => item.id === currentMessage.id,
     );
+    const openedMessage = openedIndex >= 0
+      ? gallery[openedIndex]
+      : currentMessage;
+
+    activeMessageRef.current = openedMessage;
+    setActiveGalleryIndex(openedIndex >= 0 ? openedIndex : 0);
 
     resetView();
   }, [
@@ -790,9 +778,8 @@ export default function ConversationMediaViewer({
 
           <MediaContent
             key={activeMessage.id}
-            message={
-              activeMessage
-            }
+            message={activeMessage}
+            mediaCacheKey={`${activeMessage.id}:${activeIndex}`}
             zoom={zoom}
             offsetY={offsetY}
             isDragging={
@@ -822,7 +809,7 @@ export default function ConversationMediaViewer({
             >
               {gallery.map((item, index) => (
                 <GalleryThumbnail
-                  key={item.id}
+                  key={`${item.id}:${index}`}
                   message={item}
                   index={index}
                   isActive={index === activeIndex}
