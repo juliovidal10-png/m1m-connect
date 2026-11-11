@@ -4357,7 +4357,7 @@ const loadContacts =
           isMobileConversationOpen
             ? "hidden"
             : "block"
-        } w-full shrink-0 md:block md:w-[320px] lg:w-[380px] min-[1366px]:w-[440px]`}
+        } w-full shrink-0 md:block md:w-[320px] lg:w-[420px] min-[1366px]:w-[480px]`}
       >
         <ChatConversationSidebar
         administrativeReview={<ConversationReviewAccess compact pendingCount={reviewPendingCount}/>}

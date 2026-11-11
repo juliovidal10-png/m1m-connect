@@ -108,12 +108,12 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
         {administrativeReview}
-          <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 grid grid-cols-[0.65fr_1.7fr_1.55fr_0.8fr] gap-0.5 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
               aria-pressed={activeTab === "ALL"}
               onClick={() => onTabChange("ALL")}
-              className={activeTab === "ALL" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
+              className={activeTab === "ALL" ? "min-w-0 whitespace-nowrap rounded-full bg-[#0A9090] px-1 py-2 text-[10px] leading-tight font-semibold text-white shadow-sm" : "min-w-0 whitespace-nowrap rounded-full px-1 py-2 text-[10px] leading-tight font-semibold text-black/55 transition hover:bg-white hover:text-black/75"}
             >
               Tudo
             </button>
@@ -122,7 +122,7 @@ export default function ChatConversationSidebar({
               type="button"
               aria-pressed={activeTab === "WAITING"}
               onClick={() => onTabChange("WAITING")}
-              className={activeTab === "WAITING" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
+              className={activeTab === "WAITING" ? "min-w-0 whitespace-nowrap rounded-full bg-[#0A9090] px-1 py-2 text-[10px] leading-tight font-semibold text-white shadow-sm" : "min-w-0 whitespace-nowrap rounded-full px-1 py-2 text-[10px] leading-tight font-semibold text-black/55 transition hover:bg-white hover:text-black/75"}
             >
               Aguardando{queueCounts ? ` (${queueCounts.waiting})` : ""}
             </button>
@@ -131,7 +131,7 @@ export default function ChatConversationSidebar({
               type="button"
               aria-pressed={activeTab === "IN_SERVICE"}
               onClick={() => onTabChange("IN_SERVICE")}
-              className={activeTab === "IN_SERVICE" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
+              className={activeTab === "IN_SERVICE" ? "min-w-0 whitespace-nowrap rounded-full bg-[#0A9090] px-1 py-2 text-[10px] leading-tight font-semibold text-white shadow-sm" : "min-w-0 whitespace-nowrap rounded-full px-1 py-2 text-[10px] leading-tight font-semibold text-black/55 transition hover:bg-white hover:text-black/75"}
             >
               Atendendo{queueCounts ? ` (${queueCounts.inService})` : ""}
             </button>
@@ -140,7 +140,7 @@ export default function ChatConversationSidebar({
               type="button"
               aria-pressed={activeTab === "GROUPS"}
               onClick={() => onTabChange("GROUPS")}
-              className={activeTab === "GROUPS" ? "min-w-0 rounded-lg bg-white px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-[#0A9090] shadow-sm" : "min-w-0 rounded-lg px-2 py-2 text-xs leading-tight font-bold uppercase tracking-normal text-black/45 transition hover:text-black/70"}
+              className={activeTab === "GROUPS" ? "min-w-0 whitespace-nowrap rounded-full bg-[#0A9090] px-1 py-2 text-[10px] leading-tight font-semibold text-white shadow-sm" : "min-w-0 whitespace-nowrap rounded-full px-1 py-2 text-[10px] leading-tight font-semibold text-black/55 transition hover:bg-white hover:text-black/75"}
             >
               Grupos
             </button>
