@@ -108,7 +108,7 @@ export default function ChatConversationSidebar({
           Conversas
         </h2>
         {administrativeReview}
-          <div className="mt-4 grid grid-cols-[0.7fr_1.55fr_1.45fr_0.9fr] gap-0.5 rounded-xl bg-[#f7f7f8] p-1">
+          <div className="mt-4 grid grid-cols-[0.65fr_1.7fr_1.55fr_0.8fr] gap-0.5 rounded-xl bg-[#f7f7f8] p-1">
             <button
               type="button"
               aria-pressed={activeTab === "ALL"}
