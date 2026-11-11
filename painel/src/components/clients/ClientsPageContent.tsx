@@ -140,6 +140,7 @@ function formatDate(
 
 function getResponsible(
   customer: CustomerRecord,
+  fallback = "Sem responsável",
 ) {
   const attendanceResponsible =
     customer.attendances[0]
@@ -152,7 +153,7 @@ function getResponsible(
     customer.responsible ||
     attendanceResponsible?.displayName ||
     attendanceResponsible?.name ||
-    "Sem responsável"
+    fallback
   );
 }
 
@@ -450,7 +451,7 @@ export default function ClientsPageContent() {
             customer.company,
             customer.city,
             customer.remoteJid,
-            getResponsible(customer),
+            getResponsible(customer, ""),
           ].some((value) =>
             value
               ?.toLocaleLowerCase(
