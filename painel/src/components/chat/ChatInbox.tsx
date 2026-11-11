@@ -193,6 +193,10 @@ function formatFileSize(size: number) {
 }
 
 function isGroupChat(chat: Chat) {
+  return chat.remoteJid.endsWith("@g.us");
+}
+
+function isGroupConversation(chat: Chat) {
   return [
     chat.remoteJid,
     chat.canonicalJid,
@@ -214,7 +218,7 @@ function matchesConversationTab(
   tab: ConversationListTab,
 ) {
   if (tab === "ALL") return true;
-  if (tab === "GROUPS") return isGroupChat(chat);
+  if (tab === "GROUPS") return isGroupConversation(chat);
   return getConversationQueue(chat) === tab;
 }
 
@@ -1649,11 +1653,11 @@ const loadContacts =
           }
           applyQueueCounts(data.counts);
           const page: Chat[] = data.items;
-          const queue = getOperationalQueueForTab(scope.tab);
-          if (offset === 0 && !scope.search.trim() && queue) {
+          const previewQueue = getOperationalQueueForTab(scope.tab);
+          if (offset === 0 && !scope.search.trim() && previewQueue) {
             firstPages = {
               ...data.queuePages,
-              [queue]: { items: page.slice(0, 30), hasMore: page.length > 30 || Boolean(data.hasMore) },
+              [previewQueue]: { items: page.slice(0, 30), hasMore: page.length > 30 || Boolean(data.hasMore) },
             };
           }
           items = [...items, ...page];
