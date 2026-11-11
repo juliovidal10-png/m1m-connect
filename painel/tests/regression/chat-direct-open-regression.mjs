@@ -22,7 +22,9 @@ let messageAvailable = true;
 let attendance = [];
 let calls = 0;
 let sectors = [{ sectorId: 'setor-a' }];
+let hiddenIds = [];
 const deps = {
+  '@/lib/hidden-customers': { hiddenCustomerIds: () => hiddenIds },
   '@/lib/conversation-queue': queueRules.exports,
   '@/services/auth/authorization.service': { authorizationService: {
     getCurrentUser: async () => ({ companyId, userId: 'atendente-a' }),
@@ -145,6 +147,12 @@ const separate = await request('queueCounts=1');
 assert.equal(separate.data.waiting, combined.data.counts.waiting);
 const noCounts = await request('queue=WAITING&offset=1');
 assert.equal(noCounts.data.counts, undefined, 'Additional pages do not calculate totals');
+hiddenIds = [customer.id];
+assert.equal((await request('queue=WAITING')).data.items.length, 0, 'Hidden record is absent from queues');
+assert.equal((await request('queueCounts=1')).data.waiting, 0, 'Queue totals match the visible records');
+assert.equal((await request('search=Cliente')).data.items.length, 0, 'Hidden record is absent from conversation search');
+hiddenIds = [];
+assert.equal((await request('queue=WAITING')).data.items.length, 1, 'Removing the setting restores visibility');
 
 const inbox = fs.readFileSync('src/components/chat/ChatInbox.tsx', 'utf8');
 const start = inbox.indexOf('  const resolveChatByRemoteJid =');

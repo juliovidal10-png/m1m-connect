@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { InvalidContactPhone } from '@/lib/contact-phone';
+import { hiddenCustomerIds } from '@/lib/hidden-customers';
 import {
   after,
   NextRequest,
@@ -50,10 +51,11 @@ export async function GET(
     const companyId =
       await getAuthenticatedCompanyId();
 
+    const hiddenIds = hiddenCustomerIds(companyId);
     const view = request.nextUrl.searchParams.get("view");
     if (view === "dashboard") {
       const statuses = await prisma.m1MCustomer.findMany({
-        where: { companyId },
+        where: { companyId, id: { notIn: hiddenIds } },
         select: { id: true, status: true },
       });
       return NextResponse.json(statuses, { headers: timing() });
@@ -82,8 +84,33 @@ export async function GET(
       );
     }
 
-    const customers =
-      await customerService.listCustomers({
+    const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
+    if (view === "lookup") {
+      const customers = await prisma.m1MCustomer.findMany({
+        where: {
+          companyId, id: { notIn: hiddenIds },
+          NOT: [{ remoteJid: { endsWith: "@g.us" } }, { remoteJid: { endsWith: "@newsletter" } }],
+        },
+        select: {
+          id: true, customerCode: true, remoteJid: true, name: true,
+          nameManuallySet: true, phone: true, contactPhone: true,
+        },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+      });
+      const presented = await enrichCustomerDisplayIdentities(companyId, customers, {
+        allowHistoryDiscovery: false,
+        deferHints: true,
+        deferProvider: task => after(async () => { await task; }),
+      });
+      const code = search?.replace(/^cliente\s*#?/i, "").replace(/^#/, "").replace(/^0+/, "");
+      return NextResponse.json(search ? presented.filter(customer =>
+        [customer.displayName, customer.name, customer.displayPhone, customer.phone, customer.contactPhone]
+          .some(value => value?.toLocaleLowerCase("pt-BR").includes(search)) ||
+        (code !== "" && String(customer.customerCode) === code),
+      ) : presented, { headers: timing() });
+    }
+
+    const customers = await customerService.listCustomers({
         companyId,
         search: null,
         status:
@@ -96,12 +123,8 @@ export async function GET(
           ),
       });
 
-    const hiddenContact = view === "contacts" ? process.env.M1M_CONTACTS_HIDDEN_CUSTOMER?.trim() : undefined;
-    const visibleCustomers = hiddenContact
-      ? customers.filter(customer => `${companyId}/${customer.id}` !== hiddenContact)
-      : customers;
-    const search = request.nextUrl.searchParams.get("search")?.trim().toLocaleLowerCase("pt-BR");
-    const presented = await enrichCustomerDisplayIdentities(companyId, visibleCustomers, search ? {} : {
+    const visibleCustomers = customers.filter(customer => !hiddenIds.includes(customer.id));
+    const presented = await enrichCustomerDisplayIdentities(companyId, visibleCustomers, {
       deferHints: true,
       deferProvider: task => after(async () => { await task; }),
     });

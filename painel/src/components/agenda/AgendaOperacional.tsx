@@ -413,6 +413,7 @@ export default function AgendaOperacional() {
           try {
             const params =
               new URLSearchParams({
+                view: "lookup",
                 search:
                   normalizedSearch,
               });
@@ -482,6 +483,7 @@ export default function AgendaOperacional() {
                   );
                 },
               );
+            if (controller.signal.aborted) return;
             setBulkCustomerResults(
               filteredCustomers.slice(
                 0,
@@ -900,7 +902,7 @@ export default function AgendaOperacional() {
     try {
       const customersResponse =
         await fetch(
-          "/api/customers",
+          "/api/customers?view=lookup",
           {
             cache: "no-store",
           },

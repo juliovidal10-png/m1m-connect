@@ -1,5 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { hiddenCustomerIds } from "@/lib/hidden-customers";
 import { confirmedCustomerPhone, formatConfirmedPhone } from "@/lib/customer-display-identity";
 
 export type CustomerData = {
@@ -616,7 +617,7 @@ export const customerRepository = {
       await prisma.m1MCustomer.findMany({
         where: {
           companyId,
-          ...(filters.customerIds ? { id: { in: filters.customerIds } } : {}),
+          id: { notIn: hiddenCustomerIds(companyId), ...(filters.customerIds ? { in: filters.customerIds } : {}) },
           ...(status &&
           status !== "TODOS"
             ? {
