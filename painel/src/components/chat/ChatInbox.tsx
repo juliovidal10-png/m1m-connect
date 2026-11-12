@@ -3113,6 +3113,7 @@ const loadContacts =
 
     setForwardMessage(null);
     setForwardSearch("");
+    setErrorMessage("");
   }
 
   async function forwardMessageToChat(
@@ -3277,9 +3278,14 @@ const loadContacts =
                 ? "ogg"
                 : "bin";
 
+        const reportedFileName =
+          typeof mediaData.fileName === "string"
+            ? mediaData.fileName.trim()
+            : "";
         const fileName =
-          mediaData.fileName ||
-          `encaminhado-${Date.now()}.${fallbackExtension}`;
+          /\.[a-z0-9]{2,8}$/i.test(reportedFileName)
+            ? reportedFileName
+            : `encaminhado-${Date.now()}.${fallbackExtension}`;
 
         const file =
           new File(
@@ -5817,6 +5823,15 @@ const loadContacts =
                     )
                   )}
                 </div>
+
+                {errorMessage && (
+                  <p
+                    role="alert"
+                    className="mx-4 mb-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700"
+                  >
+                    {errorMessage}
+                  </p>
+                )}
 
                 <div className="shrink-0 border-t border-black/10 px-5 py-3 text-center text-xs text-black/40">
                   {isForwarding

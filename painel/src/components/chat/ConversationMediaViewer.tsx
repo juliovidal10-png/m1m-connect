@@ -672,7 +672,6 @@ export default function ConversationMediaViewer({
             <button
               type="button"
               onClick={() => {
-                onClose();
                 onForward(
                   activeMessage,
                 );
