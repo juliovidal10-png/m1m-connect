@@ -319,12 +319,45 @@ export default function MessageContextMenu({
         );
       }
 
+      const historyResponse = await fetch(
+        `/api/chat/messages?remoteJid=${encodeURIComponent(
+          message.key.remoteJid,
+        )}`,
+        { cache: "no-store" },
+      );
+      const historyData = await historyResponse.json();
+
+      if (!historyResponse.ok) {
+        throw new Error(
+          historyData.error ||
+            "Não foi possível confirmar a mensagem editada.",
+        );
+      }
+
+      const confirmedMessage = Array.isArray(historyData)
+        ? historyData.find(
+            (item: ChatMessage) =>
+              (item.key?.id || item.id) === messageId,
+          )
+        : null;
+      const confirmedText = confirmedMessage
+        ? confirmedMessage.message?.conversation ||
+          confirmedMessage.message?.extendedTextMessage?.text ||
+          ""
+        : "";
+
+      if (confirmedText.trim() !== newText.trim()) {
+        throw new Error(
+          "A Evolution ainda não confirmou a alteração. A mensagem permaneceu como estava.",
+        );
+      }
+
       setIsOpen(false);
       onEdited(
         messageId,
         newText.trim(),
       );
-      onNotice("Mensagem editada.");
+      onNotice("Mensagem editada e confirmada.");
     } catch (error) {
       console.error(
         "Erro ao editar mensagem:",
