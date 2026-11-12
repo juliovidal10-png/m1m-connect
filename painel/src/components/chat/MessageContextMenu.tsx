@@ -303,6 +303,8 @@ export default function MessageContextMenu({
               message.key.id || message.id,
             remoteJid:
               message.key.remoteJid,
+            participant:
+              message.key.participant,
             text: newText.trim(),
           }),
         },
