@@ -134,7 +134,7 @@ export default function LoginPage() {
         className="relative hidden min-h-screen overflow-hidden bg-[#003b22] lg:flex lg:items-center lg:justify-center"
       >
         <img
-          src="/brand/centralizap-login-hero.jpg"
+          src="/brand/centralizap-login-hero.png"
           alt="Centralizap. Seu WhatsApp, sua equipe, tudo conectado."
           className="absolute inset-0 h-full w-full object-contain object-center"
         />
@@ -175,7 +175,7 @@ export default function LoginPage() {
                   setEmail(event.target.value);
                   setError(null);
                 }}
-                placeholder="seuemail@empresa.com.br"
+                placeholder="seu@email.com"
                 className="w-full rounded-xl border border-[#d8e3df] bg-[#fbfcfc] px-4 py-3.5 text-sm text-[#173b32] outline-none transition placeholder:text-[#9aa9a4] focus:border-[#0a9995] focus:bg-white focus:ring-4 focus:ring-[#0a9995]/10"
               />
             </label>
