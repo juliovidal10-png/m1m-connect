@@ -136,7 +136,7 @@ export default function LoginPage() {
         <img
           src="/brand/centralizap-login-hero.png"
           alt="Centralizap. Seu WhatsApp, sua equipe, tudo conectado."
-          className="absolute inset-0 h-full w-full object-contain object-center"
+          className="absolute inset-0 h-full w-full object-cover object-right"
         />
       </section>
 
