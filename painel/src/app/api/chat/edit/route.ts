@@ -29,11 +29,13 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       messageId?: unknown;
       remoteJid?: unknown;
+      participant?: unknown;
       text?: unknown;
     };
 
     const messageId = clean(body.messageId);
     const remoteJid = clean(body.remoteJid);
+    const participant = clean(body.participant);
     const text = clean(body.text);
 
     if (!messageId || !remoteJid || !text) {
@@ -132,6 +134,7 @@ export async function POST(request: Request) {
             id: messageId,
             remoteJid,
             fromMe: true,
+            ...(participant ? { participant } : {}),
           },
         }),
         cache: "no-store",
