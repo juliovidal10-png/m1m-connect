@@ -116,6 +116,36 @@ function getMessageId(
   return null;
 }
 
+function getMessageCacheIdentity(
+  message: unknown,
+  messageId: string,
+) {
+  if (!isRecord(message)) {
+    return encodeURIComponent(messageId);
+  }
+
+  const key =
+    isRecord(message.key)
+      ? message.key
+      : null;
+
+  const identity = [
+    messageId,
+    key?.remoteJid,
+    key?.remoteJidAlt,
+    key?.participant,
+    key?.fromMe === true ? "1" : "0",
+    message.id,
+    message.messageTimestamp,
+  ];
+
+  return identity
+    .map((part) =>
+      encodeURIComponent(String(part ?? "")),
+    )
+    .join(":");
+}
+
 function saveInCache(
   cacheKey: string,
   data: CachedMediaResponse,
@@ -318,9 +348,13 @@ export async function POST(
       const companyId=await getAuthenticatedCompanyId();
       if(await isDeletedOrPendingMessage(companyId,instanceName,messageId))return NextResponse.json({error:"Esta mensagem foi excluída ou está separada para revisão administrativa."},{status:410});
     }
-    const cacheKey =
+    const cacheIdentity =
       messageId
-        ? `${instanceName}:${messageId}:${body.convertToMp4 ? "mp4" : "original"}`
+        ? getMessageCacheIdentity(body.message, messageId)
+        : null;
+    const cacheKey =
+      cacheIdentity
+        ? `${instanceName}:${cacheIdentity}:${body.convertToMp4 ? "mp4" : "original"}`
         : null;
 
     if (cacheKey) {
