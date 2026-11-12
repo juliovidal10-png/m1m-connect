@@ -345,10 +345,11 @@ async function postWithoutDeletionGuard(
       fileBuffer.toString("base64");
 
     const normalizedNumber =
-      remoteJid
-        .replace("@s.whatsapp.net", "")
-        .replace("@g.us", "")
-        .trim();
+      remoteJid.endsWith("@g.us")
+        ? remoteJid
+        : remoteJid
+            .replace("@s.whatsapp.net", "")
+            .trim();
 
     const evolutionPayload = {
       number: normalizedNumber,
@@ -381,6 +382,7 @@ async function postWithoutDeletionGuard(
           evolutionPayload,
         ),
         cache: "no-store",
+        signal: AbortSignal.timeout(60_000),
       },
     );
 
@@ -434,7 +436,7 @@ async function postWithoutDeletionGuard(
         {
           error:
             evolutionMessage ||
-            `A Evolution recusou o arquivo ${fileName}.`,
+            "A Evolution recusou o envio da mídia.",
           evolutionStatus:
             response.status,
           details:
@@ -527,14 +529,19 @@ async function postWithoutDeletionGuard(
       error,
     );
 
+    const timedOut =
+      error instanceof Error &&
+      error.name === "TimeoutError";
+
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
+        error: timedOut
+          ? "A Evolution demorou para confirmar o envio. Verifique a conversa de destino antes de tentar novamente."
+          : error instanceof Error
             ? error.message
             : "Erro interno ao enviar o arquivo.",
       },
-      { status: 500 },
+      { status: timedOut ? 504 : 500 },
     );
   }
 }
