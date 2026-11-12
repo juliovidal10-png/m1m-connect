@@ -883,7 +883,7 @@ export default function OnboardingPage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#171717]">
-            Vamos preparar o M1M Connect
+            Vamos preparar a Centralizap
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-6 text-black/50">
@@ -921,7 +921,7 @@ export default function OnboardingPage() {
 
             <h2 className="mt-1 text-xl font-bold text-[#171717]">
               {currentStep === 0
-                ? "Bem-vindo ao M1M Connect"
+                ? "Bem-vindo à Centralizap"
                 : currentStep === 1
                   ? "Dados da empresa"
                   : currentStep === 2
@@ -1100,7 +1100,7 @@ export default function OnboardingPage() {
                   <div>
                     <h3 className="text-lg font-bold text-[#171717]">Colaboradores da empresa</h3>
                     <p className="mt-1 text-sm leading-6 text-black/50">
-                      Confira quem já está cadastrado e adicione os colaboradores que usarão o M1M Connect.
+                      Confira quem já está cadastrado e adicione os colaboradores que usarão a Centralizap.
                     </p>
                   </div>
                   <button type="button" onClick={() => {
@@ -1641,7 +1641,7 @@ export default function OnboardingPage() {
                   </h3>
                   <p className="mt-1 max-w-3xl text-sm leading-6 text-black/50">
                     Faça a leitura do QR Code com o WhatsApp que será usado no atendimento.
-                    Depois da conexão, o M1M Connect reconhecerá o número automaticamente.
+                    Depois da conexão, a Centralizap reconhecerá o número automaticamente.
                   </p>
                 </div>
 
@@ -1777,7 +1777,7 @@ export default function OnboardingPage() {
                     Atendimento com inteligência artificial
                   </h3>
                   <p className="mt-1 max-w-3xl text-sm leading-6 text-black/50">
-                    A inteligência do M1M Connect já utiliza as informações da empresa,
+                    A inteligência da Centralizap já utiliza as informações da empresa,
                     dos setores e da equipe que você configurou nas etapas anteriores.
                     Aqui você decide apenas se o atendimento automático ficará ativo.
                   </p>
@@ -1827,7 +1827,7 @@ export default function OnboardingPage() {
 
                             <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">
                               {aiEnabled
-                                ? "A IA poderá atender os clientes usando somente as informações configuradas no M1M Connect."
+                                ? "A IA poderá atender os clientes usando somente as informações configuradas na Centralizap."
                                 : "A plataforma continuará disponível para atendimento humano, mas a IA não responderá automaticamente."}
                             </p>
                           </div>
@@ -2016,7 +2016,7 @@ export default function OnboardingPage() {
                     </div>
                     <p className="mt-2 text-sm leading-5 text-black/45">
                       {whatsAppStatus?.state === "CONNECTED"
-                        ? "Número conectado ao M1M Connect."
+                        ? "Número conectado à Centralizap."
                         : "Conexão poderá ser concluída nas configurações."}
                     </p>
                   </div>
@@ -2057,7 +2057,7 @@ export default function OnboardingPage() {
                     Ao finalizar
                   </p>
                   <p className="mt-1 text-sm leading-6 text-black/50">
-                    O M1M Connect encerrará esta configuração inicial e abrirá a plataforma normalmente.
+                    A Centralizap encerrará esta configuração inicial e abrirá a plataforma normalmente.
                   </p>
                 </div>
 

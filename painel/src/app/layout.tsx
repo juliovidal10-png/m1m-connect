@@ -16,19 +16,19 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://connect.marketing1minuto.com"),
-  title: "M1M Connect",
+  title: "Centralizap",
   description: "Conecte. Atenda. Cres\u00e7a.",
   openGraph: {
-    title: "M1M Connect",
+    title: "Centralizap",
     description: "Conecte. Atenda. Cres\u00e7a.",
     url: "https://connect.marketing1minuto.com",
-    siteName: "M1M Connect",
+    siteName: "Centralizap",
     images: [
       {
         url: "/m1m-connect-og.png",
         width: 1200,
         height: 630,
-        alt: "M1M Connect - Conecte. Atenda. Cres\u00e7a.",
+        alt: "Centralizap - Conecte. Atenda. Cres\u00e7a.",
       },
     ],
     locale: "pt_BR",
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "M1M Connect",
+    title: "Centralizap",
     description: "Conecte. Atenda. Cres\u00e7a.",
     images: ["/m1m-connect-og.png"],
   },

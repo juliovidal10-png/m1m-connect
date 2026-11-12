@@ -2624,7 +2624,7 @@ setCreatingCompany(
                 </h1>
 
                 <p className="mt-1 text-sm text-black/45">
-                  Gestão administrativa do M1M Connect.
+                  Gestão administrativa da Centralizap.
                 </p>
               </div>
             </div>
@@ -2652,7 +2652,7 @@ setCreatingCompany(
                 </h2>
 
                 <p className="mt-2 text-sm text-black/45">
-                  Acompanhe os clientes cadastrados no M1M Connect.
+                  Acompanhe os clientes cadastrados na Centralizap.
                 </p>
               </div>
 
@@ -5347,7 +5347,7 @@ setCreatingCompany(
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-black/50">
-            Área exclusiva para administração das empresas do M1M Connect.
+            Área exclusiva para administração das empresas da Centralizap.
           </p>
 
           {!configured ? (

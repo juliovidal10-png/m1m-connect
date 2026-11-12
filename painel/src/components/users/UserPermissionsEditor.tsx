@@ -248,7 +248,7 @@ export default function UserPermissionsEditor({
 
               <p className="mt-2 text-xs leading-5 text-teal-700">
                 Esta área faz parte da infraestrutura
-                inteligente do M1M Connect.
+                inteligente da Centralizap.
               </p>
 
               <p className="mt-2 text-xs leading-5 text-teal-700">
@@ -308,7 +308,7 @@ export default function UserPermissionsEditor({
 
         <p className="mt-2 text-xs leading-5 text-teal-700">
           Esta área faz parte da infraestrutura
-          inteligente do M1M Connect.
+          inteligente da Centralizap.
         </p>
 
         <p className="mt-2 text-xs leading-5 text-teal-700">

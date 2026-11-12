@@ -218,8 +218,8 @@ export default function PrimeiroAcessoPage() {
           <section className="hidden min-h-[640px] flex-col justify-between bg-[#171717] p-10 text-white lg:flex xl:p-12">
             <div>
               <img
-                src="/m1m-connect-login-logo.png"
-                alt="M1M Connect"
+                src="/brand/centralizap-login-logo-light.png"
+                alt="Centralizap"
                 className="block h-auto w-[320px] max-w-full object-contain object-left sm:w-[345px]"
               />
 
@@ -241,7 +241,7 @@ export default function PrimeiroAcessoPage() {
             </div>
 
             <p className="text-xs text-white/30">
-              M1M Connect • Plataforma de atendimento
+              Centralizap • Plataforma de atendimento
             </p>
           </section>
 
@@ -260,7 +260,7 @@ export default function PrimeiroAcessoPage() {
 
                 <p className="mt-3 text-sm leading-6 text-black/45">
                   {success
-                    ? "Seu acesso ao M1M Connect está pronto."
+                    ? "Seu acesso à Centralizap está pronto."
                     : "Crie uma senha com pelo menos 8 caracteres para concluir seu primeiro acesso."}
                 </p>
               </div>
@@ -281,7 +281,7 @@ export default function PrimeiroAcessoPage() {
                     href="/login"
                     className="mt-6 flex w-full items-center justify-center rounded-2xl bg-[#171717] px-5 py-3.5 text-sm font-bold text-white transition hover:bg-black"
                   >
-                    Entrar no M1M Connect
+                    Entrar na Centralizap
                   </a>
                 </div>
               ) : !token || !tokenValid ? (

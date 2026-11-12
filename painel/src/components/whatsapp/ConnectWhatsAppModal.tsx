@@ -149,7 +149,7 @@ export default function ConnectWhatsAppModal({
             />
 
             <p className="mt-2 text-xs text-black/40">
-              Esse nome aparecerá somente dentro do M1M Connect.
+              Esse nome aparecerá somente dentro da Centralizap.
             </p>
 
             {errorMessage && (
