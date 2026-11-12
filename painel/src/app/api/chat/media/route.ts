@@ -194,6 +194,7 @@ async function recoverMedia(
           }),
         cache:
           "no-store",
+        signal: AbortSignal.timeout(45_000),
       },
     );
 
@@ -261,12 +262,17 @@ if (!response.ok) {
           data.base64,
       },
     };
-  } catch {
+  } catch (error) {
+    const timedOut =
+      error instanceof Error &&
+      error.name === "TimeoutError";
+
     return {
       success: false,
-      status: 500,
-      error:
-        "Erro interno ao recuperar a mídia.",
+      status: timedOut ? 504 : 500,
+      error: timedOut
+        ? "A Evolution demorou para recuperar a mídia."
+        : "Erro interno ao recuperar a mídia.",
     };
   }
 }
