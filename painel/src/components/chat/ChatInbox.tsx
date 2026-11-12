@@ -4978,7 +4978,7 @@ const loadContacts =
                 <button
                   type="button"
                   onClick={() =>
-                    scrollToBottom("smooth")
+                    scrollToBottom("auto")
                   }
                   aria-label="Ir para a mensagem mais recente"
                   title="Ir para a mensagem mais recente"
