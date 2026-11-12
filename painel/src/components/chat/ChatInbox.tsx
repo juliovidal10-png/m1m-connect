@@ -3283,7 +3283,7 @@ const loadContacts =
             ? mediaData.fileName.trim()
             : "";
         const fileName =
-          /\\.[a-z0-9]{2,8}$/i.test(reportedFileName)
+          /\.[a-z0-9]{2,8}$/i.test(reportedFileName)
             ? reportedFileName
             : `encaminhado-${Date.now()}.${fallbackExtension}`;
 
