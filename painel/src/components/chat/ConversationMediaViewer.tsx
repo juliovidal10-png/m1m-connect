@@ -21,6 +21,26 @@ type ConversationMediaViewerProps = {
   ) => void;
 };
 
+function getMediaCacheKey(
+  message: ChatMessage,
+  index: number,
+) {
+  return [
+    message.key.remoteJid,
+    message.key.remoteJidAlt,
+    message.key.id,
+    message.key.participant,
+    message.key.fromMe ? "1" : "0",
+    message.id,
+    message.messageTimestamp,
+    index,
+  ]
+    .map((part) =>
+      encodeURIComponent(String(part ?? "")),
+    )
+    .join(":");
+}
+
 function MediaContent({
   message,
   mediaCacheKey,
@@ -165,7 +185,7 @@ function GalleryThumbnail({
   const { elementRef, shouldLoad } = useNearViewport("0px");
   const loadImage = message.messageType === "imageMessage" && shouldLoad;
   const { media, loading, error } = useMediaLoader(
-    loadImage ? `${message.id}:${index}` : undefined,
+    loadImage ? getMediaCacheKey(message, index) : undefined,
     loadImage ? message : null,
   );
 
@@ -776,9 +796,9 @@ export default function ConversationMediaViewer({
         </button>
 
           <MediaContent
-            key={`${activeMessage.id}:${activeIndex}`}
+            key={getMediaCacheKey(activeMessage, activeIndex)}
             message={activeMessage}
-            mediaCacheKey={`${activeMessage.id}:${activeIndex}`}
+            mediaCacheKey={getMediaCacheKey(activeMessage, activeIndex)}
             zoom={zoom}
             offsetY={offsetY}
             isDragging={
