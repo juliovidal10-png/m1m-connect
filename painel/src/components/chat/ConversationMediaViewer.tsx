@@ -60,8 +60,11 @@ function findGalleryMessageIndex(
       (item.key.participant ?? "") ===
         (target.key.participant ?? "");
 
-    if (sameWhatsappKey) {
-      return item.messageTimestamp === target.messageTimestamp;
+    if (
+      sameWhatsappKey &&
+      item.messageTimestamp === target.messageTimestamp
+    ) {
+      return true;
     }
 
     return (
@@ -330,8 +333,7 @@ export default function ConversationMediaViewer({
     getMediaCacheKey(currentMessage, 0);
   const initialMatchIndex =
     findGalleryMessageIndex(gallery, currentMessage);
-  const initialIndex =
-    Math.max(0, initialMatchIndex);
+  const initialIndex = initialMatchIndex;
 
   const [activeGalleryIndex, setActiveGalleryIndex] =
     useState(initialIndex);
@@ -460,7 +462,7 @@ export default function ConversationMediaViewer({
       : currentMessage;
 
     activeMessageRef.current = openedMessage;
-    setActiveGalleryIndex(openedIndex >= 0 ? openedIndex : 0);
+    setActiveGalleryIndex(openedIndex);
 
     resetView();
   }, [
