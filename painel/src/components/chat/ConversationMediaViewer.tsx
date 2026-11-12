@@ -41,6 +41,38 @@ function getMediaCacheKey(
     .join(":");
 }
 
+function findGalleryMessageIndex(
+  gallery: ChatMessage[],
+  target: ChatMessage,
+) {
+  const exactIndex = gallery.indexOf(target);
+  if (exactIndex >= 0) {
+    return exactIndex;
+  }
+
+  return gallery.findIndex((item) => {
+    const sameWhatsappKey =
+      Boolean(item.key.id) &&
+      Boolean(target.key.id) &&
+      item.key.id === target.key.id &&
+      item.key.remoteJid === target.key.remoteJid &&
+      item.key.fromMe === target.key.fromMe &&
+      (item.key.participant ?? "") ===
+        (target.key.participant ?? "");
+
+    if (sameWhatsappKey) {
+      return item.messageTimestamp === target.messageTimestamp;
+    }
+
+    return (
+      item.id === target.id &&
+      item.key.remoteJid === target.key.remoteJid &&
+      item.key.fromMe === target.key.fromMe &&
+      item.messageTimestamp === target.messageTimestamp
+    );
+  });
+}
+
 function MediaContent({
   message,
   mediaCacheKey,
@@ -294,15 +326,12 @@ export default function ConversationMediaViewer({
     [galleryMessages],
   );
 
+  const currentMessageIdentity =
+    getMediaCacheKey(currentMessage, 0);
+  const initialMatchIndex =
+    findGalleryMessageIndex(gallery, currentMessage);
   const initialIndex =
-    Math.max(
-      0,
-      gallery.findIndex(
-        (item) =>
-          item.id ===
-          currentMessage.id,
-      ),
-    );
+    Math.max(0, initialMatchIndex);
 
   const [activeGalleryIndex, setActiveGalleryIndex] =
     useState(initialIndex);
@@ -424,9 +453,8 @@ export default function ConversationMediaViewer({
       return;
     }
 
-    const openedIndex = gallery.findIndex(
-      (item) => item.id === currentMessage.id,
-    );
+    const openedIndex =
+      findGalleryMessageIndex(gallery, currentMessage);
     const openedMessage = openedIndex >= 0
       ? gallery[openedIndex]
       : currentMessage;
@@ -437,7 +465,7 @@ export default function ConversationMediaViewer({
     resetView();
   }, [
     isOpen,
-    currentMessage.id,
+    currentMessageIdentity,
   ]);
 
   useEffect(() => {
