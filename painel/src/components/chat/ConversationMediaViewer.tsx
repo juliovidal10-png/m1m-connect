@@ -776,7 +776,7 @@ export default function ConversationMediaViewer({
         </button>
 
           <MediaContent
-            key={activeMessage.id}
+            key={`${activeMessage.id}:${activeIndex}`}
             message={activeMessage}
             mediaCacheKey={`${activeMessage.id}:${activeIndex}`}
             zoom={zoom}
