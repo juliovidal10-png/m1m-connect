@@ -4,6 +4,12 @@
 
 .compactLogo {
   display: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  background-image: url("/brand/centralizap-sidebar-logo.png");
+  background-repeat: no-repeat;
+  background-position: -19.17px center;
+  background-size: 200px 50px;
 }
 
 @media (min-width: 48rem) and (hover: hover) and (pointer: fine) {

@@ -471,11 +471,11 @@ export default function Sidebar() {
         </button>
       <div className="flex h-[94px] w-full shrink-0 items-center justify-center px-4">
         <img
-          src="/m1m-sidebar-logo.svg"
-          alt="M1M Connect"
-          className={`${styles.fullLogo} block h-auto w-full max-w-[256px] object-contain object-center`}
+          src="/brand/centralizap-sidebar-logo.png"
+          alt="Centralizap"
+          className={`${styles.fullLogo} block h-auto w-full max-w-[192px] object-contain object-center md:max-w-[256px]`}
         />
-        <span aria-hidden="true" className={`${styles.compactLogo} text-sm font-bold text-[#0A9090]`}>M1M</span>
+        <span aria-hidden="true" className={styles.compactLogo} />
       </div>
       <div className="h-px w-full shrink-0 bg-[#d9dde2]" aria-hidden="true" />
 
