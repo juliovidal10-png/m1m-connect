@@ -66,6 +66,16 @@ export default function AttendanceActions({
     useState("");
 
   useEffect(() => {
+    if (!error) return;
+
+    const timer = window.setTimeout(() => {
+      setError("");
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
     let cancelled = false;
 
     Promise.all([
@@ -285,9 +295,21 @@ export default function AttendanceActions({
       let response = await requestFinish();
       let data = await response.json().catch(() => null);
 
-      // Este conflito é retornado antes de executar a finalização.
-      if (response.status === 409 && data?.code === "CONVERSATION_BUSY") {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
+      const isRetryableConflict = (code: unknown) =>
+        code === "CONVERSATION_BUSY" ||
+        code === "ATTENDANCE_LOCK_TIMEOUT";
+
+      // Esses conflitos acontecem antes de a finalização ser executada.
+      for (
+        let retry = 0;
+        retry < 2 &&
+        response.status === 409 &&
+        isRetryableConflict(data?.code);
+        retry += 1
+      ) {
+        await new Promise<void>((resolve) =>
+          window.setTimeout(resolve, 400 * (retry + 1)),
+        );
         response = await requestFinish();
         data = await response.json().catch(() => null);
       }
