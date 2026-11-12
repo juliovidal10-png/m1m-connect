@@ -50,11 +50,11 @@ export const passwordResetEmailService = {
       from,
       to: input.email,
       subject:
-        "Redefinição de senha — M1M Connect",
+        "Redefinição de senha — Centralizap",
       html: `
         <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#171717;line-height:1.6">
           <h2 style="margin-bottom:16px">Redefinição de senha</h2>
-          <p>Recebemos uma solicitação para redefinir a senha da sua conta no M1M Connect.</p>
+          <p>Recebemos uma solicitação para redefinir a senha da sua conta na Centralizap.</p>
           <p style="margin:28px 0">
             <a
               href="${safeUrl}"
@@ -65,11 +65,11 @@ export const passwordResetEmailService = {
           </p>
           <p>Este link é válido por ${input.expiresInMinutes} minutos e pode ser utilizado apenas uma vez.</p>
           <p>Se você não solicitou essa alteração, ignore este e-mail.</p>
-          <p style="margin-top:28px;color:#666;font-size:13px">M1M Connect</p>
+          <p style="margin-top:28px;color:#666;font-size:13px">Centralizap</p>
         </div>
       `,
       text:
-        `Redefinição de senha — M1M Connect\n\n` +
+        `Redefinição de senha — Centralizap\n\n` +
         `Acesse o link abaixo para criar uma nova senha:\n${input.resetUrl}\n\n` +
         `O link é válido por ${input.expiresInMinutes} minutos e pode ser usado apenas uma vez.\n\n` +
         `Se você não solicitou essa alteração, ignore este e-mail.`,

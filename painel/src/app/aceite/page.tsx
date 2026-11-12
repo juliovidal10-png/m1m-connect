@@ -50,8 +50,8 @@ export default function AceitePage() {
         <section className="rounded-[30px] border border-black/[0.06] bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:p-8">
           <div className="flex justify-center">
             <img
-              src="/m1m-connect-aceite-logo.png"
-              alt="M1M Connect"
+              src="/brand/centralizap-sidebar-logo.png"
+              alt="Centralizap"
               className="h-auto w-[235px] max-w-full object-contain"
             />
           </div>
@@ -62,7 +62,7 @@ export default function AceitePage() {
             </p>
 
             <h1 className="mt-3 text-3xl font-black tracking-[-0.03em]">
-              Termos para utilização do M1M Connect
+              Termos para utilização da Centralizap
             </h1>
 
             <p className="mx-auto mt-3 max-w-[380px] text-sm leading-6 text-black/50">
@@ -113,7 +113,7 @@ export default function AceitePage() {
             />
 
             <span className="text-sm leading-6 text-black/65">
-              Li e aceito os Termos de Uso, a Política de Privacidade/LGPD e as condições de utilização do WhatsApp no M1M Connect.
+              Li e aceito os Termos de Uso, a Política de Privacidade/LGPD e as condições de utilização do WhatsApp na Centralizap.
             </span>
           </label>
 

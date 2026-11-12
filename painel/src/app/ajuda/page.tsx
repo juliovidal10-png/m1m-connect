@@ -18,7 +18,7 @@ const categories: FaqCategory[] = [
     title: "Acesso",
     items: [
       {
-        question: "Como funciona o primeiro acesso ao M1M Connect?",
+        question: "Como funciona o primeiro acesso à Centralizap?",
         answer: <>Depois que o usuário é cadastrado, o gestor pode gerar um convite individual em <strong>Configurações → Usuários e Permissões</strong>. O colaborador abre o link, cria a própria senha e depois acessa normalmente pela tela de login. O convite é válido por 24 horas, e a geração de um novo convite invalida o anterior.</>,
       },
       {
@@ -27,7 +27,7 @@ const categories: FaqCategory[] = [
       },
       {
         question: "Meu período de teste terminou. O que acontece?",
-        answer: <>Quando o período de teste termina, o acesso operacional da empresa ao M1M Connect é bloqueado, mas os dados da empresa permanecem preservados. Entre em contato com o suporte da M1M para verificar a continuidade e a reativação do acesso.</>,
+        answer: <>Quando o período de teste termina, o acesso operacional da empresa à Centralizap é bloqueado, mas os dados da empresa permanecem preservados. Entre em contato com o suporte da M1M para verificar a continuidade e a reativação do acesso.</>,
       },
       {
         question: "Minha empresa foi reativada. Preciso criar uma nova conta ou senha?",
@@ -56,7 +56,7 @@ const categories: FaqCategory[] = [
       },
       {
         question: "Os colaboradores precisam conectar o próprio WhatsApp?",
-        answer: <>Não. A conexão utilizada pelo M1M Connect é o <strong>WhatsApp da empresa</strong>. Os colaboradores acessam a plataforma com seus próprios usuários e senhas.</>,
+        answer: <>Não. A conexão utilizada pela Centralizap é o <strong>WhatsApp da empresa</strong>. Os colaboradores acessam a plataforma com seus próprios usuários e senhas.</>,
       },
       {
         question: "Como desconectar ou reconectar o WhatsApp?",
@@ -177,7 +177,7 @@ const categories: FaqCategory[] = [
       },
       {
         question: "O que acontece quando solicito um novo comprovante?",
-        answer: <>Ao utilizar <strong>Solicitar novo</strong>, o M1M Connect registra a solicitação de um novo comprovante e envia ao cliente a mensagem correspondente pelo WhatsApp.</>,
+        answer: <>Ao utilizar <strong>Solicitar novo</strong>, a Centralizap registra a solicitação de um novo comprovante e envia ao cliente a mensagem correspondente pelo WhatsApp.</>,
       },
       {
         question: "Analisar um comprovante envia confirmação automática ao cliente?",

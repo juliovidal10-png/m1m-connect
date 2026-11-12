@@ -1318,7 +1318,7 @@ export default function AgendaOperacional() {
       <div className="agenda-print-report mx-auto hidden w-full max-w-[1500px] print:block">
         <div className="border-b border-black pb-4">
           <p className="text-xs font-bold uppercase tracking-[0.14em]">
-            M1M Connect
+            Centralizap
           </p>
 
           <h1 className="mt-1 text-2xl font-bold">

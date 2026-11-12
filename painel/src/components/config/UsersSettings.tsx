@@ -490,7 +490,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-black/55">
             Cadastre e gerencie os colaboradores que poderão acessar e utilizar
-            o M1M Connect.
+            a Centralizap.
           </p>
         </div>
 
@@ -678,7 +678,7 @@ Essa ação remove o acesso do colaborador e não poderá ser desfeita.`,
 
           {conversationDeletionAvailable&&<label className="mt-5 flex items-start gap-3 rounded-2xl border border-red-100 p-4">
             <input type="checkbox" disabled={isSaving} checked={form.permissions.includes("DELETE_CONVERSATIONS")} onChange={event=>updateField("permissions",event.target.checked?[...form.permissions.filter(p=>p!=="DELETE_CONVERSATIONS"),"DELETE_CONVERSATIONS"]:form.permissions.filter(p=>p!=="DELETE_CONVERSATIONS"))} className="mt-1 h-4 w-4"/>
-            <span><strong className="block text-sm">Excluir conversas no M1M Connect</strong><span className="text-sm text-black/60">Concessão explícita, inclusive para administradores. Permite excluir o histórico local de uma conversa; não apaga mensagens no WhatsApp nem libera limpeza geral.</span></span>
+            <span><strong className="block text-sm">Excluir conversas na Centralizap</strong><span className="text-sm text-black/60">Concessão explícita, inclusive para administradores. Permite excluir o histórico local de uma conversa; não apaga mensagens no WhatsApp nem libera limpeza geral.</span></span>
           </label>}
           <div className="mt-6 flex justify-end">
             <button

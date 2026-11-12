@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-black/50">
-            Informe o e-mail cadastrado no M1M Connect.
+            Informe o e-mail cadastrado na Centralizap.
           </p>
 
           <form

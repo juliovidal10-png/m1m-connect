@@ -264,7 +264,7 @@ export default function ConfiguracoesPage() {
                   </p>
 
                   <h2 className="mt-2 text-xl font-bold text-[#171717]">
-                    Ajuste o M1M Connect sem complicação
+                    Ajuste a Centralizap sem complicação
                   </h2>
 
                   <p className="mt-2 max-w-3xl text-sm leading-6 text-black/50">

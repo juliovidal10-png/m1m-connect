@@ -155,8 +155,8 @@ export default function CompanyAccessGate({
         <section className="w-full max-w-[440px] rounded-[24px] border border-black/10 bg-white px-6 py-6 shadow-[0_14px_38px_rgba(15,23,42,0.09)]">
           <div className="flex justify-center">
             <img
-              src="/brand/m1m-connect-logo.svg"
-              alt="M1M Connect"
+              src="/brand/centralizap-sidebar-logo.png"
+              alt="Centralizap"
               className="h-auto w-full max-w-[210px] object-contain"
             />
           </div>
@@ -177,7 +177,7 @@ export default function CompanyAccessGate({
             <p className="mx-auto mt-3 max-w-[380px] text-left text-[13px] leading-5 text-[#5f6877]">
               Seus clientes, conversas, configurações, setores e demais dados
               continuam preservados. Assim que a conta for reativada pela
-              M1M Connect, a plataforma volta a funcionar normalmente.
+              Centralizap, a plataforma volta a funcionar normalmente.
             </p>
           </div>
 
@@ -204,7 +204,7 @@ export default function CompanyAccessGate({
 
             <div className="min-w-0 text-left">
               <p className="text-[14px] font-bold text-[#111827]">
-                Fale com a M1M Connect para reativar seu acesso.
+                Fale com a Centralizap para reativar seu acesso.
               </p>
 
               <a

@@ -211,7 +211,7 @@ export default function WhatsAppConnectionSettings({
   }, [apiBaseUrl, qrCode, status?.state]);
   async function disconnectWhatsApp() {
     const confirmed = window.confirm(
-      "Deseja realmente desconectar este WhatsApp do M1M Connect?",
+      "Deseja realmente desconectar este WhatsApp da Centralizap?",
     );
 
     if (!confirmed) return;
@@ -260,7 +260,7 @@ export default function WhatsAppConnectionSettings({
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-black/50">
-            Conecte o número da empresa ao M1M Connect escaneando o QR Code pelo WhatsApp.
+            Conecte o número da empresa à Centralizap escaneando o QR Code pelo WhatsApp.
           </p>
 
           {backHref ? (
@@ -344,7 +344,7 @@ export default function WhatsAppConnectionSettings({
                   </h2>
 
                   <p className="mt-2 text-sm leading-6 text-black/45">
-                    A conexão está ativa e pronta para receber e enviar mensagens pelo M1M Connect.
+                    A conexão está ativa e pronta para receber e enviar mensagens pela Centralizap.
                   </p>
 
                   <button
