@@ -3396,7 +3396,10 @@ const loadContacts =
   ) {
     setMessages((currentMessages) =>
       currentMessages.map((message) => {
-        if (message.id !== messageId) {
+        if (
+          message.id !== messageId &&
+          message.key?.id !== messageId
+        ) {
           return message;
         }
 
