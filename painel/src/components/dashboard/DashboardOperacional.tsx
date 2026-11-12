@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import Link from "next/link";
+import { useAuthenticatedUser } from "@/hooks/useAuthenticatedUser";
 
 type CustomerRecord = {
   id: string;
@@ -96,6 +97,24 @@ function formatTime(
       minute: "2-digit",
     },
   ).format(value);
+}
+
+function getGreeting(
+  localTime: Date | null,
+) {
+  if (!localTime) {
+    return "Olá";
+  }
+
+  const hour = localTime.getHours();
+
+  if (hour < 12) {
+    return "Bom dia";
+  }
+
+  return hour < 18
+    ? "Boa tarde"
+    : "Boa noite";
 }
 
 function getRemainingTrialDays(
@@ -384,6 +403,11 @@ function MetricCard({
 }
 
 export default function DashboardOperacional() {
+  const authenticatedUser =
+    useAuthenticatedUser();
+  const [localTime, setLocalTime] =
+    useState<Date | null>(null);
+
   const [
     data,
     setData,
@@ -613,6 +637,22 @@ export default function DashboardOperacional() {
       trialAccess?.trialEndsAt,
     );
 
+  useEffect(() => {
+    const updateLocalTime = () =>
+      setLocalTime(new Date());
+
+    updateLocalTime();
+    const timer = window.setInterval(
+      updateLocalTime,
+      60_000,
+    );
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const greeting =
+    getGreeting(localTime);
+
   const metrics =
     useMemo(() => {
       const now =
@@ -739,10 +779,10 @@ export default function DashboardOperacional() {
         <header className="flex min-w-0 flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold uppercase tracking-[0.15em] text-black/35">
-              Visão geral
+              Início
             </p>
             <h1 className="mt-1 text-2xl font-bold leading-tight text-[#171717]">
-              Dashboard Operacional
+              {greeting}, {authenticatedUser?.name ?? "usuário"}
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-black/50">
               O que precisa de atenção na empresa agora.

@@ -13,6 +13,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import CentralPendencias from "./CentralPendencias";
+import {
+  getUserInitials,
+  useAuthenticatedUser,
+} from "@/hooks/useAuthenticatedUser";
 import styles from "./Sidebar.module.css";
 
 type MenuItem = {
@@ -289,6 +293,8 @@ function isItemActive(
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const authenticatedUser =
+    useAuthenticatedUser();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [
@@ -465,7 +471,7 @@ export default function Sidebar() {
         <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-40 bg-black/30 md:hidden" />
       )}
       <div className={styles.slot}>
-      <aside id="m1m-sidebar-navigation" className={`${styles.panel} fixed inset-y-0 left-0 z-50 grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto] overflow-hidden border-r border-black/10 bg-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside id="m1m-sidebar-navigation" className={`${styles.panel} fixed inset-y-0 left-0 z-50 grid h-[100dvh] w-72 shrink-0 grid-rows-[94px_1px_minmax(0,1fr)_auto_auto_auto] overflow-hidden border-r border-black/10 bg-white transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <button type="button" aria-label="Fechar menu de navegacao" onClick={() => setMobileOpen(false)} className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-lg text-black/60 transition hover:bg-black/[0.04] hover:text-black md:hidden">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5"><path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
         </button>
@@ -661,6 +667,33 @@ export default function Sidebar() {
             handleAgendaSummaryChange
           }
         />
+      </div>
+      <div className={`${styles.profileFooter} flex min-w-0 items-center gap-3 border-t border-black/10 px-3 py-3`}>
+        <div
+          role="img"
+          aria-label={`Usuário autenticado: ${authenticatedUser?.name ?? "Usuário"}`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A9090] text-xs font-bold text-white"
+        >
+          {getUserInitials(
+            authenticatedUser?.name ?? "Usuário",
+          )}
+        </div>
+        <div className={`${styles.profileDetails} min-w-0 flex-1`}>
+          <p
+            title={authenticatedUser?.name ?? "Usuário"}
+            className="truncate text-xs font-semibold text-[#171717]"
+          >
+            {authenticatedUser?.name ?? "Usuário"}
+          </p>
+          {authenticatedUser?.email && (
+            <p
+              title={authenticatedUser.email}
+              className="mt-0.5 truncate text-[11px] text-black/50"
+            >
+              {authenticatedUser.email}
+            </p>
+          )}
+        </div>
       </div>
       </aside>
       </div>

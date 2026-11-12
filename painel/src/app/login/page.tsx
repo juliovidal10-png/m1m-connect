@@ -110,7 +110,7 @@ export default function LoginPage() {
         meResult.company
           ?.onboardingCompleted
       ) {
-        window.location.assign("/");
+        window.location.assign("/dashboard");
         return;
       }
 

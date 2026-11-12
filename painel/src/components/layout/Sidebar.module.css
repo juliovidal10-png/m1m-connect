@@ -12,6 +12,10 @@
   background-size: 200px 50px;
 }
 
+.profileFooter {
+  min-height: 68px;
+}
+
 @media (min-width: 48rem) and (hover: hover) and (pointer: fine) {
   .slot {
     display: block;
@@ -45,6 +49,15 @@
 
   .panel:not(:hover, :has(:focus-visible)) .compactLogo {
     display: block;
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) .profileDetails {
+    display: none;
+  }
+
+  .panel:not(:hover, :has(:focus-visible)) .profileFooter {
+    justify-content: center;
+    padding-inline: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
