@@ -1370,22 +1370,27 @@ export const conversationSyncService = {
               messageId,
             );
 
-          if (
-            !storedMessage?.authorType
-          ) {
+          const storedPayload = getRecord(
+            storedMessage?.rawPayload,
+          );
+          const hasLocalEdit =
+            getText(storedPayload?.m1mEditedText) !== null;
+
+          if (!storedMessage?.authorType && !hasLocalEdit) {
             return rawMessage;
           }
 
           return {
-            ...record,
-            m1mAuthor: {
-              type:
-                storedMessage.authorType,
-              id:
-                storedMessage.authorId,
-              name:
-                storedMessage.authorName,
-            },
+            ...(hasLocalEdit && storedPayload ? storedPayload : record),
+            ...(storedMessage?.authorType
+              ? {
+                  m1mAuthor: {
+                    type: storedMessage.authorType,
+                    id: storedMessage.authorId,
+                    name: storedMessage.authorName,
+                  },
+                }
+              : {}),
           };
         },
       );

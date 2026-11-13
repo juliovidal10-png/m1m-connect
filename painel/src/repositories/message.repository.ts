@@ -97,6 +97,28 @@ export const messageRepository = {
     });
   },
 
+  async updateEditedMessage(
+    companyId: string,
+    instanceName: string,
+    evolutionMessageId: string,
+    content: string,
+    rawPayload: Prisma.InputJsonValue,
+  ) {
+    return prisma.m1MMessage.update({
+      where: {
+        companyId_instanceName_evolutionMessageId: {
+          companyId,
+          instanceName,
+          evolutionMessageId,
+        },
+      },
+      data: {
+        content,
+        rawPayload,
+      },
+    });
+  },
+
   async setAuthorship(
     messageId: string,
     authorType: M1MMessageAuthorType,

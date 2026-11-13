@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { getMessageById } from "@/lib/evolution";
 import { companyRepository } from "@/repositories/company.repository";
+import { messageService } from "@/services/message.service";
+import type { Prisma } from "@/generated/prisma/client";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
@@ -13,6 +15,40 @@ function clean(value: unknown) {
   return typeof value === "string"
     ? value.trim()
     : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function makeEditedPayload(
+  storedPayload: unknown,
+  originalPayload: unknown,
+  text: string,
+): Prisma.InputJsonValue {
+  const source = isRecord(storedPayload)
+    ? storedPayload
+    : isRecord(originalPayload)
+      ? originalPayload
+      : {};
+  const payload = JSON.parse(JSON.stringify(source)) as Record<string, unknown>;
+  const originalMessage = isRecord(payload.message) ? payload.message : {};
+  const updatedMessage = { ...originalMessage };
+
+  if (typeof updatedMessage.conversation === "string") {
+    updatedMessage.conversation = text;
+  } else if (isRecord(updatedMessage.extendedTextMessage)) {
+    updatedMessage.extendedTextMessage = {
+      ...updatedMessage.extendedTextMessage,
+      text,
+    };
+  } else {
+    updatedMessage.conversation = text;
+  }
+
+  payload.message = updatedMessage;
+  payload.m1mEditedText = text;
+  return payload as Prisma.InputJsonValue;
 }
 
 export async function POST(request: Request) {
@@ -139,6 +175,26 @@ export async function POST(request: Request) {
       );
     }
 
+    const storedMessage = await messageService.getMessageByEvolutionId(
+      companyId,
+      instanceName,
+      messageId,
+    );
+
+    if (!storedMessage) {
+      return NextResponse.json(
+        { error: "Mensagem original não encontrada no histórico desta empresa." },
+        { status: 404 },
+      );
+    }
+
+    if (!storedMessage.fromMe) {
+      return NextResponse.json(
+        { error: "Só é possível editar mensagens enviadas por esta conta." },
+        { status: 403 },
+      );
+    }
+
     if (originalKey.fromMe !== true) {
       return NextResponse.json(
         { error: "Só é possível editar mensagens enviadas por esta conta." },
@@ -205,6 +261,31 @@ export async function POST(request: Request) {
             "Não foi possível editar a mensagem.",
         },
         { status: evolutionResponse.status },
+      );
+    }
+
+    try {
+      await messageService.updateEditedMessage(
+        companyId,
+        instanceName,
+        messageId,
+        text,
+        makeEditedPayload(
+          storedMessage.rawPayload,
+          originalMessage,
+          text,
+        ),
+      );
+    } catch (error) {
+      console.error("Falha ao atualizar mensagem editada no histórico local.", {
+        companyId,
+        instanceName,
+        messageId,
+        error,
+      });
+      return NextResponse.json(
+        { error: "O WhatsApp aceitou a edição, mas o histórico do Centralizap não pôde ser atualizado." },
+        { status: 500 },
       );
     }
 

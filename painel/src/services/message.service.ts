@@ -83,6 +83,22 @@ export const messageService = {
     );
   },
 
+  async updateEditedMessage(
+    companyId: string,
+    instanceName: string,
+    evolutionMessageId: string,
+    content: string,
+    rawPayload: NonNullable<CreateMessageData["rawPayload"]>,
+  ) {
+    return messageRepository.updateEditedMessage(
+      companyId,
+      instanceName,
+      evolutionMessageId,
+      content,
+      rawPayload,
+    );
+  },
+
   async getMessageByEvolutionId(
     companyId: string,
     instanceName: string,
