@@ -785,7 +785,7 @@ export default function DashboardOperacional() {
               {greeting}, {authenticatedUser?.name ?? "usuário"}
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-6 text-black/50">
-              O que precisa de atenção na empresa agora.
+              Suas conversas e atividades estão reunidas aqui. Vamos cuidar do que é prioridade hoje.
             </p>
           </div>
 
