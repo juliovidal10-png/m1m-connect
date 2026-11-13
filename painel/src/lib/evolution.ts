@@ -167,6 +167,61 @@ export async function getMessages(
   return allRecords;
 }
 
+export async function getMessageById(
+  messageId: string,
+  instanceName: string,
+) {
+  validateConfig();
+  validateInstance(instanceName);
+
+  const normalizedMessageId =
+    messageId.trim();
+
+  if (!normalizedMessageId) {
+    throw new Error(
+      "Mensagem não identificada.",
+    );
+  }
+
+  const response = await fetchEvolution(
+    `${API_URL}/chat/findMessages/${encodeURIComponent(instanceName)}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: API_KEY!,
+      },
+      body: JSON.stringify({
+        where: {
+          key: {
+            id: normalizedMessageId,
+          },
+        },
+        page: 1,
+        offset: 50,
+      }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    await consumeErrorBody(response);
+    throw new Error(
+      "Não foi possível localizar a mensagem original na Evolution.",
+    );
+  }
+
+  const data = await response.json();
+  const records = Array.isArray(data?.messages?.records)
+    ? data.messages.records
+    : [];
+
+  return records.find(
+    (record: any) =>
+      record?.key?.id === normalizedMessageId,
+  ) ?? null;
+}
+
 export async function sendTextMessage(
   remoteJid: string,
   text: string,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
+import { getMessageById } from "@/lib/evolution";
 import { companyRepository } from "@/repositories/company.repository";
 
 const API_URL = process.env.EVOLUTION_API_URL;
@@ -34,15 +35,13 @@ export async function POST(request: Request) {
     };
 
     const messageId = clean(body.messageId);
-    const remoteJid = clean(body.remoteJid);
-    const participant = clean(body.participant);
     const text = clean(body.text);
 
-    if (!messageId || !remoteJid || !text) {
+    if (!messageId || !text) {
       return NextResponse.json(
         {
           error:
-            "messageId, remoteJid e text são obrigatórios.",
+            "messageId e text são obrigatórios.",
         },
         { status: 400 },
       );
@@ -114,6 +113,46 @@ export async function POST(request: Request) {
             "Nenhuma instância do WhatsApp foi encontrada.",
         },
         { status: 404 },
+      );
+    }
+
+    const originalMessage = await getMessageById(
+      messageId,
+      instanceName,
+    );
+    const originalKey =
+      typeof originalMessage === "object" &&
+      originalMessage !== null &&
+      "key" in originalMessage &&
+      typeof originalMessage.key === "object" &&
+      originalMessage.key !== null
+        ? originalMessage.key as Record<string, unknown>
+        : null;
+
+    if (
+      !originalKey ||
+      clean(originalKey.id) !== messageId
+    ) {
+      return NextResponse.json(
+        { error: "Mensagem original não encontrada na instância desta empresa." },
+        { status: 404 },
+      );
+    }
+
+    if (originalKey.fromMe !== true) {
+      return NextResponse.json(
+        { error: "Só é possível editar mensagens enviadas por esta conta." },
+        { status: 403 },
+      );
+    }
+
+    const remoteJid = clean(originalKey.remoteJid);
+    const participant = clean(originalKey.participant);
+
+    if (!remoteJid) {
+      return NextResponse.json(
+        { error: "A conversa original não possui um identificador válido." },
+        { status: 422 },
       );
     }
 
