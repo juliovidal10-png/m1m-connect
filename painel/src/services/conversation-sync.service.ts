@@ -1100,6 +1100,8 @@ export const conversationSyncService = {
         customer.id,
       );
 
+    const synchronizedMessageByEvolutionId = new Map<string, Awaited<ReturnType<typeof messageService.registerMessage>>>();
+
     for (const message of normalizedMessages) {
       const belongsToActiveAttendance =
         activeAttendance &&
@@ -1153,6 +1155,11 @@ export const conversationSyncService = {
           rawPayload: message.rawPayload,
           sentAt: message.sentAt,
         });
+
+      synchronizedMessageByEvolutionId.set(
+        message.evolutionMessageId,
+        storedMessage,
+      );
 
       // Importar historico nao e evidencia de intervencao humana atual.
       // A autoria autenticada pode chegar depois do webhook; reconcilie somente
@@ -1226,7 +1233,7 @@ export const conversationSyncService = {
 
     const storedMessageByEvolutionId =
       new Map(
-        storedMessages.map(
+        [...storedMessages, ...synchronizedMessageByEvolutionId.values()].map(
           (storedMessage) => [
             storedMessage.evolutionMessageId,
             storedMessage,
@@ -1370,22 +1377,27 @@ export const conversationSyncService = {
               messageId,
             );
 
-          if (
-            !storedMessage?.authorType
-          ) {
+          const storedPayload = getRecord(storedMessage?.rawPayload);
+          const locallyEditedText = getText(storedPayload?.m1mEditedText);
+          const effectiveRecord = locallyEditedText && storedPayload
+            ? storedPayload
+            : record;
+
+          if (!storedMessage?.authorType && !locallyEditedText) {
             return rawMessage;
           }
 
           return {
-            ...record,
-            m1mAuthor: {
-              type:
-                storedMessage.authorType,
-              id:
-                storedMessage.authorId,
-              name:
-                storedMessage.authorName,
-            },
+            ...effectiveRecord,
+            ...(storedMessage?.authorType
+              ? {
+                  m1mAuthor: {
+                    type: storedMessage.authorType,
+                    id: storedMessage.authorId,
+                    name: storedMessage.authorName,
+                  },
+                }
+              : {}),
           };
         },
       );

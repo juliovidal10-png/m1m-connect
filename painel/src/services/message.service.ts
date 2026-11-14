@@ -95,6 +95,22 @@ export const messageService = {
     );
   },
 
+  async updateEditedMessage(
+    companyId: string,
+    instanceName: string,
+    evolutionMessageId: string,
+    content: string,
+    rawPayload: Parameters<typeof messageRepository.updateEditedMessage>[4],
+  ) {
+    return messageRepository.updateEditedMessage(
+      companyId,
+      instanceName,
+      evolutionMessageId,
+      content,
+      rawPayload,
+    );
+  },
+
   async listMessagesByCustomer(
     companyId: string,
     customerId: string,

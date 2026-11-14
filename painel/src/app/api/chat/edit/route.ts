@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@/generated/prisma/client";
 import { getAuthenticatedCompanyId } from "@/lib/tenant";
 import { companyRepository } from "@/repositories/company.repository";
+import { messageService } from "@/services/message.service";
 
 const API_URL = process.env.EVOLUTION_API_URL;
 const API_KEY = process.env.EVOLUTION_API_KEY;
@@ -12,6 +14,42 @@ function clean(value: unknown) {
   return typeof value === "string"
     ? value.trim()
     : "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getEditedPayload(
+  rawPayload: unknown,
+  text: string,
+): Prisma.InputJsonValue {
+  if (!isRecord(rawPayload) || !isRecord(rawPayload.message)) {
+    throw new Error("O conteúdo original da mensagem não está disponível para edição.");
+  }
+
+  const originalMessage = rawPayload.message;
+  let editedMessage: Record<string, unknown>;
+
+  if (typeof originalMessage.conversation === "string") {
+    editedMessage = { ...originalMessage, conversation: text };
+  } else if (isRecord(originalMessage.extendedTextMessage)) {
+    editedMessage = {
+      ...originalMessage,
+      extendedTextMessage: {
+        ...originalMessage.extendedTextMessage,
+        text,
+      },
+    };
+  } else {
+    throw new Error("Esta mensagem não é um texto que possa ser editado.");
+  }
+
+  return JSON.parse(JSON.stringify({
+    ...rawPayload,
+    message: editedMessage,
+    m1mEditedText: text,
+  })) as Prisma.InputJsonValue;
 }
 
 export async function POST(request: Request) {
@@ -35,7 +73,6 @@ export async function POST(request: Request) {
 
     const messageId = clean(body.messageId);
     const remoteJid = clean(body.remoteJid);
-    const participant = clean(body.participant);
     const text = clean(body.text);
 
     if (!messageId || !remoteJid || !text) {
@@ -117,6 +154,64 @@ export async function POST(request: Request) {
       );
     }
 
+    const storedMessage = await messageService.getMessageByEvolutionId(
+      companyId,
+      instanceName,
+      messageId,
+    );
+
+    if (!storedMessage) {
+      return NextResponse.json(
+        { error: "Mensagem não encontrada no histórico desta empresa." },
+        { status: 404 },
+      );
+    }
+
+    if (!storedMessage.fromMe) {
+      return NextResponse.json(
+        { error: "Só é possível editar mensagens enviadas pela empresa." },
+        { status: 403 },
+      );
+    }
+
+    const storedPayload = isRecord(storedMessage.rawPayload)
+      ? storedMessage.rawPayload
+      : null;
+    const storedKey = storedPayload && isRecord(storedPayload.key)
+      ? storedPayload.key
+      : null;
+    const storedPayloadMessageId = clean(storedKey?.id);
+    const actualRemoteJid = clean(storedKey?.remoteJid) || storedMessage.remoteJid;
+    const actualParticipant = clean(storedKey?.participant);
+
+    if (storedPayloadMessageId && storedPayloadMessageId !== messageId) {
+      return NextResponse.json(
+        { error: "O identificador da mensagem não corresponde ao histórico salvo." },
+        { status: 409 },
+      );
+    }
+
+    if (!actualRemoteJid) {
+      return NextResponse.json(
+        { error: "Não foi possível identificar a conversa original da mensagem." },
+        { status: 409 },
+      );
+    }
+
+    let editedPayload: Prisma.InputJsonValue;
+    try {
+      editedPayload = getEditedPayload(storedMessage.rawPayload, text);
+    } catch (payloadError) {
+      return NextResponse.json(
+        {
+          error: payloadError instanceof Error
+            ? payloadError.message
+            : "Não foi possível preparar a mensagem editada.",
+        },
+        { status: 409 },
+      );
+    }
+
     const evolutionResponse = await fetch(
       `${API_URL}/chat/updateMessage/${encodeURIComponent(
         instanceName,
@@ -128,13 +223,13 @@ export async function POST(request: Request) {
           apikey: API_KEY,
         },
         body: JSON.stringify({
-          number: remoteJid,
+          number: actualRemoteJid,
           text,
           key: {
             id: messageId,
-            remoteJid,
+            remoteJid: actualRemoteJid,
             fromMe: true,
-            ...(participant ? { participant } : {}),
+            ...(actualParticipant ? { participant: actualParticipant } : {}),
           },
         }),
         cache: "no-store",
@@ -166,6 +261,22 @@ export async function POST(request: Request) {
             "Não foi possível editar a mensagem.",
         },
         { status: evolutionResponse.status },
+      );
+    }
+
+    try {
+      await messageService.updateEditedMessage(
+        companyId,
+        instanceName,
+        messageId,
+        text,
+        editedPayload,
+      );
+    } catch (persistenceError) {
+      console.error("Evolution edit succeeded but local message history could not be updated:", persistenceError);
+      return NextResponse.json(
+        { error: "A Evolution aceitou a edição, mas não foi possível salvá-la no histórico do Centralizap." },
+        { status: 500 },
       );
     }
 
