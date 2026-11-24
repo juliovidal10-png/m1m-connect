@@ -32,6 +32,8 @@ function getErrorMessage(
 export async function GET(
   request: NextRequest,
 ) {
+  const routeStartedAt = Date.now();
+
   try {
     const authenticatedUser =       await authorizationService.getCurrentUser();      const companyId =       authenticatedUser.companyId;
 
@@ -91,6 +93,14 @@ export async function GET(
         companyId,
       );
 
+    const routeElapsedMs = Date.now() - routeStartedAt;
+    if (routeElapsedMs >= 500) {
+      console.info("[M1M CHAT MESSAGES PERF]", {
+        outcome: "success",
+        totalMs: routeElapsedMs,
+      });
+    }
+
     after(async () => {
       try {
         const reconciliation =
@@ -124,7 +134,16 @@ export async function GET(
       messages,
     );
   } catch (error) {
-    if (isConversationBusy(error) || isPostgresLockTimeout(error)) {
+    const conversationBusy = isConversationBusy(error);
+    const postgresLockTimeout = isPostgresLockTimeout(error);
+
+    if (conversationBusy || postgresLockTimeout) {
+      console.warn("[M1M CHAT MESSAGES PERF]", {
+        outcome: conversationBusy
+          ? "conversation_busy"
+          : "postgres_lock_timeout",
+        totalMs: Date.now() - routeStartedAt,
+      });
       return NextResponse.json(
         { code: "CONVERSATION_BUSY", error: "A conversa está sendo atualizada. Tente novamente em instantes." },
         { status: 409 },
@@ -135,6 +154,11 @@ export async function GET(
       "ERRO CHAT MESSAGES GET:",
       error,
     );
+    console.warn("[M1M CHAT MESSAGES PERF]", {
+      outcome: "error",
+      totalMs: Date.now() - routeStartedAt,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
 
     return NextResponse.json(
       {

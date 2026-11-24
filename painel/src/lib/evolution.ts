@@ -115,8 +115,10 @@ export async function getMessages(
     page <= MAX_PAGES;
     page += 1
   ) {
-    const response =
-      await fetchEvolution(
+    const requestStartedAt = Date.now();
+    let response: Response;
+    try {
+      response = await fetchEvolution(
         `${API_URL}/chat/findMessages/${instanceName}`,
         {
           method: "POST",
@@ -137,19 +139,70 @@ export async function getMessages(
           cache: "no-store",
         },
       );
+    } catch (error) {
+      const elapsedMs = Date.now() - requestStartedAt;
+      console.warn("[M1M EVOLUTION PERF]", {
+        operation: "chat.findMessages",
+        page,
+        outcome:
+          error instanceof Error &&
+          error.message === "A Evolution API demorou demais para responder."
+            ? "timeout"
+            : "error",
+        elapsedMs,
+      });
+      throw error;
+    }
+
+    const responseHeadersMs = Date.now() - requestStartedAt;
 
     if (!response.ok) {
+      const errorBodyStartedAt = Date.now();
       await consumeErrorBody(
         response,
       );
+      console.warn("[M1M EVOLUTION PERF]", {
+        operation: "chat.findMessages",
+        page,
+        outcome: "http_error",
+        status: response.status,
+        responseHeadersMs,
+        errorBodyMs: Date.now() - errorBodyStartedAt,
+      });
 
       throw new Error(
         "Erro ao buscar mensagens.",
       );
     }
 
-    const data =
-      await response.json();
+    const responseBodyStartedAt = Date.now();
+    let data: { messages?: { records?: unknown } };
+    try {
+      data = await response.json() as { messages?: { records?: unknown } };
+    } catch (error) {
+      console.warn("[M1M EVOLUTION PERF]", {
+        operation: "chat.findMessages",
+        page,
+        outcome: "response_body_error",
+        status: response.status,
+        responseHeadersMs,
+        responseBodyMs: Date.now() - responseBodyStartedAt,
+      });
+      throw error;
+    }
+
+    const responseBodyMs = Date.now() - responseBodyStartedAt;
+    if (responseHeadersMs >= 500 || responseBodyMs >= 500) {
+      console.info("[M1M EVOLUTION PERF]", {
+        operation: "chat.findMessages",
+        page,
+        outcome: "success",
+        status: response.status,
+        responseHeadersMs,
+        responseBodyMs,
+        totalMs: responseHeadersMs + responseBodyMs,
+      });
+    }
 
     const records = Array.isArray(
       data?.messages?.records,

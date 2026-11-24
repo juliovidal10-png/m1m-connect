@@ -206,6 +206,11 @@ async function recoverMedia(
   convertToMp4: boolean,
   instanceName: string,
 ): Promise<MediaResult> {
+  const evolutionStartedAt = Date.now();
+  let responseHeadersMs: number | null = null;
+  let responseBodyMs: number | null = null;
+  let responseStatus: number | null = null;
+
   try {
     const response = await fetch(
       `${API_URL}/chat/getBase64FromMediaMessage/${instanceName}`,
@@ -227,33 +232,47 @@ async function recoverMedia(
         signal: AbortSignal.timeout(45_000),
       },
     );
+    responseHeadersMs = Date.now() - evolutionStartedAt;
+    responseStatus = response.status;
 
+    const responseBodyStartedAt = Date.now();
     const responseText =
       await response.text();
+    responseBodyMs = Date.now() - responseBodyStartedAt;
 
     let data: EvolutionMediaResponse = {};
 
     if (responseText.trim()) {
+      const parseStartedAt = Date.now();
       data =
         JSON.parse(
           responseText,
         ) as EvolutionMediaResponse;
+      const parseMs = Date.now() - parseStartedAt;
+
+      console.info("[M1M MEDIA PERF]", {
+        stage: "evolution_response",
+        outcome: response.ok ? (data.base64 ? "success" : "missing_media") : "http_error",
+        status: response.status,
+        responseHeadersMs,
+        responseBodyMs,
+        parseMs,
+        responseBytes: responseText.length,
+        base64Bytes: typeof data.base64 === "string" ? data.base64.length : 0,
+      });
+    } else {
+      console.info("[M1M MEDIA PERF]", {
+        stage: "evolution_response",
+        outcome: response.ok ? "empty_response" : "http_error",
+        status: response.status,
+        responseHeadersMs,
+        responseBodyMs,
+        responseBytes: 0,
+        base64Bytes: 0,
+      });
     }
 
-    console.log(
-  "[M1M MEDIA] Resposta Evolution:",
-  JSON.stringify(
-    {
-      status: response.status,
-      responseText,
-      instanceName,
-    },
-    null,
-    2,
-  ),
-);
-
-if (!response.ok) {
+    if (!response.ok) {
       return {
         success: false,
         status: response.status,
@@ -297,6 +316,16 @@ if (!response.ok) {
       error instanceof Error &&
       error.name === "TimeoutError";
 
+    console.warn("[M1M MEDIA PERF]", {
+      stage: "evolution_response",
+      outcome: timedOut ? "timeout" : "error",
+      status: responseStatus,
+      responseHeadersMs,
+      responseBodyMs,
+      elapsedMs: Date.now() - evolutionStartedAt,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
+
     return {
       success: false,
       status: timedOut ? 504 : 500,
@@ -310,6 +339,9 @@ if (!response.ok) {
 export async function POST(
   request: NextRequest,
 ) {
+  const routeStartedAt = Date.now();
+  let cacheState: "hit" | "in_flight" | "miss" | "not_checked" = "not_checked";
+
   try {
     if (!API_URL || !API_KEY) {
       return NextResponse.json(
@@ -362,9 +394,16 @@ export async function POST(
         mediaCache.get(cacheKey);
 
       if (cached) {
-        return NextResponse.json(
+        cacheState = "hit";
+        const response = NextResponse.json(
           cached,
         );
+        console.info("[M1M MEDIA PERF]", {
+          stage: "route",
+          outcome: "cache_hit",
+          totalMs: Date.now() - routeStartedAt,
+        });
+        return response;
       }
     }
 
@@ -372,6 +411,8 @@ export async function POST(
       cacheKey
         ? mediaInFlight.get(cacheKey)
         : undefined;
+
+    cacheState = mediaPromise ? "in_flight" : "miss";
 
     if (!mediaPromise) {
       mediaPromise =
@@ -403,7 +444,7 @@ export async function POST(
       if(await isDeletedOrPendingMessage(await getAuthenticatedCompanyId(),instanceName,messageId))return NextResponse.json({error:"Esta mensagem não está mais disponível no histórico normal."},{status:410});
     }
     if (!result.success) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           error:
             result.error,
@@ -415,6 +456,14 @@ export async function POST(
             result.status,
         },
       );
+      console.info("[M1M MEDIA PERF]", {
+        stage: "route",
+        outcome: "media_error",
+        status: result.status,
+        cacheState,
+        totalMs: Date.now() - routeStartedAt,
+      });
+      return response;
     }
 
     if (cacheKey) {
@@ -424,10 +473,25 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       result.data,
     );
+    console.info("[M1M MEDIA PERF]", {
+      stage: "route",
+      outcome: "success",
+      status: 200,
+      cacheState,
+      totalMs: Date.now() - routeStartedAt,
+    });
+    return response;
   } catch (error) {
+    console.warn("[M1M MEDIA PERF]", {
+      stage: "route",
+      outcome: "error",
+      cacheState,
+      totalMs: Date.now() - routeStartedAt,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
     return NextResponse.json(
       {
         error:
