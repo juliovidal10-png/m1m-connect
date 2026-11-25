@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canonicalDeletionScope, deletionMarker, withDeletionConversation } from "./conversation-deletion.service";
 import { ConversationDeletionError } from "./conversation-deletion.repository";
 
-export async function guardDeletionMutation(request:Request,worker:()=>Promise<NextResponse>,target:'remote'|'customer'|'attendance',authenticatedSend=false){
+export async function guardDeletionMutation(request:Request,worker:()=>Promise<NextResponse>,target:'remote'|'customer'|'attendance',authenticatedSend=false,options:{serializeConversation?:boolean}={}){
   try{
     const user=await authorizationService.getCurrentUser();
     const form=request.headers.get('content-type')?.includes('multipart/form-data');
@@ -22,11 +22,16 @@ export async function guardDeletionMutation(request:Request,worker:()=>Promise<N
     }
     if(!jid)return worker();
     const scope=await canonicalDeletionScope({companyId:user.companyId,instanceName:company.whatsappInstanceName.trim(),remoteJid:jid});
-    return await withDeletionConversation(scope,async()=>{
+    const run=async()=>{
       const marker=await deletionMarker(scope);
       if(marker&&marker.state!=='RESUMED'&&(!authenticatedSend||marker.state!=='DELETED'))throw new ConversationDeletionError('CONVERSATION_DELETED',410);
       return worker();
-    });
+    };
+    // Attendance finish takes the customer row lock in runAttendanceMutation,
+    // which serializes it with deletion transactions. It does not need to wait
+    // behind a history sync that holds the conversation advisory lock while
+    // calling Evolution.
+    return options.serializeConversation===false?await run():await withDeletionConversation(scope,run);
   }catch(error){
     if(error instanceof ConversationDeletionError&&error.code==='CONVERSATION_BUSY'){
       return NextResponse.json({code:'CONVERSATION_BUSY',error:'A conversa está sendo atualizada. Tente novamente em instantes.'},{status:409});

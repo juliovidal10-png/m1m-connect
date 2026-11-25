@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { guardDeletionMutation } = await import("@/services/conversation-deletion-route-guard");
-    return await guardDeletionMutation(request, () => postWithoutDeletionGuard(request), "attendance", false);
+    return await guardDeletionMutation(request, () => postWithoutDeletionGuard(request), "attendance", false, { serializeConversation: false });
   } catch (error) {
     console.error("ERRO ATTENDANCE FINISH GUARD:", error);
     return NextResponse.json(
